@@ -90,3 +90,7 @@ Each module has its own `CLAUDE.md` with specific guidance.
   same PR. See `feature/chat/CLAUDE.md` for how a page resolves them per platform.
 
 - **`scripts/mirrors.json`** — registry of upstream constants the client copies by hand, because the server never serves them (which providers take documents natively, which MIME types the parser extracts, which feedback reasons the write route accepts). These drift **silently**: nothing fails to decode and nothing errors, so a sync's ordinary diff sweep reads them as inert constant edits. `scripts/check-mirrors.py` diffs each watched region between two upstream revisions and names the Kotlin file to reconcile; `/sync-upstream` runs it at Phase 0. **Adding a hardcoded mirror means adding a registry entry in the same PR** — a mirror nobody registered is one nobody will notice going stale.
+
+## Orca Dev
+
+@ORCA.md

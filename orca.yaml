@@ -1,0 +1,7 @@
+# Configuração do Orca para este repositório (Orca → Settings → Repository Hooks).
+scripts:
+  # Roda em cada worktree novo, antes do agente iniciar.
+  setup: |
+    bash scripts/orca/setup.sh
+issueCommand: |
+  Complete {{artifact_url}}

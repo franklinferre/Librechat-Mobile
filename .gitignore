@@ -46,3 +46,6 @@ Thumbs.db
 .claude/*.lock
 # Bytecode from the Python helpers bundled with .claude skills
 __pycache__/
+
+# Configuração pessoal do Claude Code
+.claude/settings.local.json

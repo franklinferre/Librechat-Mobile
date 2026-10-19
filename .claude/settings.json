@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(orca:*)",
+      "Bash(./gradlew:*)",
+      "Bash(adb:*)",
+      "Bash(xcrun simctl:*)",
+      "Bash(xcodebuild:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(bash scripts/orca/setup.sh)"
+    ],
+    "deny": [
+      "Read(./keystore.properties)",
+      "Read(./**/*.jks)",
+      "Read(./**/*.keystore)"
+    ]
+  }
+}
