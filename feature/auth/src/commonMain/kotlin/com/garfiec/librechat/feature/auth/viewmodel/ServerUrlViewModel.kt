@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.core.common.identity.cleanServerUrl
 import com.garfiec.librechat.core.common.identity.serverOrigin
+import com.garfiec.librechat.core.common.result.FailureKind
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.suspendRunCatching
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
@@ -57,7 +58,12 @@ data class ServerUrlUiState(
     val headersSaveFailure: HeaderWriteFailure? = null,
     /** The app is pinned to one server: the screen only connects to it and never shows the URL field. */
     val isLocked: Boolean = false,
-)
+    /** Classification of [error], so the locked screen can swap URL-centric wording for its own copy. */
+    val errorKind: FailureKind? = null,
+) {
+    /** The failure is "can't reach the host" (offline, DNS, timeout) rather than a server verdict. */
+    val isUnreachable: Boolean get() = errorKind == FailureKind.Network || errorKind == FailureKind.Timeout
+}
 
 /**
  * Validates a server URL and selects it for the sign-in flow.
@@ -150,7 +156,7 @@ class ServerUrlViewModel(
         // Deliberately does not re-key the saved headers: this fires per keystroke, and deriveServerId
         // throws on partial input. The header set is committed against the final URL on Connect.
         userEdited = true
-        _uiState.value = _uiState.value.copy(url = url, error = null)
+        _uiState.value = _uiState.value.copy(url = url, error = null, errorKind = null)
     }
 
     /**
@@ -273,6 +279,7 @@ class ServerUrlViewModel(
             _uiState.value = _uiState.value.copy(
                 isLoading = true,
                 error = null,
+                errorKind = null,
                 headerError = null,
                 headersSaveFailure = null,
             )
@@ -369,6 +376,7 @@ class ServerUrlViewModel(
         _uiState.value = _uiState.value.copy(
             isLoading = false,
             error = error.message ?: "Could not connect to server",
+            errorKind = error.kind,
         )
     }
 

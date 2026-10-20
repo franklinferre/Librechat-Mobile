@@ -70,6 +70,7 @@
     <string name="terms_title">Terms of Service</string>
     <string name="i_accept">I Accept</string>
     <string name="retry">Retry</string>
+    <string name="server_unreachable_locked">Could not reach the server. Check your connection.</string>
 
     <!-- Common -->
     <string name="back">Back</string>

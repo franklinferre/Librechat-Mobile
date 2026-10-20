@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.auth.viewmodel
 
 import com.garfiec.librechat.core.common.brand.ServerLock
+import com.garfiec.librechat.core.common.result.FailureKind
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.repository.AccountSwitcher
@@ -699,5 +700,24 @@ class ServerUrlViewModelTest {
         vm.retry()
         advanceUntilIdle()
         assertThat(vm.uiState.value.isValidated).isTrue()
+    }
+
+    @Test
+    fun `locked mode unreachable failure is classified so the screen can drop the URL wording`() = runTest(testDispatcher) {
+        coEvery { configRepository.resolveServer(any(), any()) } returns
+            ServerResolution.Failed(Result.Error(message = "unreachable", kind = FailureKind.Network))
+        val vm = createViewModel(addAccount = false, serverLock = ServerLock("https://chat.lideri.cloud"))
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.isUnreachable).isTrue()
+    }
+
+    @Test
+    fun `a server verdict is not classified as unreachable and retry clears the kind`() = runTest(testDispatcher) {
+        coEvery { configRepository.resolveServer(any(), any()) } returns
+            ServerResolution.Failed(Result.Error(message = "gateway", kind = FailureKind.AccessGateway))
+        val vm = createViewModel(addAccount = false, serverLock = ServerLock("https://chat.lideri.cloud"))
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.isUnreachable).isFalse()
+        assertThat(vm.uiState.value.errorKind).isEqualTo(FailureKind.AccessGateway)
     }
 }

@@ -70,6 +70,7 @@
     <string name="terms_title">Termos de Serviço</string>
     <string name="i_accept">Eu aceito</string>
     <string name="retry">Tentar novamente</string>
+    <string name="server_unreachable_locked">Não foi possível conectar ao servidor. Verifique sua conexão.</string>
 
     <!-- Common -->
     <string name="back">Voltar</string>

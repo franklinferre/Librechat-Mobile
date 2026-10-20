@@ -70,6 +70,7 @@
     <string name="terms_title">利用規約</string>
     <string name="i_accept">同意します</string>
     <string name="retry">再試行</string>
+    <string name="server_unreachable_locked">サーバーに接続できませんでした。接続を確認してください。</string>
 
     <!-- Common -->
     <string name="back">戻る</string>

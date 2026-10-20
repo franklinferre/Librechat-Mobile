@@ -15,7 +15,7 @@ import com.garfiec.librechat.feature.auth.screen.ServerUrlScreen
 import com.garfiec.librechat.feature.auth.viewmodel.ServerUrlViewModel
 import org.junit.Rule
 import org.junit.Test
-import org.koin.compose.koinInject
+import org.koin.mp.KoinPlatform
 
 class AuthFlowTest {
 
@@ -33,17 +33,21 @@ class AuthFlowTest {
      * upstream behaviour) from the graph's other dependencies; the locked screen has its own test.
      */
     private fun setUpServerUrlScreen() {
+        // Built before setContent: a ViewModel constructed inside a composable is flagged by lint
+        // (ViewModelConstructorInComposable), and this one is deliberately not the Koin-provided one.
+        val koin = KoinPlatform.getKoin()
+        val viewModel = ServerUrlViewModel(
+            serverDataStore = koin.get(),
+            serverRepository = koin.get(),
+            configRepository = koin.get(),
+            accountSwitcher = koin.get(),
+            serverLock = ServerLock(null),
+        )
         composeTestRule.setContent {
             LibreChatTheme {
                 ServerUrlScreen(
                     onServerValidate = {},
-                    viewModel = ServerUrlViewModel(
-                        serverDataStore = koinInject(),
-                        serverRepository = koinInject(),
-                        configRepository = koinInject(),
-                        accountSwitcher = koinInject(),
-                        serverLock = ServerLock(null),
-                    ),
+                    viewModel = viewModel,
                 )
             }
         }

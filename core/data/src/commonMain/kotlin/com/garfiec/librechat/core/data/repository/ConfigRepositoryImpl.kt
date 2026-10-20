@@ -169,7 +169,7 @@ class ConfigRepositoryImpl(
             }
             ProbeFailure("http_status", Result.Error(e, message), tryAnotherPath = e.statusCode in 400..499)
         } catch (e: HttpRequestTimeoutException) {
-            ProbeFailure("timeout", Result.Error(e, "Connection timed out. Check the URL and try again."))
+            ProbeFailure("timeout", Result.Error(e, "Connection timed out. Check the URL and try again.", FailureKind.Timeout))
         } catch (e: AccessGatewayException) {
             // Must stay above the blanket catch, which would call a reachable-and-answering gateway a
             // connection problem. Worded here rather than via FailureKind.message(): the caller is
@@ -203,7 +203,7 @@ class ConfigRepositoryImpl(
                 FailureKind.MalformedResponse -> notLibreChat(e)
                 else -> ProbeFailure(
                     "unreachable",
-                    Result.Error(e, "Could not reach the server. Check the URL and your connection."),
+                    Result.Error(e, "Could not reach the server. Check the URL and your connection.", FailureKind.Network),
                 )
             }
         }

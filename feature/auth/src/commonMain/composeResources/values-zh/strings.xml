@@ -70,6 +70,7 @@
     <string name="terms_title">服务条款</string>
     <string name="i_accept">我接受</string>
     <string name="retry">重试</string>
+    <string name="server_unreachable_locked">无法连接到服务器。请检查网络连接。</string>
 
     <!-- Common -->
     <string name="back">返回</string>

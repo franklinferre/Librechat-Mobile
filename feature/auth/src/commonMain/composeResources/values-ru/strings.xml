@@ -70,6 +70,7 @@
     <string name="terms_title">Условия использования</string>
     <string name="i_accept">Я принимаю</string>
     <string name="retry">Повторить</string>
+    <string name="server_unreachable_locked">Не удалось подключиться к серверу. Проверьте соединение.</string>
 
     <!-- Common -->
     <string name="back">Назад</string>

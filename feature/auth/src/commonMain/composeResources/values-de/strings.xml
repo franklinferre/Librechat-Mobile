@@ -70,6 +70,7 @@
     <string name="terms_title">Nutzungsbedingungen</string>
     <string name="i_accept">Ich akzeptiere</string>
     <string name="retry">Erneut versuchen</string>
+    <string name="server_unreachable_locked">Der Server ist nicht erreichbar. Prüfe deine Verbindung.</string>
 
     <!-- Common -->
     <string name="back">Zurück</string>

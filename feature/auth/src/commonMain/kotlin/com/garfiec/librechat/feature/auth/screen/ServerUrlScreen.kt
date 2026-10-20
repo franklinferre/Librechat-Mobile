@@ -80,7 +80,8 @@ fun ServerUrlScreen(
     if (uiState.isLocked) {
         LockedConnectContent(
             isLoading = uiState.isLoading,
-            error = uiState.error,
+            // The probe's unreachable wording tells the user to check the URL, which a locked app has none of.
+            error = if (uiState.isUnreachable) stringResource(Res.string.server_unreachable_locked) else uiState.error,
             onRetry = viewModel::retry,
             modifier = modifier,
         )
