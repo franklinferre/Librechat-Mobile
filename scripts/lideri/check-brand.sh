@@ -71,6 +71,7 @@ fi
 # Visual identity (plan 2): hashes of the shipped logo/fonts/icon master, palette, and the pickers.
 # ---------------------------------------------------------------------------------------------
 APPROVED_ICON_SHA256="d89aa4c63b802da6700706ab69b95069456f805ec48a4b54154dd66e790af8e3"
+APPROVED_ANDROID_FOREGROUND_SHA256="56807b49294d33c1704d2cba03e1452d83a00f7b2afacce8421076269fb29b50"
 LOGO_PRINCIPAL_SHA256="c3e7416c7147043e94fc06def8fc42ee1878777eb3efe4a6afad2dd26d5ea7e1"
 LOGO_NEGATIVA_SHA256="7f8bdd370d5b0efdb99db52adaddefb985a4425dbb8100dd2c3f121893531138"
 KIT_DIR="design/lideri/kit"
@@ -79,6 +80,9 @@ RES_DIR="core/ui/src/commonMain/composeResources"
 THEME_DIR="core/ui/src/commonMain/kotlin/com/garfiec/librechat/core/ui/theme"
 APPEARANCE_KT="feature/settings/src/commonMain/kotlin/com/garfiec/librechat/feature/settings/screen/AppearanceSettingsScreen.kt"
 ICON_BG="app/src/main/res/values/ic_launcher_background.xml"
+ICON_BG_DEBUG="app/src/debug/res/values/ic_launcher_background.xml"
+IOS_ICON="iosApp/iosApp/Assets.xcassets/AppIcon.appiconset/Icon-iOS-Default-1024@1x.png"
+ANDROID_FG="app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png"
 
 # sha256 of a file, empty when it is missing.
 sha() { if [[ -f "$1" ]]; then shasum -a 256 "$1" | cut -d' ' -f1; fi; }
@@ -121,16 +125,60 @@ check_font poppins_bold Poppins-Bold
 check_font raleway_regular Raleway-Regular
 check_font raleway_medium Raleway-Medium
 check_font raleway_semibold Raleway-SemiBold
+check_font raleway_bold Raleway-Bold
+
+# Every .ttf in the font folder must be a known kit file: an unmapped one fails.
+known_fonts=" poppins_semibold poppins_bold raleway_regular raleway_medium raleway_semibold raleway_bold "
+for f in "$RES_DIR"/font/*.ttf; do
+  [[ -e "$f" ]] || continue
+  name=$(basename "$f" .ttf)
+  [[ "$known_fonts" == *" $name "* ]] || fail "font not in the kit map: $f"
+done
+
+# Font licences shipped next to the app match the kit's.
+for l in Poppins Raleway; do
+  [[ -n "$(sha "$RES_DIR/files/licenses/$l-OFL.txt")" && "$(sha "$RES_DIR/files/licenses/$l-OFL.txt")" == "$(sha "$KIT_DIR/fonts/$l-OFL.txt")" ]] \
+    || fail "licence differs from the kit file $KIT_DIR/fonts/$l-OFL.txt ($RES_DIR/files/licenses/$l-OFL.txt)"
+done
 
 # 3. Icon master: the approved one, nothing else.
 [[ "$(sha design/lideri/icon-master-1024.png)" == "$APPROVED_ICON_SHA256" ]] \
   || fail "icon master is not the approved one: sha256 differs (design/lideri/icon-master-1024.png)"
+
+# Shipped icons: the iOS 1024 slot and the Android adaptive foreground are the generated, approved ones.
+[[ "$(sha "$IOS_ICON")" == "$APPROVED_ICON_SHA256" ]] \
+  || fail "iOS app icon is not the approved master: sha256 differs ($IOS_ICON)"
+[[ "$(sha "$ANDROID_FG")" == "$APPROVED_ANDROID_FOREGROUND_SHA256" ]] \
+  || fail "Android launcher foreground is not the approved one: sha256 differs ($ANDROID_FG)"
 
 # 4. Palette wiring.
 has "$THEME_DIR/Theme.kt" 'lideriColorScheme(darkTheme)' \
   || fail "theme does not use lideriColorScheme(darkTheme) ($THEME_DIR/Theme.kt)"
 for c in 0xFF0424D9 0xFF0797EF; do
   has "$THEME_DIR/LideriColors.kt" "$c" || fail "brand colour $c missing ($THEME_DIR/LideriColors.kt)"
+done
+
+if has "$THEME_DIR/Theme.kt" 'rememberDynamicColorScheme'; then
+  fail "theme references rememberDynamicColorScheme: wallpaper colour must stay out ($THEME_DIR/Theme.kt)"
+fi
+has "$THEME_DIR/Theme.kt" 'libreChatTypography()' || fail "theme does not call libreChatTypography() ($THEME_DIR/Theme.kt)"
+for r in poppins_ raleway_; do
+  has "$THEME_DIR/Type.kt" "$r" || fail "typography does not reference the $r fonts ($THEME_DIR/Type.kt)"
+done
+
+# Logo is on the screens that show the brand.
+for scr in feature/auth/src/commonMain/kotlin/com/garfiec/librechat/feature/auth/screen/LoginScreen.kt \
+           feature/auth/src/commonMain/kotlin/com/garfiec/librechat/feature/auth/screen/ServerUrlScreen.kt \
+           feature/settings/src/commonMain/kotlin/com/garfiec/librechat/feature/settings/screen/GeneralSettingsScreen.kt; do
+  has "$scr" 'LideriLogo(' || fail "LideriLogo( missing ($scr)"
+done
+
+# Launch screens: iOS plist and Android splash.
+for k in LaunchBackground LaunchLogo; do
+  has "$PLIST" "$k" || fail "UILaunchScreen has no $k ($PLIST)"
+done
+for t in app/src/main/res/values/themes.xml app/src/main/res/values-night/themes.xml; do
+  has "$t" 'name="splash_background">#0424D9<' || fail "splash_background is not #0424D9 ($t)"
 done
 
 # 5. The accent and dynamic-colour pickers stay gone.
@@ -140,7 +188,9 @@ done
 [[ -f "$APPEARANCE_KT" ]] || fail "settings screen missing ($APPEARANCE_KT)"
 
 # 6. Launcher background is the brand blue.
-has "$ICON_BG" '#0424D9' || fail "launcher background is not #0424D9 ($ICON_BG)"
+for bg in "$ICON_BG" "$ICON_BG_DEBUG"; do
+  has "$bg" '>#0424D9<' || fail "launcher background is not exactly #0424D9 ($bg)"
+done
 
 if [[ ${#failures[@]} -gt 0 ]]; then
   echo "marca FALHOU:" >&2

@@ -85,7 +85,14 @@ projeto estão no `CLAUDE.md` raiz e nos `CLAUDE.md` de cada módulo — este ar
   `design/lideri/icon-master-1024.png` (só a palavra LIDERI sobre `#0424D9`); para regenerar rode
   `python3 design/lideri/generate-icons.py` e atualize `APPROVED_ICON_SHA256` em `check-brand.sh` ao
   aprovar um novo master. `check-brand.sh` confere os sha256 de logos, fontes e master do ícone, as cores
-  no tema, a ausência dos seletores de cor de destaque/dinâmica e o fundo do ícone do launcher.
+  no tema, a ausência dos seletores de cor de destaque/dinâmica e o fundo do ícone do launcher. Também guarda o que
+  vai no pacote: ícone iOS 1024 e foreground Android (hashes), toda `.ttf`/licença OFL contra o kit
+  (`.ttf` fora do mapa falha), `LideriLogo(` nas telas de login/URL/geral, fontes em `Type.kt`, launch
+  screens (plist e `splash_background`), `rememberDynamicColorScheme` ausente e fundo do launcher
+  (main e debug) exatamente `#0424D9`.
+- **Decisão deliberada**: no modo escuro os tints do Liquid Glass (pílula de novo chat, switches, chips
+  selecionados) usam `inversePrimary` = `#0424D9` (`GlassControlColors` do upstream), não `#0797EF`,
+  porque glifos brancos sobre `#0797EF` ficam abaixo do WCAG AA. Não "corrija" isso num sync.
 - `connectedAndroidTest` desinstala o app de debug ao terminar: é preciso fazer login de novo depois.
 - Teste instrumentado: `./gradlew :app:connectedPlayDebugAndroidTest
   -Pandroid.testInstrumentationRunnerArguments.class=com.garfiec.librechat.AuthFlowTest`.
