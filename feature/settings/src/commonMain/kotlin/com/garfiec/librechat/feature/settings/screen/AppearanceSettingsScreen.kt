@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,21 +21,12 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Wallpaper
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
@@ -62,9 +52,7 @@ import com.garfiec.librechat.core.ui.components.AdaptiveRadioButton
 import com.garfiec.librechat.core.ui.components.AdaptiveScaffold
 import com.garfiec.librechat.core.ui.components.AdaptiveSwitch
 import com.garfiec.librechat.core.ui.components.UiStylePreview
-import com.garfiec.librechat.core.ui.components.adaptiveRowColor
 import com.garfiec.librechat.core.ui.components.adaptiveSection
-import com.garfiec.librechat.core.ui.components.toHexString
 import com.garfiec.librechat.core.ui.components.topbar.AdaptiveTopBar
 import com.garfiec.librechat.core.ui.components.topbar.AdaptiveTopBarSpec
 import com.garfiec.librechat.core.ui.components.topbar.BarAction
@@ -81,10 +69,7 @@ import com.garfiec.librechat.feature.settings.viewmodel.AppearanceSettingsViewMo
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
-/** Dim factor applied to the accent row when wallpaper colors override the custom seed. */
-private const val DISABLED_ALPHA = 0.4f
-
-/** Settings → General → Appearance: theme, interface style, accent colour and wallpaper colours. */
+/** Settings → General → Appearance: theme and interface style. */
 @Composable
 fun AppearanceSettingsScreen(
     onNavigateBack: () -> Unit,
@@ -92,7 +77,6 @@ fun AppearanceSettingsScreen(
     viewModel: AppearanceSettingsViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var choosingAccent by rememberSaveable { mutableStateOf(false) }
 
     AdaptiveScaffold(
         modifier = modifier,
@@ -127,35 +111,9 @@ fun AppearanceSettingsScreen(
                             onSelect = viewModel::setUiStyle,
                         )
                     }
-                    row(key = "accent_color_row") {
-                        AccentColorRow(
-                            color = uiState.accentColor,
-                            enabled = !uiState.useDynamicColor,
-                            onClick = { choosingAccent = true },
-                        )
-                    }
-                    if (uiState.dynamicColorSupported) {
-                        row(key = "dynamic_color_toggle") {
-                            DynamicColorToggle(
-                                enabled = uiState.useDynamicColor,
-                                onEnabledChange = viewModel::setUseDynamicColor,
-                            )
-                        }
-                    }
                 }
             }
         }
-    }
-
-    if (choosingAccent) {
-        AccentColorDialog(
-            currentColor = uiState.accentColor,
-            onColorSelect = {
-                viewModel.setAccentColor(it)
-                choosingAccent = false
-            },
-            onDismiss = { choosingAccent = false },
-        )
     }
 }
 
@@ -433,96 +391,3 @@ private val PreviewHeight = 148.dp
 
 // The width the sample is laid out at before it is scaled into its card: a phone's.
 private val VirtualWidth = 360.dp
-
-@Composable
-private fun AccentColorRow(
-    color: Int,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            onClick = onClick,
-            color = adaptiveRowColor,
-            enabled = enabled,
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .alpha(if (enabled) 1f else DISABLED_ALPHA)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Palette,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(Res.string.accent_color),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Text(
-                        text = Color(color).toHexString(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(Color(color))
-                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
-                )
-            }
-        }
-        AdaptiveDivider()
-    }
-}
-
-@Composable
-private fun DynamicColorToggle(
-    enabled: Boolean,
-    onEnabledChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Default.Wallpaper,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(Res.string.use_wallpaper_colors),
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                Text(
-                    text = stringResource(Res.string.use_wallpaper_colors_desc),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            AdaptiveSwitch(
-                checked = enabled,
-                onCheckedChange = onEnabledChange,
-            )
-        }
-        AdaptiveDivider(modifier = Modifier.padding(top = 8.dp))
-    }
-}
