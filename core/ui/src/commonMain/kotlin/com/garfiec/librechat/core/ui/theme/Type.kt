@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.sp
 import com.garfiec.librechat.core.ui.resources.Res
 import com.garfiec.librechat.core.ui.resources.poppins_bold
 import com.garfiec.librechat.core.ui.resources.poppins_semibold
+import com.garfiec.librechat.core.ui.resources.raleway_bold
 import com.garfiec.librechat.core.ui.resources.raleway_medium
 import com.garfiec.librechat.core.ui.resources.raleway_regular
 import com.garfiec.librechat.core.ui.resources.raleway_semibold
@@ -54,6 +55,7 @@ fun libreChatTypography(): Typography {
         Font(Res.font.raleway_regular, FontWeight.Normal),
         Font(Res.font.raleway_medium, FontWeight.Medium),
         Font(Res.font.raleway_semibold, FontWeight.SemiBold),
+        Font(Res.font.raleway_bold, FontWeight.Bold),
     )
     return remember(heading, body) { lideriTypography(heading, body) }
 }
