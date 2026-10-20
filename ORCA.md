@@ -45,8 +45,10 @@ projeto estão no `CLAUDE.md` raiz e nos `CLAUDE.md` de cada módulo — este ar
   (lista completa no job `ios` do CI)
 - App iOS: `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath iosApp/build
-  CODE_SIGNING_ALLOWED=NO build` → `xcrun simctl install booted iosApp/build/Build/Products/Debug-iphonesimulator/iosApp.app`
+  CODE_SIGN_IDENTITY="-" CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO build` → `xcrun simctl install booted iosApp/build/Build/Products/Debug-iphonesimulator/iosApp.app`
   → `xcrun simctl launch booted cloud.lideri.chat.ios`
+  (assinar ad hoc com `-` é obrigatório: com `CODE_SIGNING_ALLOWED=NO` as gravações no Keychain falham
+  com -34018 e o login quebra no simulador.)
 - Emulador Android: `emulator -avd switchboard_api36` (AVD criado no setup da máquina).
 
 ## Toolchain desta máquina
@@ -75,5 +77,15 @@ projeto estão no `CLAUDE.md` raiz e nos `CLAUDE.md` de cada módulo — este ar
   `security find-generic-password -s lideri-chat-test -w`. Nunca em git, log, PR ou print.
 - **Verificação em device**: APK `app/build/outputs/apk/play/debug/app-play-debug.apk`; AVD
   `switchboard_api36`; simulador "iPhone 17 Pro". O login real só é testado com a conta de teste acima.
+- **Identidade visual** (plano 2): paleta em `core/ui/.../theme/LideriColors.kt` (azul `#0424D9` claro /
+  `#0797EF` escuro; laranja `#FF6022` só como `tertiary`); fontes (Poppins títulos, Raleway corpo e
+  rótulos) em `core/ui/src/commonMain/composeResources/font/`; logos `lideri_principal.png` (fundo claro)
+  e `lideri_negativa.png` (fundo escuro) em `.../composeResources/drawable/`. Todos são cópias sem
+  alteração de `design/lideri/kit/` (hashes em `integridade-sha256.json`). O ícone sai de
+  `design/lideri/icon-master-1024.png` (só a palavra LIDERI sobre `#0424D9`); para regenerar rode
+  `python3 design/lideri/generate-icons.py` e atualize `APPROVED_ICON_SHA256` em `check-brand.sh` ao
+  aprovar um novo master. `check-brand.sh` confere os sha256 de logos, fontes e master do ícone, as cores
+  no tema, a ausência dos seletores de cor de destaque/dinâmica e o fundo do ícone do launcher.
+- `connectedAndroidTest` desinstala o app de debug ao terminar: é preciso fazer login de novo depois.
 - Teste instrumentado: `./gradlew :app:connectedPlayDebugAndroidTest
   -Pandroid.testInstrumentationRunnerArguments.class=com.garfiec.librechat.AuthFlowTest`.

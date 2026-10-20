@@ -67,6 +67,81 @@ if [[ -n "$leaks" ]]; then
   while IFS= read -r f; do fail "\"Switchboard\" appears in user-facing strings ($f)"; done <<< "$leaks"
 fi
 
+# ---------------------------------------------------------------------------------------------
+# Visual identity (plan 2): hashes of the shipped logo/fonts/icon master, palette, and the pickers.
+# ---------------------------------------------------------------------------------------------
+APPROVED_ICON_SHA256="d89aa4c63b802da6700706ab69b95069456f805ec48a4b54154dd66e790af8e3"
+LOGO_PRINCIPAL_SHA256="c3e7416c7147043e94fc06def8fc42ee1878777eb3efe4a6afad2dd26d5ea7e1"
+LOGO_NEGATIVA_SHA256="7f8bdd370d5b0efdb99db52adaddefb985a4425dbb8100dd2c3f121893531138"
+KIT_DIR="design/lideri/kit"
+KIT_LOCK="$KIT_DIR/integridade-sha256.json"
+RES_DIR="core/ui/src/commonMain/composeResources"
+THEME_DIR="core/ui/src/commonMain/kotlin/com/garfiec/librechat/core/ui/theme"
+APPEARANCE_KT="feature/settings/src/commonMain/kotlin/com/garfiec/librechat/feature/settings/screen/AppearanceSettingsScreen.kt"
+ICON_BG="app/src/main/res/values/ic_launcher_background.xml"
+
+# sha256 of a file, empty when it is missing.
+sha() { if [[ -f "$1" ]]; then shasum -a 256 "$1" | cut -d' ' -f1; fi; }
+
+# sha256 the kit lock records for a kit-relative path, empty when absent.
+kit_sha() {
+  [[ -f "$KIT_LOCK" ]] || return 0
+  python3 -I -c '
+import json, sys
+for e in json.load(open(sys.argv[1])):
+    if e.get("path") == sys.argv[2]:
+        print(e.get("sha256", ""))
+' "$KIT_LOCK" "$1"
+}
+
+# 1. Logos: hashes from the global constraints and from the kit lock.
+check_logo() { # <resource file> <kit path> <expected sha>
+  local actual lock
+  actual=$(sha "$1")
+  lock=$(kit_sha "$2")
+  [[ -n "$actual" ]] || { fail "logo missing ($1)"; return; }
+  [[ "$actual" == "$3" ]] || fail "logo changed: sha256 differs from the approved kit logo ($1)"
+  [[ -n "$lock" && "$actual" == "$lock" ]] || fail "logo does not match $KIT_LOCK entry $2 ($1)"
+}
+check_logo "$RES_DIR/drawable/lideri_principal.png" "logos/lideri-principal.png" "$LOGO_PRINCIPAL_SHA256"
+check_logo "$RES_DIR/drawable/lideri_negativa.png" "logos/lideri-negativa.png" "$LOGO_NEGATIVA_SHA256"
+
+# 2. Fonts: each shipped .ttf is byte-identical to its kit file.
+check_font() { # <resource name> <kit file>
+  local actual kit lock
+  actual=$(sha "$RES_DIR/font/$1.ttf")
+  kit=$(sha "$KIT_DIR/fonts/$2.ttf")
+  lock=$(kit_sha "fonts/$2.ttf")
+  [[ -n "$actual" ]] || { fail "font missing ($RES_DIR/font/$1.ttf)"; return; }
+  [[ -n "$kit" && "$actual" == "$kit" ]] || fail "font differs from the kit file $KIT_DIR/fonts/$2.ttf ($RES_DIR/font/$1.ttf)"
+  [[ -n "$lock" && "$actual" == "$lock" ]] || fail "font does not match $KIT_LOCK entry fonts/$2.ttf ($RES_DIR/font/$1.ttf)"
+}
+check_font poppins_semibold Poppins-SemiBold
+check_font poppins_bold Poppins-Bold
+check_font raleway_regular Raleway-Regular
+check_font raleway_medium Raleway-Medium
+check_font raleway_semibold Raleway-SemiBold
+
+# 3. Icon master: the approved one, nothing else.
+[[ "$(sha design/lideri/icon-master-1024.png)" == "$APPROVED_ICON_SHA256" ]] \
+  || fail "icon master is not the approved one: sha256 differs (design/lideri/icon-master-1024.png)"
+
+# 4. Palette wiring.
+has "$THEME_DIR/Theme.kt" 'lideriColorScheme(darkTheme)' \
+  || fail "theme does not use lideriColorScheme(darkTheme) ($THEME_DIR/Theme.kt)"
+for c in 0xFF0424D9 0xFF0797EF; do
+  has "$THEME_DIR/LideriColors.kt" "$c" || fail "brand colour $c missing ($THEME_DIR/LideriColors.kt)"
+done
+
+# 5. The accent and dynamic-colour pickers stay gone.
+for k in accent_color_row dynamic_color_toggle; do
+  if has "$APPEARANCE_KT" "$k"; then fail "removed picker '$k' is back ($APPEARANCE_KT)"; fi
+done
+[[ -f "$APPEARANCE_KT" ]] || fail "settings screen missing ($APPEARANCE_KT)"
+
+# 6. Launcher background is the brand blue.
+has "$ICON_BG" '#0424D9' || fail "launcher background is not #0424D9 ($ICON_BG)"
+
 if [[ ${#failures[@]} -gt 0 ]]; then
   echo "marca FALHOU:" >&2
   for f in "${failures[@]}"; do echo "  - $f" >&2; done
