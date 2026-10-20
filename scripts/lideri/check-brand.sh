@@ -7,6 +7,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 BRAND_KT="core/common/src/commonMain/kotlin/com/garfiec/librechat/core/common/brand/Brand.kt"
+COMMON_MODULE_KT="core/common/src/commonMain/kotlin/com/garfiec/librechat/core/common/di/CommonModule.kt"
 APP_GRADLE="app/build.gradle.kts"
 MANIFEST="app/src/main/AndroidManifest.xml"
 PBXPROJ="iosApp/iosApp.xcodeproj/project.pbxproj"
@@ -45,6 +46,10 @@ has "$BRAND_KT" 'const val LOCKED_SERVER_URL = "https://chat.lideri.cloud"' \
   || fail "Brand.LOCKED_SERVER_URL is not https://chat.lideri.cloud ($BRAND_KT)"
 has "$BRAND_KT" 'const val DEEP_LINK_SCHEME = "liderichat"' \
   || fail "Brand.DEEP_LINK_SCHEME is not liderichat ($BRAND_KT)"
+
+# The shipped Koin graph builds the lock from Brand (a ServerLock(null) here would ship the upstream picker).
+has "$COMMON_MODULE_KT" 'ServerLock(Brand.LOCKED_SERVER_URL)' \
+  || fail "CommonModule no longer registers ServerLock(Brand.LOCKED_SERVER_URL) ($COMMON_MODULE_KT)"
 
 # Deep-link scheme in the Android manifest and the iOS Info.plist.
 has "$MANIFEST" 'android:scheme="liderichat"' \
