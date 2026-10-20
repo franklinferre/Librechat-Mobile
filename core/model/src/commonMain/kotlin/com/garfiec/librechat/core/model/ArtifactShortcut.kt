@@ -11,7 +11,7 @@ import kotlinx.serialization.Serializable
  * account here (see [com.garfiec.librechat.core.model] siblings, which are account-scoped).
  *
  * [id] is the snapshot's stable identifier: the primary key, the pinned shortcut id, and the
- * `librechat://artifact/{id}` deep-link path segment.
+ * `liderichat://artifact/{id}` deep-link path segment.
  */
 @Serializable
 data class ArtifactShortcut(

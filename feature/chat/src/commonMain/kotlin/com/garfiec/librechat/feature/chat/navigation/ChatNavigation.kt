@@ -87,7 +87,7 @@ import org.koin.compose.koinInject
 
 /**
  * Viewer for a home-screen-pinned artifact, opened by tapping its launcher icon
- * (`librechat://artifact/{snapshotId}`). Unlike [ArtifactFullscreen] it loads a self-contained Room
+ * (`liderichat://artifact/{snapshotId}`). Unlike [ArtifactFullscreen] it loads a self-contained Room
  * snapshot by [snapshotId], so it survives cold start / process death and works while logged out.
  */
 @Serializable data class ArtifactShortcutViewer(val snapshotId: String) : ChatRoute

@@ -13,7 +13,7 @@ import com.garfiec.librechat.core.model.ModelRef
 
 /**
  * Publishes the user's most-used models as dynamic home-screen app shortcuts (long-press the app
- * icon). Each shortcut deep-links to `librechat://model?endpoint=…&model=…`, which opens a new chat
+ * icon). Each shortcut deep-links to `liderichat://model?endpoint=…&model=…`, which opens a new chat
  * pre-selected on that model. Driven by [com.garfiec.librechat.core.data.datastore.SettingsDataStore.topUsedModels];
  * [publish] fully replaces the set, so an empty list (logged out) clears them.
  */
