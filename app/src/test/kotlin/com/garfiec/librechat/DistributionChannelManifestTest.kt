@@ -37,10 +37,10 @@ class DistributionChannelManifestTest {
     }
 
     @Test
-    fun onlyTheOpenSourceChannelOwnsTheBarePackage() {
+    fun theStoreChannelOwnsTheBarePackage() {
         val expected = when (BuildConfig.FLAVOR) {
-            "foss" -> "com.garfiec.librechat"
-            "play" -> "com.garfiec.librechat.play"
+            "play" -> "cloud.lideri.chat"
+            "foss" -> "cloud.lideri.chat.foss"
             else -> error("No expected package for flavor ${BuildConfig.FLAVOR}; add it here.")
         }
         assertEquals(expected, BuildConfig.APPLICATION_ID.removeSuffix(".debug"))

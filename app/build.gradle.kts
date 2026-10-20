@@ -9,22 +9,23 @@ android {
     namespace = "com.garfiec.librechat"
 
     defaultConfig {
-        applicationId = "com.garfiec.librechat"
+        applicationId = "cloud.lideri.chat"
     }
 
-    // `play` must keep its own applicationId: both channels are signed with the same key, so on one
-    // package either would install over the other as an ordinary update. See docs/RELEASING.md
+    // The store channel (`play`) owns the bare applicationId and `foss` gets `.foss`: the channels
+    // must keep distinct packages, because both are signed with the same key and on one package
+    // either would install over the other as an ordinary update. See docs/RELEASING.md
     // "Distribution channels".
     flavorDimensions += "channel"
     productFlavors {
         create("foss") {
             dimension = "channel"
-            isDefault = true
+            applicationIdSuffix = ".foss"
             manifestPlaceholders["distributionChannel"] = "oss"
         }
         create("play") {
             dimension = "channel"
-            applicationIdSuffix = ".play"
+            isDefault = true
             manifestPlaceholders["distributionChannel"] = "play"
             // Packs the symbol tables of the bundled AndroidX native libraries into the AAB so
             // Play can symbolicate native crashes. Bundle metadata only; the foss APK is unaffected.
@@ -36,7 +37,7 @@ android {
 
     buildTypes {
         debug {
-            // Release must keep the bare id — Obtainium tracks updates by package name.
+            // Release must keep the bare id (no suffix beyond the flavor's); updates are tracked by package name.
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }

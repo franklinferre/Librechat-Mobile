@@ -38,7 +38,7 @@ projeto estão no `CLAUDE.md` raiz e nos `CLAUDE.md` de cada módulo — este ar
 ## Comandos (iguais ao CI — `.github/workflows/ci.yml`)
 - Lint/estática: `./gradlew detekt :app:lint --continue`
 - Testes: `./gradlew test`
-- Android debug: `./gradlew assembleDebug` → `adb install -r app/build/outputs/apk/foss/debug/app-foss-debug.apk`
+- Android debug: `./gradlew assemblePlayDebug` → `adb install -r app/build/outputs/apk/play/debug/app-play-debug.apk` (pacote `cloud.lideri.chat.debug`)
   (nunca desinstale o app de debug: perde a chave do Keystore — ver `scripts/devcheck/`)
 - Framework iOS: `./gradlew :shared:linkDebugFrameworkIosSimulatorArm64`
 - Testes iOS (Kotlin/Native no simulador): `./gradlew :shared:iosSimulatorArm64Test :core:common:iosSimulatorArm64Test …`
