@@ -64,3 +64,16 @@ projeto estão no `CLAUDE.md` raiz e nos `CLAUDE.md` de cada módulo — este ar
 - Rode `scripts/lideri/ios-device.sh` com o iPhone conectado (`--udid <id>` se houver mais de um).
 - No iPhone, confie no perfil do desenvolvedor: Ajustes → Geral → VPN e Gerenciamento de Dispositivo.
 - A conta pessoal expira o perfil em 7 dias: rode o script de novo a cada 7 dias.
+
+## Lideri Chat (white-label)
+- Servidor travado em `https://chat.lideri.cloud` (`Brand.LOCKED_SERVER_URL`, via `ServerLock`); o app
+  nunca pede URL ao usuário. Identidade: Android `cloud.lideri.chat` (debug `.debug`, rótulo
+  "Lideri Chat Dev"), iOS `cloud.lideri.chat.ios`, esquema `liderichat`.
+- **Verificação da marca** (estática, sem build): `scripts/lideri/check-brand.sh` → imprime `marca OK`
+  ou lista cada item que falhou (código 1). Rode antes de abrir PR; o plano 3 reutiliza o script.
+- **Conta de teste**: a senha fica só no Keychain (serviço `lideri-chat-test`), lida com
+  `security find-generic-password -s lideri-chat-test -w`. Nunca em git, log, PR ou print.
+- **Verificação em device**: APK `app/build/outputs/apk/play/debug/app-play-debug.apk`; AVD
+  `switchboard_api36`; simulador "iPhone 17 Pro". O login real só é testado com a conta de teste acima.
+- Teste instrumentado: `./gradlew :app:connectedPlayDebugAndroidTest
+  -Pandroid.testInstrumentationRunnerArguments.class=com.garfiec.librechat.AuthFlowTest`.
