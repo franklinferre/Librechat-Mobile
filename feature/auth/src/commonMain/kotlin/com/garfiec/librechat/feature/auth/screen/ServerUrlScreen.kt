@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.garfiec.librechat.core.common.brand.Brand
 import com.garfiec.librechat.core.data.repository.HeaderWriteFailure
 import com.garfiec.librechat.core.network.client.HeaderRejection
 import com.garfiec.librechat.core.ui.components.AdaptiveAlertDialog
@@ -74,6 +75,16 @@ fun ServerUrlScreen(
             // forward again — this entry's ViewModel outlives the forward navigation.
             viewModel.consumeValidated()
         }
+    }
+
+    if (uiState.isLocked) {
+        LockedConnectContent(
+            isLoading = uiState.isLoading,
+            error = uiState.error,
+            onRetry = viewModel::retry,
+            modifier = modifier,
+        )
+        return
     }
 
     if (uiState.showHttpWarning) {
@@ -187,6 +198,69 @@ fun ServerUrlScreen(
         }
 
         BackAffordanceOverlay(onBack)
+    }
+}
+
+/** The app is pinned to one server: progress while connecting, the error and a retry if it fails. */
+@Composable
+private fun LockedConnectContent(
+    isLoading: Boolean,
+    error: String?,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = Brand.APP_NAME,
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.semantics { heading() },
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            if (error != null && !isLoading) {
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.testTag("server_url_locked_error"),
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                AdaptiveButton(
+                    onClick = onRetry,
+                    modifier = Modifier.fillMaxWidth().testTag("server_url_retry"),
+                ) {
+                    Text(stringResource(Res.string.retry))
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                DiagnosticLogLink()
+            } else {
+                AdaptiveCircularProgressIndicator(modifier = Modifier.testTag("server_url_locked_progress"))
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = stringResource(Res.string.connecting_to_app, Brand.APP_NAME),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
     }
 }
 

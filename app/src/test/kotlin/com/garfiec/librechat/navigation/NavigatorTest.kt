@@ -153,6 +153,14 @@ class NavigatorTest {
     }
 
     @Test
+    fun `replacing ServerUrl with Login leaves Login as the only entry`() {
+        val navigator = createNavigator(NewChat(), Chat("conv-1"))
+        navigator.navigateToAuth()
+        navigator.replaceTop(Login)
+        assertEquals(listOf(Login), navigator.backStack.toList())
+    }
+
+    @Test
     fun `navigateToAuth is a no-op deeper in the auth flow`() {
         val navigator = createNavigator(ServerUrl, Login)
         navigator.navigateToAuth()

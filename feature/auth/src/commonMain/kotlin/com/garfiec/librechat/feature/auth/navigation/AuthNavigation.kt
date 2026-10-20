@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.auth.navigation
 
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
+import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.feature.auth.screen.ForgotPasswordScreen
 import com.garfiec.librechat.feature.auth.screen.LoginScreen
 import com.garfiec.librechat.feature.auth.screen.RegisterScreen
@@ -15,6 +16,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -62,10 +64,14 @@ fun EntryProviderScope<NavKey>.authEntries(
     onNavigate: (NavKey) -> Unit,
     onBack: () -> Unit,
     onAuthComplete: () -> Unit,
+    onReplace: (NavKey) -> Unit,
 ) {
     entry<ServerUrl> {
+        val serverLock = koinInject<ServerLock>()
         ServerUrlScreen(
-            onServerValidate = { onNavigate(Login) },
+            // Locked: this screen is a transient connect step, so it is replaced rather than kept
+            // under Login (back from Login would otherwise land on a spinner).
+            onServerValidate = { if (serverLock.isLocked) onReplace(Login) else onNavigate(Login) },
         )
     }
     entry<AddAccountServerUrl> {

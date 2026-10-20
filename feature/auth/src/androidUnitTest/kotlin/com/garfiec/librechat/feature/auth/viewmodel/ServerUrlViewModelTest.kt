@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.auth.viewmodel
 
+import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.repository.AccountSwitcher
@@ -68,11 +69,12 @@ class ServerUrlViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel(addAccount: Boolean) = ServerUrlViewModel(
+    private fun createViewModel(addAccount: Boolean, serverLock: ServerLock = ServerLock(null)) = ServerUrlViewModel(
         serverDataStore = serverDataStore,
         serverRepository = serverRepository,
         configRepository = configRepository,
         accountSwitcher = accountSwitcher,
+        serverLock = serverLock,
         addAccount = addAccount,
     )
 
@@ -663,5 +665,39 @@ class ServerUrlViewModelTest {
         assertThat(viewModel.uiState.value.headersSaveFailure).isEqualTo(HeaderWriteFailure.StorageUnavailable)
         assertThat(viewModel.uiState.value.isValidated).isFalse()
         coVerify(exactly = 0) { serverDataStore.setServerUrl(any()) }
+    }
+
+    @Test
+    fun `locked mode connects to the brand URL without user input`() = runTest(testDispatcher) {
+        val vm = createViewModel(addAccount = false, serverLock = ServerLock("https://chat.lideri.cloud"))
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.isLocked).isTrue()
+        assertThat(vm.uiState.value.isValidated).isTrue()
+        coVerify(exactly = 1) { serverDataStore.setServerUrl("https://chat.lideri.cloud") }
+    }
+
+    @Test
+    fun `locked mode ignores a different stored URL`() = runTest(testDispatcher) {
+        coEvery { serverDataStore.awaitBaseUrl() } returns "https://old.example.com"
+        val vm = createViewModel(addAccount = false, serverLock = ServerLock("https://chat.lideri.cloud"))
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.url).isEqualTo("https://chat.lideri.cloud")
+        coVerify(exactly = 0) { serverDataStore.setServerUrl("https://old.example.com") }
+    }
+
+    @Test
+    fun `locked mode failure shows error and retry reconnects`() = runTest(testDispatcher) {
+        coEvery { configRepository.resolveServer(any(), any()) } returns
+            ServerResolution.Failed(Result.Error(message = "offline"))
+        val vm = createViewModel(addAccount = false, serverLock = ServerLock("https://chat.lideri.cloud"))
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.error).isNotNull()
+        assertThat(vm.uiState.value.isLoading).isFalse()
+        coEvery { configRepository.resolveServer(any(), any()) } coAnswers {
+            ServerResolution.Resolved(firstArg<List<String>>().first(), config)
+        }
+        vm.retry()
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.isValidated).isTrue()
     }
 }

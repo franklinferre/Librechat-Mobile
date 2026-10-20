@@ -5,6 +5,7 @@ import android.content.Context
 import com.garfiec.librechat.core.common.AppInfo
 import com.garfiec.librechat.core.common.ChannelPolicy
 import com.garfiec.librechat.core.common.DistributionChannel
+import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.core.common.conversation.OpenConversationRegistry
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.lifecycle.DeferredWorkWindow
@@ -261,6 +262,8 @@ class KoinGraphVerificationTest {
             File::class,
             // ServerUrlViewModel's addAccount mode flag, injected via parametersOf
             Boolean::class,
+            // Registered by commonModule; each module is verified on its own here.
+            ServerLock::class,
         )
 
         // Types whose libraries aren't on the app test classpath (transitive

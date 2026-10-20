@@ -85,4 +85,5 @@
     <string name="diagnostic_log_failed">ログをエクスポートできませんでした。</string>
     <string name="user_ca_notice">このサーバーの証明書は、Android に組み込まれた認証局ではなく、このデバイスにインストールされた認証局によって信頼されています。ご自身または組織がインストールした場合にのみ続行してください。</string>
     <string name="continue_with_provider">%1$s で続行</string>
+    <string name="connecting_to_app">%1$sに接続中…</string>
 </resources>

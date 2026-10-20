@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.auth.viewmodel
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.core.common.identity.cleanServerUrl
 import com.garfiec.librechat.core.common.identity.serverOrigin
 import com.garfiec.librechat.core.common.result.Result
@@ -54,6 +55,8 @@ data class ServerUrlUiState(
      * sends the user to fix a URL that was never the problem.
      */
     val headersSaveFailure: HeaderWriteFailure? = null,
+    /** The app is pinned to one server: the screen only connects to it and never shows the URL field. */
+    val isLocked: Boolean = false,
 )
 
 /**
@@ -71,12 +74,17 @@ data class ServerUrlUiState(
  *   is live. Must never touch the live account's state: the URL goes into a pending add session
  *   ([AccountSwitcher.beginAdd]) instead of the global store, and the config rides on that session
  *   for the add-mode login screen instead of being published.
+ *
+ * When the app is pinned to a server ([ServerLock]) the normal mode does not ask for an address: it
+ * connects to the locked one on creation, ignoring any saved URL, and [retry] repeats the attempt.
+ * Add-account mode is unaffected.
  */
 class ServerUrlViewModel(
     private val serverDataStore: ServerDataStore,
     private val serverRepository: ServerRepository,
     private val configRepository: ConfigRepository,
     private val accountSwitcher: AccountSwitcher,
+    private val serverLock: ServerLock,
     private val addAccount: Boolean = false,
 ) : ViewModel() {
 
@@ -93,7 +101,19 @@ class ServerUrlViewModel(
     /** Whether the user has interacted at all, which makes the async prefill stale rather than late. */
     private var userEdited = false
 
+    /** Normal-mode connect to the pinned server; add-account keeps its own flow. */
+    private val connectsToLockedServer = serverLock.isLocked && !addAccount
+
     init {
+        if (connectsToLockedServer) {
+            _uiState.value = ServerUrlUiState(url = serverLock.url.orEmpty(), isLoading = true, isLocked = true)
+            validateAndConnect()
+        } else {
+            prefillFromSavedServer()
+        }
+    }
+
+    private fun prefillFromSavedServer() {
         viewModelScope.launch {
             // awaitBaseUrl (not getBaseUrl) so a cold-start relaunch doesn't read "" before
             // ServerDataStore's async warm-up resolves, which would skip pre-filling the saved URL.
@@ -192,6 +212,11 @@ class ServerUrlViewModel(
             headerError = null,
             headersSaveFailure = null,
         )
+    }
+
+    /** Repeats the connect attempt to the locked server after a failure. No-op when not locked. */
+    fun retry() {
+        if (connectsToLockedServer) validateAndConnect()
     }
 
     fun validateAndConnect() {

@@ -1,5 +1,6 @@
 package com.garfiec.librechat
 
+import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.core.common.identity.deriveServerId
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.db.dao.ServerDao
@@ -102,6 +103,7 @@ class ServerHeaderEditorContractTest {
                 serverRepository = repository(),
                 configRepository = configRepository,
                 accountSwitcher = accountSwitcher,
+                serverLock = ServerLock(null),
                 addAccount = true,
             )
             advanceUntilIdle()
