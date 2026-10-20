@@ -20,12 +20,12 @@ if [ "$ROOT" != "$MAIN" ]; then
   done
 fi
 
-# Sem local.properties, aponta o Gradle para o SDK Android padrão do macOS.
-SDK="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+# Sem local.properties, aponta o Gradle para o SDK Android instalado via Homebrew.
+SDK="${ANDROID_HOME:-/opt/homebrew/share/android-commandlinetools}"
 if [ ! -f local.properties ] && [ -d "$SDK" ]; then
   echo "sdk.dir=$SDK" > local.properties
   echo "criado local.properties (sdk.dir=$SDK)"
 fi
 
-java -version >/dev/null 2>&1 || echo "aviso: JDK não encontrado (o projeto usa Temurin 21)"
+java -version >/dev/null 2>&1 || echo "aviso: JDK não encontrado — exporte JAVA_HOME=/opt/homebrew/opt/openjdk@21 (ver ORCA.md)"
 echo "setup do worktree concluído: $ROOT"

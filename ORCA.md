@@ -41,6 +41,19 @@ projeto estão no `CLAUDE.md` raiz e nos `CLAUDE.md` de cada módulo — este ar
 - Android debug: `./gradlew assembleDebug` → `adb install -r app/build/outputs/apk/foss/debug/app-foss-debug.apk`
   (nunca desinstale o app de debug: perde a chave do Keystore — ver `scripts/devcheck/`)
 - Framework iOS: `./gradlew :shared:linkDebugFrameworkIosSimulatorArm64`
+- Testes iOS (Kotlin/Native no simulador): `./gradlew :shared:iosSimulatorArm64Test :core:common:iosSimulatorArm64Test …`
+  (lista completa no job `ios` do CI)
 - App iOS: `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath iosApp/build build`
-- Toolchain: JDK Temurin 21, Android SDK (compileSdk 37), Xcode, Apple Silicon.
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath iosApp/build
+  CODE_SIGNING_ALLOWED=NO build` → `xcrun simctl install booted iosApp/build/Build/Products/Debug-iphonesimulator/iosApp.app`
+  → `xcrun simctl launch booted com.garfiec.librechat.ios`
+- Emulador Android: `emulator -avd switchboard_api36` (AVD criado no setup da máquina).
+
+## Toolchain desta máquina
+- JDK 21: `brew install openjdk@21` → `JAVA_HOME=/opt/homebrew/opt/openjdk@21` (no `~/.zshrc`).
+- Android SDK: `brew install --cask android-commandlinetools` →
+  `ANDROID_HOME=/opt/homebrew/share/android-commandlinetools` (platform 37, build-tools 37, emulator).
+- Xcode 27.1 (mesma versão do CI). Atualização do Xcode exige aceitar a licença de novo:
+  `sudo xcodebuild -license accept && sudo xcodebuild -runFirstLaunch` num terminal de verdade
+  (o `!` do Claude não consegue pedir senha).
+- O build phase do Xcode chama `./gradlew`; pelo CLI ele herda o `JAVA_HOME` do shell.
