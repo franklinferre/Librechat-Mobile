@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.settings.viewmodel
 
+import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.repository.AuthRepository
@@ -68,7 +69,7 @@ class AccountSettingsViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel() = AccountSettingsViewModel(
+    private fun createViewModel(serverLock: ServerLock = ServerLock(null)) = AccountSettingsViewModel(
         userRepository = userRepository,
         authRepository = authRepository,
         balanceRepository = balanceRepository,
@@ -76,8 +77,25 @@ class AccountSettingsViewModelTest {
         avatarImagePreparer = { preparedImage },
         configRepository = configRepository,
         serverDataStore = serverDataStore,
+        serverLock = serverLock,
         ioDispatcher = testDispatcher,
     )
+
+    @Test
+    fun `locked server hides the server connection row`() = runTest {
+        val viewModel = createViewModel(ServerLock("https://chat.lideri.cloud"))
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.showServerConnection).isFalse()
+    }
+
+    @Test
+    fun `unlocked server shows the server connection row`() = runTest {
+        val viewModel = createViewModel(ServerLock(null))
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.showServerConnection).isTrue()
+    }
 
     @Test
     fun `initial state loads user profile`() = runTest {

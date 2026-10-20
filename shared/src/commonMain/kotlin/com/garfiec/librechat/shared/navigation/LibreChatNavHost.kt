@@ -56,6 +56,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import coil3.SingletonImageLoader
 import coil3.compose.LocalPlatformContext
+import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.core.common.conversation.OpenConversationRegistry
 import com.garfiec.librechat.core.common.identity.AccountState
 import com.garfiec.librechat.core.common.lifecycle.DeferredWorkWindow
@@ -454,6 +455,7 @@ fun PhoneLayout(
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val serverLock = koinInject<ServerLock>()
     val isLoggedIn by navHostViewModel.isLoggedIn.collectAsStateWithLifecycle()
     val banner by navHostViewModel.banner.collectAsStateWithLifecycle()
     val sessionRenewalBlocked by navHostViewModel.sessionRenewalBlocked.collectAsStateWithLifecycle()
@@ -543,9 +545,13 @@ fun PhoneLayout(
                     onSwitchAccount = { accountId ->
                         navHostViewModel.switchAccount(accountId)
                     },
-                    onAddAccount = {
-                        scope.launch { drawerState.close() }
-                        navigator.navigate(AddAccountServerUrl)
+                    onAddAccount = if (serverLock.isLocked) {
+                        null
+                    } else {
+                        {
+                            scope.launch { drawerState.close() }
+                            navigator.navigate(AddAccountServerUrl)
+                        }
                     },
                 )
             }

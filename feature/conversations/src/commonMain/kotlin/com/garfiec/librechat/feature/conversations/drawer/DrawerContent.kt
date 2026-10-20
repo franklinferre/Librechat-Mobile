@@ -238,7 +238,9 @@ fun DrawerContent(
     modifier: Modifier = Modifier,
     onOpenProjectsIndex: () -> Unit = {},
     onSwitchAccount: (String) -> Unit = {},
-    onAddAccount: () -> Unit = {},
+    // null turns multi-account off (a locked server): the avatar stays as identity but opens no
+    // switcher sheet and swipe-switching is disabled.
+    onAddAccount: (() -> Unit)? = {},
     // Round-robin swipe switch (in place, drawer stays open) + sheet remove — both are nav-shell
     // account operations, hoisted in because DrawerViewModel owns only drawer data now.
     onSwitchAccountInPlace: (String) -> Unit = {},
@@ -327,14 +329,14 @@ fun DrawerContent(
                 if (active != null) {
                     AccountChip(
                         account = active,
-                        onClick = { showAccountSheet = true },
+                        onClick = { if (onAddAccount != null) showAccountSheet = true },
                         // Gmail/YouTube-style: swipe the avatar up/down to round-robin accounts
                         // without opening the sheet. Switches in place via the ViewModel so the user
                         // can swipe through several accounts against the same avatar. The sheet path
                         // keeps the drawer open too (the host no longer closes it on switch).
                         // Disabled (null) with nothing to switch to: a single account, or every
                         // other one signed out.
-                        onSwitchAdjacent = if (accounts.any { !it.isActive && !it.needsSignIn }) {
+                        onSwitchAdjacent = if (onAddAccount != null && accounts.any { !it.isActive && !it.needsSignIn }) {
                             { delta -> adjacentAccountId(accounts, delta)?.let(onSwitchAccountInPlace) }
                         } else {
                             null
@@ -394,7 +396,7 @@ fun DrawerContent(
             onRemoveAccountRequest = { removeAccountTarget = it },
             onAddAccount = {
                 showAccountSheet = false
-                onAddAccount()
+                onAddAccount?.invoke()
             },
             onDismiss = { showAccountSheet = false },
         )

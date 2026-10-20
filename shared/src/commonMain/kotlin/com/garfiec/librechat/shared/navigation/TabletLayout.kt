@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.core.model.Banner
 import com.garfiec.librechat.core.ui.components.BannerDisplay
 import com.garfiec.librechat.core.ui.components.PlatformBackHandler
@@ -50,6 +51,7 @@ import com.garfiec.librechat.feature.schedules.navigation.SchedulesList
 import com.garfiec.librechat.feature.settings.navigation.SettingsTabbed
 import com.garfiec.librechat.feature.skills.navigation.SkillsList
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 private val SidebarWidth = 320.dp
@@ -125,6 +127,7 @@ fun TabletLayout(
     val sidebarOffset = remember { Animatable(0f) }
     var initialStateApplied by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val serverLock = koinInject<ServerLock>()
 
     // Back press closes sidebar before navigating away. Gated on the sidebar being shown: armed while
     // hidden, it swallows back on the root auth screen and silently persists the sidebar closed.
@@ -251,8 +254,10 @@ fun TabletLayout(
                             onSwitchAccount = { accountId ->
                                 navHostViewModel.switchAccount(accountId)
                             },
-                            onAddAccount = {
-                                navigator.navigate(AddAccountServerUrl)
+                            onAddAccount = if (serverLock.isLocked) {
+                                null
+                            } else {
+                                { navigator.navigate(AddAccountServerUrl) }
                             },
                             modifier = sidebarModifier,
                         )

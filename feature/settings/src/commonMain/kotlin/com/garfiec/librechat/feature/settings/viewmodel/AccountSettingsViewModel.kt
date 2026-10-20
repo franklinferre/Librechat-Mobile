@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.settings.viewmodel
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.BalanceRepository
@@ -80,6 +81,8 @@ data class AccountSettingsUiState(
     val showDisableTwoFactorDialog: Boolean = false,
     val showEnableTwoFactorOtpDialog: Boolean = false,
     val showBackupCodesOtpDialog: Boolean = false,
+    /** False on a locked server: its URL and headers are fixed, so the editor row is hidden. */
+    val showServerConnection: Boolean = true,
 )
 
 /** The Balance section. Shown only while [AccountSettingsUiState.balanceEnabled]. */
@@ -103,6 +106,7 @@ class AccountSettingsViewModel(
     avatarImagePreparer: AvatarImagePreparer,
     configRepository: ConfigRepository,
     serverDataStore: ServerDataStore,
+    serverLock: ServerLock,
     ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
@@ -132,6 +136,7 @@ class AccountSettingsViewModel(
                 user = state.user?.let { it.copy(avatar = resolveAvatarUrl(it.avatar, baseUrl)) },
                 allowAccountDeletion = config?.allowAccountDeletion ?: true,
                 balanceEnabled = config?.balance?.enabled == true,
+                showServerConnection = !serverLock.isLocked,
             )
         }.stateIn(viewModelScope, SharingStarted.Eagerly, AccountSettingsUiState())
 

@@ -47,6 +47,7 @@ val settingsModule = module {
             avatarImagePreparer = get(),
             configRepository = get(),
             serverDataStore = get(),
+            serverLock = get(),
             ioDispatcher = get(KoinQualifiers.IO),
         )
     }

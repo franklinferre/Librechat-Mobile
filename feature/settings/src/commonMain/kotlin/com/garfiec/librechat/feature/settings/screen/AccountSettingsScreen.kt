@@ -227,19 +227,21 @@ fun AccountSettingsContent(
                 AdaptiveSectionHeader(stringResource(Res.string.section_security))
             }
             adaptiveSection {
-                row(key = "server_connection_row") {
-                    AccountSettingsRow(
-                        icon = Icons.Default.Dns,
-                        title = stringResource(Res.string.section_server_connection),
-                        subtitle = stringResource(Res.string.server_connection_subtitle),
-                        onClick = {
-                            showServerHeadersDialog = true
-                            // The ViewModel loads once per server, so a read that failed would keep this
-                            // editor warning about a store that has since recovered — with no way to get
-                            // it to look again short of restarting the app.
-                            serverHeadersViewModel.reload()
-                        },
-                    )
+                if (uiState.showServerConnection) {
+                    row(key = "server_connection_row") {
+                        AccountSettingsRow(
+                            icon = Icons.Default.Dns,
+                            title = stringResource(Res.string.section_server_connection),
+                            subtitle = stringResource(Res.string.server_connection_subtitle),
+                            onClick = {
+                                showServerHeadersDialog = true
+                                // The ViewModel loads once per server, so a read that failed would keep this
+                                // editor warning about a store that has since recovered — with no way to get
+                                // it to look again short of restarting the app.
+                                serverHeadersViewModel.reload()
+                            },
+                        )
+                    }
                 }
                 row(key = "security_settings") {
                     SecuritySection(

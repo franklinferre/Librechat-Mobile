@@ -28,7 +28,8 @@ fun SidebarScaffold(
     onMessageClick: (conversationId: String, messageId: String, query: String, inReasoning: Boolean) -> Unit =
         { conversationId, _, _, _ -> onConversationClick(conversationId) },
     onSwitchAccount: (String) -> Unit = {},
-    onAddAccount: () -> Unit = {},
+    // null hides multi-account; see DrawerContent's param.
+    onAddAccount: (() -> Unit)? = {},
     // Deleting the open conversation navigates the pane off it; see DrawerContent's param for the
     // onNewChat distinction. Defaults to [onNewChat].
     onActiveConversationDelete: () -> Unit = onNewChat,

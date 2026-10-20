@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.settings.di
 import android.app.Application
 import android.content.Context
 import com.garfiec.librechat.core.common.AppInfo
+import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.core.data.datastore.DateTimePrefsStore
 import com.garfiec.librechat.core.data.datastore.PreferenceStore
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
@@ -46,6 +47,7 @@ class SettingsModuleVerificationTest {
                 Context::class,
                 Application::class,
                 AppInfo::class,
+                ServerLock::class,
                 UserRepository::class,
                 AuthRepository::class,
                 ConfigRepository::class,
