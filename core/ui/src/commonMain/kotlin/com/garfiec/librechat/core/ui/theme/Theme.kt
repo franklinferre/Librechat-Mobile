@@ -59,7 +59,7 @@ fun LibreChatTheme(
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = libreChatTypography,
+            typography = libreChatTypography(),
             shapes = libreChatShapes,
             content = content,
         )
@@ -81,7 +81,7 @@ fun ThemePreview(
     CompositionLocalProvider(LocalDarkTheme provides darkTheme) {
         MaterialTheme(
             colorScheme = rememberLibreChatColorScheme(darkTheme, accentColor, useDynamicColor),
-            typography = libreChatTypography,
+            typography = libreChatTypography(),
             shapes = libreChatShapes,
             content = content,
         )
