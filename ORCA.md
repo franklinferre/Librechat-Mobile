@@ -46,7 +46,7 @@ projeto estão no `CLAUDE.md` raiz e nos `CLAUDE.md` de cada módulo — este ar
 - App iOS: `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath iosApp/build
   CODE_SIGNING_ALLOWED=NO build` → `xcrun simctl install booted iosApp/build/Build/Products/Debug-iphonesimulator/iosApp.app`
-  → `xcrun simctl launch booted com.garfiec.librechat.ios`
+  → `xcrun simctl launch booted cloud.lideri.chat.ios`
 - Emulador Android: `emulator -avd switchboard_api36` (AVD criado no setup da máquina).
 
 ## Toolchain desta máquina
