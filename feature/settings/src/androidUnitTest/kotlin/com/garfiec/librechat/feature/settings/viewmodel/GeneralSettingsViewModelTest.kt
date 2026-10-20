@@ -2,6 +2,7 @@ package com.garfiec.librechat.feature.settings.viewmodel
 
 import com.garfiec.librechat.core.common.AppInfo
 import com.garfiec.librechat.core.common.DistributionChannel
+import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.core.common.datetime.ClockFormat
 import com.garfiec.librechat.core.common.datetime.DateFormatStyle
 import com.garfiec.librechat.core.common.datetime.DateTimeFormatPrefs
@@ -65,7 +66,7 @@ class GeneralSettingsViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel() = GeneralSettingsViewModel(
+    private fun createViewModel(serverLock: ServerLock = ServerLock(null)) = GeneralSettingsViewModel(
         settingsDataStore = settingsDataStore,
         dateTimePrefsStore = dateTimePrefsStore,
         serverDataStore = serverDataStore,
@@ -78,6 +79,7 @@ class GeneralSettingsViewModelTest {
         },
         preferenceStore = preferenceStore,
         certificateTrust = certificateTrust,
+        serverLock = serverLock,
     )
 
     @Test
@@ -93,6 +95,22 @@ class GeneralSettingsViewModelTest {
         certificateTrust.record("chat.example.com", 443, CertificateAuthority.System)
         advanceUntilIdle()
         assertThat(viewModel.uiState.value.serverTrustedViaUserCa).isFalse()
+    }
+
+    @Test
+    fun `About hides the server URL when the build is locked to one server`() = runTest {
+        val viewModel = createViewModel(ServerLock("https://chat.lideri.cloud"))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.showServerUrl).isFalse()
+        // The rest of About is untouched.
+        assertThat(viewModel.uiState.value.appVersion).isEqualTo("0.1.0")
+    }
+
+    @Test
+    fun `About shows the server URL when the build is not locked`() = runTest {
+        val viewModel = createViewModel(ServerLock(null))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.showServerUrl).isTrue()
     }
 
     @Test

@@ -226,6 +226,7 @@ fun GeneralSettingsContent(
                 adaptiveSection {
                     row(key = "about_info") {
                         AboutInfo(
+                            showServerUrl = uiState.showServerUrl,
                             serverUrl = uiState.serverUrl,
                             serverTrustedViaUserCa = uiState.serverTrustedViaUserCa,
                             appVersion = uiState.appVersion,
@@ -338,6 +339,7 @@ private fun SwitchSettingRow(
 
 @Composable
 internal fun AboutInfo(
+    showServerUrl: Boolean,
     serverUrl: String,
     serverTrustedViaUserCa: Boolean,
     appVersion: String,
@@ -356,32 +358,34 @@ internal fun AboutInfo(
                 Spacer(modifier = Modifier.height(8.dp))
                 AboutRow(stringResource(Res.string.app_build_label), gitSha)
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = stringResource(Res.string.server_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = serverUrl.ifBlank { stringResource(Res.string.server_not_configured) },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-            }
-            if (serverTrustedViaUserCa) {
-                Text(
-                    text = stringResource(Res.string.server_user_ca_notice),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                )
+            if (showServerUrl) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = stringResource(Res.string.server_label),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = serverUrl.ifBlank { stringResource(Res.string.server_not_configured) },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                }
+                if (serverTrustedViaUserCa) {
+                    Text(
+                        text = stringResource(Res.string.server_user_ca_notice),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    )
+                }
             }
             // Resolved LibreChat server version. Always shown — "Unknown" when it can't be
             // determined (LibreChat has no version endpoint; we infer it from the build commit).

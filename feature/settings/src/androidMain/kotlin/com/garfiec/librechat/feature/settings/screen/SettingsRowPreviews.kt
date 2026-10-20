@@ -143,6 +143,7 @@ private fun PrefetchSettingsHost() {
 @Composable
 private fun AboutInfoHost() {
     AboutInfo(
+        showServerUrl = true,
         serverUrl = "https://chat.example.com",
         serverTrustedViaUserCa = false,
         appVersion = "2026.10.17",

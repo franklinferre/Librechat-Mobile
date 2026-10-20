@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.garfiec.librechat.core.common.AppInfo
+import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.core.common.datetime.DateTimeFormatPrefs
 import com.garfiec.librechat.core.data.datastore.AppPreferences
 import com.garfiec.librechat.core.data.datastore.DateTimePrefsStore
@@ -34,6 +35,8 @@ data class GeneralSettingsUiState(
     val tabletSidebarGestureEnabled: Boolean = true,
     val advancedSearchEnabled: Boolean = false,
     val serverUrl: String = "",
+    /** False in a build locked to one server: the user never sees a server URL, so About omits the row. */
+    val showServerUrl: Boolean = true,
     val serverTrustedViaUserCa: Boolean = false,
     /** Human-facing app version (e.g. `0.1.0`), sourced from the installed package. */
     val appVersion: String = "",
@@ -77,6 +80,7 @@ class GeneralSettingsViewModel(
     appInfo: AppInfo,
     private val preferenceStore: PreferenceStore,
     certificateTrust: CertificateTrustRegistry,
+    serverLock: ServerLock,
 ) : ViewModel() {
 
     private val dialogs = MutableStateFlow(GeneralDialogs())
@@ -94,7 +98,11 @@ class GeneralSettingsViewModel(
         certificateTrust.observe(url).map { GeneralServer(url, it == CertificateAuthority.UserInstalled) }
     }
 
-    private val initial = GeneralSettingsUiState(appVersion = appInfo.versionName, gitSha = appInfo.gitSha)
+    private val initial = GeneralSettingsUiState(
+        appVersion = appInfo.versionName,
+        gitSha = appInfo.gitSha,
+        showServerUrl = !serverLock.isLocked,
+    )
 
     val uiState: StateFlow<GeneralSettingsUiState> = combine(
         dialogs,
