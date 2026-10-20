@@ -168,6 +168,14 @@ class NavigatorTest {
     }
 
     @Test
+    fun `navigateToDeepLinkLoggedOut puts the route above ServerUrl`() {
+        val navigator = createNavigator(NewChat())
+        val route = Chat("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d")
+        navigator.navigateToDeepLinkLoggedOut(route)
+        assertEquals(listOf(ServerUrl, route), navigator.backStack.toList())
+    }
+
+    @Test
     fun `navigateToAuth is a no-op when already on ServerUrl`() {
         val navigator = createNavigator(ServerUrl)
         navigator.navigateToAuth()

@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.garfiec.librechat.core.common.brand.Brand
 import com.garfiec.librechat.core.data.datastore.ThemeMode
 import com.garfiec.librechat.core.model.ui.GlassCapability
 import com.garfiec.librechat.core.model.ui.UiStyle
@@ -421,7 +422,7 @@ private fun SampleLines(widths: List<Float>, color: Color) {
 }
 
 // A brand name: the same in every language.
-private const val APP_NAME = "Switchboard"
+private const val APP_NAME = Brand.APP_NAME
 
 private val OptionShape = RoundedCornerShape(16.dp)
 private val SampleBubbleShape = RoundedCornerShape(20.dp)

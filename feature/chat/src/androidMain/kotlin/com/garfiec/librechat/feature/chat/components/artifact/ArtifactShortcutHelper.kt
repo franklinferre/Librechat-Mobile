@@ -14,6 +14,7 @@ import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import androidx.core.net.toUri
+import com.garfiec.librechat.core.common.brand.Brand
 import com.garfiec.librechat.core.model.ArtifactShortcut
 import com.garfiec.librechat.core.model.displayGlyph
 import com.garfiec.librechat.core.model.displayLabel
@@ -93,7 +94,7 @@ suspend fun requestPinArtifactShortcut(
     val appContext = context.applicationContext
     ensurePinReceiver(appContext)
 
-    val intent = Intent(Intent.ACTION_VIEW, "librechat://artifact/${shortcut.id}".toUri())
+    val intent = Intent(Intent.ACTION_VIEW, "${Brand.DEEP_LINK_SCHEME}://artifact/${shortcut.id}".toUri())
         // Explicit component so the launcher routes straight to us regardless of other VIEW handlers.
         .setClassName(context.packageName, MAIN_ACTIVITY)
 

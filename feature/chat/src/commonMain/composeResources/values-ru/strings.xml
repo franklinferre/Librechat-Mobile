@@ -61,7 +61,7 @@
     <string name="cd_more_options">Дополнительно</string>
     <string name="cd_scroll_to_bottom">Прокрутить вниз</string>
     <string name="cd_select_model">Выбрать модель</string>
-    <string name="cd_librechat">Switchboard</string>
+    <string name="cd_librechat">Lideri Chat</string>
     <string name="cd_comparison_enabled">Сравнение включено</string>
 
     <!-- Content descriptions - Messages -->
@@ -620,7 +620,7 @@
     <string name="background_tasks_cancellation_requested">Отмена запрошена. Задача может ещё выполняться; проверьте её итоговый статус позже.</string>
 
     <!-- App update banner -->
-    <string name="update_banner_title">Доступен Switchboard %1$s</string>
+    <string name="update_banner_title">Доступен Lideri Chat %1$s</string>
     <string name="update_banner_action">Что нового</string>
     <string name="cd_dismiss_update">Скрыть уведомление об обновлении</string>
     <string name="site_icons_prompt_title">Показывать значки сайтов?</string>

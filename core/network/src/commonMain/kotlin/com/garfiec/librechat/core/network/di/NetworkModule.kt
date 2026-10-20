@@ -1,6 +1,7 @@
 package com.garfiec.librechat.core.network.di
 
 import com.garfiec.librechat.core.common.AppInfo
+import com.garfiec.librechat.core.common.brand.Brand
 import com.garfiec.librechat.core.common.di.KoinQualifiers
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.network.api.AgentToolsApi
@@ -192,7 +193,7 @@ val networkModule = module {
                 connectTimeoutMillis = 10_000
             }
             defaultRequest {
-                headers.append(HttpHeaders.UserAgent, "Switchboard/${appInfo.versionName}")
+                headers.append(HttpHeaders.UserAgent, "${Brand.USER_AGENT_PRODUCT}/${appInfo.versionName}")
             }
         }
     }

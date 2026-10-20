@@ -1,12 +1,13 @@
 package com.garfiec.librechat.shared.navigation
 
 import androidx.navigation3.runtime.NavKey
+import com.garfiec.librechat.core.common.brand.Brand
 import com.garfiec.librechat.feature.chat.navigation.ArtifactShortcutViewer
 import com.garfiec.librechat.feature.chat.navigation.Chat
 import com.garfiec.librechat.feature.chat.navigation.NewChat
 
 /**
- * Platform-neutral view of an incoming `librechat://` URI, so [DeepLinks.resolve] — the routing
+ * Platform-neutral view of an incoming `liderichat://` URI, so [DeepLinks.resolve] — the routing
  * decision — lives in common and can be reused per platform. Android builds this from
  * `android.net.Uri` (see `DeepLinkUriAdapter`); an iOS intake (from `NSURLComponents`) would build
  * the same shape and reuse [DeepLinks.resolve] — not yet wired. Only field extraction is per-platform.
@@ -43,7 +44,7 @@ sealed interface DeepLinkResolution {
 }
 
 /**
- * Single source of truth for `librechat://` deep-link routing. Every host is declared here exactly
+ * Single source of truth for `liderichat://` deep-link routing. Every host is declared here exactly
  * once; both platform intake (the accept / bring-to-front decision) and the nav host (back-stack
  * placement) call [resolve], so there is no second allowlist to drift out of sync.
  *
@@ -52,7 +53,7 @@ sealed interface DeepLinkResolution {
  * them against a strict pattern (ids) or pass them as opaque strings (never interpret as commands).
  */
 object DeepLinks {
-    const val SCHEME = "librechat"
+    const val SCHEME = Brand.DEEP_LINK_SCHEME
 
     /**
      * Both a LibreChat conversationId and an artifact-shortcut snapshot id are UUIDs — the server
@@ -80,7 +81,7 @@ object DeepLinks {
             ?.let { DeepLinkResolution.Route(ArtifactShortcutViewer(it), requiresAuth = false) }
             ?: DeepLinkResolution.None
 
-        // Home-screen model shortcut (librechat://model?endpoint=<endpoint>&model=<model>): the payload
+        // Home-screen model shortcut (liderichat://model?endpoint=<endpoint>&model=<model>): the payload
         // rides on the NewChat route so it replaces a bare landing NewChat (dedup-by-value) and re-seeds
         // even when already on the landing. Auth-required — a model preselect is useless without a session.
         "model" -> {
@@ -93,7 +94,7 @@ object DeepLinks {
             }
         }
 
-        // OAuth redirect (librechat://oauth): token comes back via cookie, not the URI — see [Consumed].
+        // OAuth redirect (liderichat://oauth): token comes back via cookie, not the URI — see [Consumed].
         "oauth" -> DeepLinkResolution.Consumed
 
         else -> DeepLinkResolution.None

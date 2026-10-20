@@ -61,7 +61,7 @@
     <string name="cd_more_options">その他のオプション</string>
     <string name="cd_scroll_to_bottom">一番下までスクロール</string>
     <string name="cd_select_model">モデルを選択</string>
-    <string name="cd_librechat">Switchboard</string>
+    <string name="cd_librechat">Lideri Chat</string>
     <string name="cd_comparison_enabled">比較が有効</string>
 
     <!-- Content descriptions - Messages -->
@@ -620,7 +620,7 @@
     <string name="background_tasks_cancellation_requested">キャンセルを要求しました。タスクはまだ実行中の可能性があります。最終状態をもう一度確認してください。</string>
 
     <!-- App update banner -->
-    <string name="update_banner_title">Switchboard %1$s が利用可能です</string>
+    <string name="update_banner_title">Lideri Chat %1$s が利用可能です</string>
     <string name="update_banner_action">新機能を見る</string>
     <string name="cd_dismiss_update">アップデートのお知らせを閉じる</string>
     <string name="site_icons_prompt_title">サイトのアイコンを表示しますか？</string>

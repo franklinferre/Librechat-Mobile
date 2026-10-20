@@ -61,7 +61,7 @@
     <string name="cd_more_options">Weitere Optionen</string>
     <string name="cd_scroll_to_bottom">Nach unten scrollen</string>
     <string name="cd_select_model">Modell auswählen</string>
-    <string name="cd_librechat">Switchboard</string>
+    <string name="cd_librechat">Lideri Chat</string>
     <string name="cd_comparison_enabled">Vergleich aktiviert</string>
 
     <!-- Content descriptions - Messages -->
@@ -620,7 +620,7 @@
     <string name="background_tasks_cancellation_requested">Abbruch angefordert. Die Aufgabe läuft möglicherweise noch; sieh erneut nach ihrem endgültigen Status.</string>
 
     <!-- App update banner -->
-    <string name="update_banner_title">Switchboard %1$s ist verfügbar</string>
+    <string name="update_banner_title">Lideri Chat %1$s ist verfügbar</string>
     <string name="update_banner_action">Neuerungen ansehen</string>
     <string name="cd_dismiss_update">Update-Hinweis schließen</string>
     <string name="site_icons_prompt_title">Website-Symbole anzeigen?</string>

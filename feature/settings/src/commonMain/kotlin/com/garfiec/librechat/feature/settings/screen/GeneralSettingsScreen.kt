@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.garfiec.librechat.core.common.brand.Brand
 import com.garfiec.librechat.core.model.config.BuildInfo
 import com.garfiec.librechat.core.ui.components.AdaptiveDivider
 import com.garfiec.librechat.core.ui.components.AdaptiveGroupedPage
@@ -233,15 +234,18 @@ fun GeneralSettingsContent(
                             buildInfo = uiState.buildInfo,
                         )
                     }
-                    row(key = "privacy_policy") {
-                        val uriHandler = LocalUriHandler.current
-                        GeneralSettingsRow(
-                            icon = Icons.Default.PrivacyTip,
-                            title = stringResource(Res.string.privacy_policy_title),
-                            subtitle = stringResource(Res.string.privacy_policy_desc),
-                            // Android throws when no browser is installed (de-Googled ROMs, work profiles).
-                            onClick = { runCatching { uriHandler.openUri(PRIVACY_POLICY_URL) } },
-                        )
+                    // Hidden until a policy is published (Brand.PRIVACY_POLICY_URL is null).
+                    Brand.PRIVACY_POLICY_URL?.let { policyUrl ->
+                        row(key = "privacy_policy") {
+                            val uriHandler = LocalUriHandler.current
+                            GeneralSettingsRow(
+                                icon = Icons.Default.PrivacyTip,
+                                title = stringResource(Res.string.privacy_policy_title),
+                                subtitle = stringResource(Res.string.privacy_policy_desc),
+                                // Android throws when no browser is installed (de-Googled ROMs, work profiles).
+                                onClick = { runCatching { uriHandler.openUri(policyUrl) } },
+                            )
+                        }
                     }
                 }
 
@@ -481,10 +485,3 @@ private fun GeneralSettingsRow(
         if (showDivider) AdaptiveDivider()
     }
 }
-
-/**
- * The published policy (docs/PRIVACY.md). Google Play and the App Store both require an in-app link;
- * it is shown on every channel. Installed builds keep this URL for good, so moving the file needs a
- * stub left at this path, plus the Play Console entry and PRIVACY.md section 16.
- */
-private const val PRIVACY_POLICY_URL = "https://github.com/garfiec/Librechat-Mobile/blob/develop/docs/PRIVACY.md"

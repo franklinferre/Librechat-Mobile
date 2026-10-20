@@ -62,7 +62,7 @@
     <string name="cd_temporary_chat">Temporary chat</string>
     <string name="cd_scroll_to_bottom">Scroll to bottom</string>
     <string name="cd_select_model">Select model</string>
-    <string name="cd_librechat">Switchboard</string>
+    <string name="cd_librechat">Lideri Chat</string>
     <string name="cd_comparison_enabled">Comparison enabled</string>
 
     <!-- Content descriptions - Messages -->
@@ -646,7 +646,7 @@
     <string name="background_tasks_cancellation_requested">Cancellation requested. The task may still be running; check again for its final status.</string>
 
     <!-- App update banner -->
-    <string name="update_banner_title">Switchboard %1$s is available</string>
+    <string name="update_banner_title">Lideri Chat %1$s is available</string>
     <string name="update_banner_action">See what's new</string>
     <string name="cd_dismiss_update">Dismiss update notice</string>
     <string name="site_icons_prompt_title">Show website icons?</string>

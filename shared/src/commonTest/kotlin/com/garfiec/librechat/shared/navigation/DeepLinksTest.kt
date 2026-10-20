@@ -5,12 +5,19 @@ import com.garfiec.librechat.feature.chat.navigation.Chat
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class DeepLinksTest {
 
     private fun uri(host: String, path: String? = null, query: Map<String, String> = emptyMap()) =
         DeepLinkUri(host = host, pathSegments = listOfNotNull(path), query = query)
+
+    @Test
+    fun scheme_isTheBrandScheme_notTheUpstreamOne() {
+        assertEquals("liderichat", DeepLinks.SCHEME)
+        assertNotEquals("librechat", DeepLinks.SCHEME)
+    }
 
     @Test
     fun conversationValidUuid_routesToChatRequiringAuth() {

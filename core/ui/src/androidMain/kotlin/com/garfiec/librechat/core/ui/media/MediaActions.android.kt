@@ -26,6 +26,7 @@ import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
+import com.garfiec.librechat.core.common.brand.Brand
 import com.garfiec.librechat.core.common.media.detectImageMimeType
 import com.garfiec.librechat.core.common.media.imageExtensionForMimeType
 import com.garfiec.librechat.core.ui.resources.Res
@@ -184,12 +185,12 @@ private suspend fun saveUrlToGallery(context: Context, url: String) {
 
 @Suppress("TooGenericExceptionCaught") // removes the pending row, then rethrows
 private fun writeImageToGallery(context: Context, image: EncodedImage) {
-    val fileName = "switchboard_${System.currentTimeMillis()}.${image.extension}"
+    val fileName = "lideri_chat_${System.currentTimeMillis()}.${image.extension}"
     val contentValues = ContentValues().apply {
         put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
         put(MediaStore.Images.Media.MIME_TYPE, image.mimeType)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Switchboard")
+            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/${Brand.MEDIA_FOLDER}")
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
     }

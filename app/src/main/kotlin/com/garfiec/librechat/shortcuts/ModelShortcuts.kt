@@ -8,6 +8,7 @@ import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.garfiec.librechat.MainActivity
 import com.garfiec.librechat.R
+import com.garfiec.librechat.core.common.brand.Brand
 import com.garfiec.librechat.core.model.ModelRef
 
 /**
@@ -26,7 +27,7 @@ object ModelShortcuts {
         val capped = models.take(ShortcutManagerCompat.getMaxShortcutCountPerActivity(context).coerceAtMost(MAX_SHORTCUTS))
         val shortcuts = capped.mapIndexed { index, ref ->
             val uri = Uri.parse(
-                "librechat://model?endpoint=${Uri.encode(ref.endpoint)}&model=${Uri.encode(ref.model)}",
+                "${Brand.DEEP_LINK_SCHEME}://model?endpoint=${Uri.encode(ref.endpoint)}&model=${Uri.encode(ref.model)}",
             )
             val intent = Intent(Intent.ACTION_VIEW, uri, context, MainActivity::class.java)
             ShortcutInfoCompat.Builder(context, shortcutId(ref))
