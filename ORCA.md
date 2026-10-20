@@ -57,3 +57,10 @@ projeto estão no `CLAUDE.md` raiz e nos `CLAUDE.md` de cada módulo — este ar
   `sudo xcodebuild -license accept && sudo xcodebuild -runFirstLaunch` num terminal de verdade
   (o `!` do Claude não consegue pedir senha).
 - O build phase do Xcode chama `./gradlew`; pelo CLI ele herda o `JAVA_HOME` do shell.
+
+## iPhone físico (conta pessoal)
+- Crie `scripts/lideri/.ios-team` (ignorado pelo git) com o Team ID da conta Apple pessoal
+  (ou exporte `LIDERI_IOS_TEAM`).
+- Rode `scripts/lideri/ios-device.sh` com o iPhone conectado (`--udid <id>` se houver mais de um).
+- No iPhone, confie no perfil do desenvolvedor: Ajustes → Geral → VPN e Gerenciamento de Dispositivo.
+- A conta pessoal expira o perfil em 7 dias: rode o script de novo a cada 7 dias.

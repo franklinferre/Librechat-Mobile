@@ -49,3 +49,6 @@ __pycache__/
 
 # Configuração pessoal do Claude Code
 .claude/settings.local.json
+
+# Lideri Chat: iOS Personal Team ID (per developer)
+scripts/lideri/.ios-team
