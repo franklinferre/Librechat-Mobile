@@ -33,7 +33,8 @@ import json, sys
 d = json.load(open(sys.argv[1]))
 for dev in d.get("result", {}).get("devices", []):
     if dev.get("connectionProperties", {}).get("tunnelState") == "connected" \
-       and dev.get("hardwareProperties", {}).get("platform") == "iOS":
+       and dev.get("hardwareProperties", {}).get("platform") == "iOS" \
+       and dev.get("hardwareProperties", {}).get("reality") == "physical":
         print(dev["hardwareProperties"]["udid"])
 PY
 )"
