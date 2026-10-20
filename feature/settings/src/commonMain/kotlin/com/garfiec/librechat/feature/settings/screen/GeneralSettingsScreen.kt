@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.common.brand.Brand
 import com.garfiec.librechat.core.model.config.BuildInfo
+import com.garfiec.librechat.core.ui.brand.LideriLogo
 import com.garfiec.librechat.core.ui.components.AdaptiveDivider
 import com.garfiec.librechat.core.ui.components.AdaptiveGroupedPage
 import com.garfiec.librechat.core.ui.components.AdaptiveScaffold
@@ -348,6 +349,7 @@ internal fun AboutInfo(
     buildInfo: BuildInfo?,
 ) {
     Column {
+        LideriLogo(modifier = Modifier.align(Alignment.CenterHorizontally))
         Column(
             modifier = Modifier
                 .fillMaxWidth()

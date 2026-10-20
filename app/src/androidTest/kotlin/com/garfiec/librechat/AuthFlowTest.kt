@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextReplacement
@@ -88,5 +89,6 @@ class AuthFlowTest {
                 composeTestRule.onAllNodesWithText("Retry").fetchSemanticsNodes().isNotEmpty()
         }
         composeTestRule.onAllNodesWithText("Server URL").assertCountEquals(0)
+        composeTestRule.onNodeWithTag("lideri_logo").assertIsDisplayed()
     }
 }

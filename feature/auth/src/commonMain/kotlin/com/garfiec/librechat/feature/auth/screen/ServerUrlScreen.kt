@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.common.brand.Brand
 import com.garfiec.librechat.core.data.repository.HeaderWriteFailure
 import com.garfiec.librechat.core.network.client.HeaderRejection
+import com.garfiec.librechat.core.ui.brand.LideriLogo
 import com.garfiec.librechat.core.ui.components.AdaptiveAlertDialog
 import com.garfiec.librechat.core.ui.components.AdaptiveButton
 import com.garfiec.librechat.core.ui.components.AdaptiveCircularProgressIndicator
@@ -224,6 +225,9 @@ private fun LockedConnectContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
+            LideriLogo()
+            Spacer(modifier = Modifier.height(16.dp))
+
             Text(
                 text = Brand.APP_NAME,
                 style = MaterialTheme.typography.headlineMedium,
