@@ -2,6 +2,8 @@ package com.garfiec.librechat.core.common.di
 
 import com.garfiec.librechat.core.common.AppInfo
 import com.garfiec.librechat.core.common.ChannelPolicy
+import com.garfiec.librechat.core.common.brand.Brand
+import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.core.common.conversation.OpenConversationRegistry
 import com.garfiec.librechat.core.common.lifecycle.ForegroundSignal
 import com.garfiec.librechat.core.common.network.RequestActivityTracker
@@ -34,6 +36,9 @@ val commonModule = module {
     single { RequestActivityTracker() }
     single { ForegroundSignal() }
     single { OpenConversationRegistry() }
+
+    // The build's server pin. Brand.LOCKED_SERVER_URL is the only source of it.
+    single { ServerLock(Brand.LOCKED_SERVER_URL) }
 
     // Eager, so a build that cannot name its channel fails in startKoin. Lazily, the first Android
     // resolve of AppInfo can land inside the best-effort diagnostics setup, which swallows it.
