@@ -11,8 +11,6 @@ import com.garfiec.librechat.core.model.ui.GlassCapability
 import com.garfiec.librechat.core.model.ui.UiStyle
 import com.garfiec.librechat.core.ui.components.topbar.LocalNativeOverlayGate
 import com.garfiec.librechat.core.ui.components.topbar.NativeOverlayGate
-import com.materialkolor.PaletteStyle
-import com.materialkolor.rememberDynamicColorScheme
 
 /**
  * Returns a platform-specific dynamic color scheme if available, or null to fall back
@@ -37,15 +35,9 @@ expect fun glassCapability(): GlassCapability
 /**
  * Applies the LibreChat Material 3 theme.
  *
- * Color resolution precedence:
- * 1. [useDynamicColor] on **and** the platform supports it -> wallpaper-based scheme.
- * 2. Otherwise the full scheme is generated from [accentColor] via MaterialKolor
- *    ([rememberDynamicColorScheme], remembered/keyed on its inputs).
- *
- * [PaletteStyle.TonalSpot] keeps only the seed's hue — every role is re-derived at a fixed
- * chroma and a fixed per-role tone, so no role in the generated scheme resolves to the seed hex.
- * The hue feeds the neutral palette as well as the accent one, which is why it tints surfaces
- * app-wide.
+ * The colour scheme is always the Lideri brand one ([lideriColorScheme], `LideriColors.kt`).
+ * [accentColor] and [useDynamicColor] are kept so existing call sites compile, but they are
+ * ignored: a value a user saved earlier can no longer change the app's colours.
  *
  * [uiStyle] is the user's stored choice; null (nothing stored) means [platformDefaultUiStyle].
  */
@@ -96,13 +88,8 @@ fun ThemePreview(
     }
 }
 
-/** The scheme for these settings, by the precedence [LibreChatTheme] documents. */
+/** The scheme for [darkTheme]: always the Lideri one; the accent and dynamic-colour inputs are ignored. */
+@Suppress("UNUSED_PARAMETER")
 @Composable
-private fun rememberLibreChatColorScheme(darkTheme: Boolean, accentColor: Color, useDynamicColor: Boolean): ColorScheme {
-    val seedScheme = rememberDynamicColorScheme(accentColor, darkTheme, style = PaletteStyle.TonalSpot)
-    return if (useDynamicColor && supportsDynamicColor()) {
-        platformColorScheme(darkTheme, dynamicColor = true) ?: seedScheme
-    } else {
-        seedScheme
-    }
-}
+private fun rememberLibreChatColorScheme(darkTheme: Boolean, accentColor: Color, useDynamicColor: Boolean): ColorScheme =
+    lideriColorScheme(darkTheme)

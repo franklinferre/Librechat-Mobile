@@ -1,0 +1,42 @@
+/* LIDERI - v1.0. Cores do manual original; escala e geometria de aplicação recomendadas nesta edição. */
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 400; font-display: swap; src: url("./fonts/Poppins-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 500; font-display: swap; src: url("./fonts/Poppins-Medium.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 600; font-display: swap; src: url("./fonts/Poppins-SemiBold.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 700; font-display: swap; src: url("./fonts/Poppins-Bold.ttf") format("truetype"); }
+@font-face { font-family: "Raleway"; font-style: normal; font-weight: 400; font-display: swap; src: url("./fonts/Raleway-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Raleway"; font-style: normal; font-weight: 500; font-display: swap; src: url("./fonts/Raleway-Medium.ttf") format("truetype"); }
+@font-face { font-family: "Raleway"; font-style: normal; font-weight: 600; font-display: swap; src: url("./fonts/Raleway-SemiBold.ttf") format("truetype"); }
+@font-face { font-family: "Raleway"; font-style: normal; font-weight: 700; font-display: swap; src: url("./fonts/Raleway-Bold.ttf") format("truetype"); }
+
+:root {
+  --lideri-blue: #0424D9;
+  --lideri-blue-light: #0797EF;
+  --lideri-cyan: #07C4EF;
+  --lideri-orange: #FF6022;
+  --lideri-orange-light: #FF7C24;
+  --lideri-yellow: #F7C64B;
+  --lideri-paper: #FFFDFA;
+  --lideri-ink: #1F2937;
+  --lideri-muted: #526071;
+  --lideri-surface: #F5F7FA;
+  --lideri-divider: #D9E0EA;
+  --font-heading: "Poppins", sans-serif;
+  --font-body: "Raleway", sans-serif;
+  --lideri-radius: 8px;
+  --lideri-logo-width: 220px;
+  --lideri-logo-clear: calc(var(--lideri-logo-width) * 0.073);
+}
+
+/* Verificar que as famílias reais carregaram antes de capturar/exportar. */
+body { font-family: var(--font-body); font-size: 16px; line-height: 1.5; color: var(--lideri-ink); background: #fff; }
+h1, h2, h3 { font-family: var(--font-heading); font-weight: 600; }
+h1 { font-size: 40px; line-height: 1.2; font-weight: 700; }
+h2 { font-size: 28px; line-height: calc(36 / 28); }
+h3 { font-size: 20px; line-height: 1.4; }
+a { color: var(--lideri-blue); text-decoration: underline; text-underline-offset: 0.15em; }
+/* O invólucro precisa reservar o respiro fora do SVG transparente. */
+.lideri-logo-space { display: inline-block; padding: var(--lideri-logo-clear); }
+.lideri-logo { display: block; width: var(--lideri-logo-width); height: auto; }
+.lideri-action { font-family: var(--font-body); font-size: 16px; line-height: 1.5; font-weight: 600; color: #fff; background: var(--lideri-blue); border: 1px solid var(--lideri-blue); border-radius: var(--lideri-radius); padding: 12px 20px; }
+.lideri-action:focus-visible { outline: 2px solid var(--lideri-blue); outline-offset: 3px; }
+/* Adapte o layout em telas estreitas mantendo a assinatura legível. Não comprima ou recorte a logo. */

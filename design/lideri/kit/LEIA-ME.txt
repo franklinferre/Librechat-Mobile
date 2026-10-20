@@ -1,0 +1,42 @@
+LIDERI - KIT DE MARCA v1.0
+Consolidado em 19 de outubro de 2026 (America/Recife).
+
+COMECE PELO PDF
+Manual_de_Marca_LIDERI_v1.0.pdf contém a identidade visual e o briefing copiável da página 11.
+
+ARQUIVOS
+- logos/lideri-principal.svg, .pdf e .png: assinatura azul completa.
+- logos/lideri-negativa.svg, .pdf e .png: assinatura negativa #FFFDFA.
+- fonts/: Poppins e Raleway em 400, 500, 600 e 700, com licenças originais.
+- tokens.css: fontes locais, cores e estilos básicos de referência.
+- brand-tokens.json: valores estruturados com origem e status das regras.
+- proveniencia-assets.json: origem e hashes das logos e fontes.
+- referencias/: manual original da Agência Bali e guia interno de relatórios.
+
+FIDELIDADE
+Usar a assinatura institucional completa, incluindo os cinco ícones. Os SVG contêm os paths originais extraídos das páginas 6 e 7 do manual. Não retirar ícones, desenhar uma versão nova, usar texto como logo ou extrair a marca LIDERI MÓVEL da página 9 para uso institucional. A última página do manual original é a marca da Agência Bali.
+
+Os seis HEX são arredondamentos de 8 bits das amostras vetoriais originais. #FFFDFA é o tom claro do negativo original, fora das seis amostras. Outros neutros são apoios editoriais.
+
+Respiro H/4, mínimo 220px em telas, mínimo 45mm em impressão e escala digital são recomendações operacionais desta edição. Os mínimos pertencem a meios distintos e não são uma conversão entre si. O SVG não inclui margem; reserve respiro no layout.
+
+Use as fontes reais, confirme o carregamento e incorpore-as ao PDF. As licenças OFL devem acompanhar os arquivos de fonte quando redistribuídos.
+
+Os tokens são uma base de identidade, não uma implementação completa de produto. Preserve as regras funcionais e os requisitos do projeto. Em impressão, use o perfil de cor adequado; não há Pantone ou CMYK normativo declarado nas fontes analisadas.
+
+INSTRUÇÃO PARA O AGENTE
+1. Use a logo original da pasta logos/. Preserve a composição completa, os cinco ícones e a proporção. Não a recrie com texto ou geração de imagem.
+
+2. Use azul #0424D9 como base. A paleta também contém #0797EF, #07C4EF, #FF6022, #FF7C24 e #F7C64B. A negativa usa #FFFDFA.
+
+3. Aplique Poppins 600/700 nos títulos e Raleway 400/500 no corpo. Use Raleway 600 para rótulos de interface que precisam de ênfase.
+
+4. Mantenha fundo claro, espaço livre e laranja em destaques. Organize o conteúdo com hierarquia simples e consistente.
+
+5. Adote respiro mínimo x = H/4, medido conforme a página 4. Como referência inicial, use largura mínima de 220 px em telas ou 45 mm em impressão.
+
+6. Use texto branco sobre azul principal e texto escuro #1F2937 sobre laranja. Confira as outras combinações na página 6.
+
+7. Centralize cores e tipografia em tokens. Carregue as fontes reais e reutilize os assets; não crie variantes da marca.
+
+8. Revise logo, acentos, contraste, alinhamentos e quebras. Em interface, confira telas estreitas. Em PDF, incorpore as fontes e revise todas as páginas.
