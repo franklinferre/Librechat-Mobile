@@ -12,9 +12,11 @@ enum PrefetchBackgroundTasks {
 
     /// Installs a launch handler per identifier.
     ///
-    /// Must be called from `application(_:didFinishLaunchingWithOptions:)` — iOS refuses a
-    /// registration made after launch completes. Touches only Kotlin constants, never Koin; each
-    /// handler resolves Koin when it fires.
+    /// Must be called from `iOSApp.init()`, before `startIosKoin()` — iOS refuses a registration made
+    /// after launch completes, and throws on submitting a request for an unregistered identifier,
+    /// which the Koin-started coordinator does at once when a session is stored. Exactly once: a
+    /// second registration of the same identifier also throws. Touches only Kotlin constants, never
+    /// Koin; each handler resolves Koin when it fires.
     static func register() {
         register(
             identifier: IosPrefetchTasks.shared.REFRESH_ID,

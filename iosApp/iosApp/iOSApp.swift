@@ -11,6 +11,12 @@ struct iOSApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // Before Koin: starting it runs the eager prefetch coordinator, which submits background task
+        // requests as soon as a stored session resolves, and BGTaskScheduler throws for a request whose
+        // identifier has no launch handler yet. SwiftUI builds the App before the delegate's
+        // didFinishLaunching, so registering there is too late on a relaunch while signed in. This
+        // still runs before launch finishes, and on background-task launches too (no scene needed).
+        PrefetchBackgroundTasks.register()
         // Initialize Koin DI — must happen before any KMP code is used
         IosKoinHelperKt.startIosKoin()
     }
@@ -33,17 +39,6 @@ struct iOSApp: App {
 
 /// Supplies a scene delegate; that's the object iOS delivers quick-action taps to.
 final class AppDelegate: NSObject, UIApplicationDelegate {
-    func application(
-        _ application: UIApplication,
-        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
-    ) -> Bool {
-        // Here rather than in the scene delegate: a launch triggered by a background task connects no
-        // scene at all, so `willConnectTo` never fires and the feature would run once and then have
-        // nothing left to re-register it.
-        PrefetchBackgroundTasks.register()
-        return true
-    }
-
     func application(
         _ application: UIApplication,
         configurationForConnecting connectingSceneSession: UISceneSession,
