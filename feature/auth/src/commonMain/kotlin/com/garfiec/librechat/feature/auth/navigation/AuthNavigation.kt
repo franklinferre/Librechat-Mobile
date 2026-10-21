@@ -64,14 +64,14 @@ fun EntryProviderScope<NavKey>.authEntries(
     onNavigate: (NavKey) -> Unit,
     onBack: () -> Unit,
     onAuthComplete: () -> Unit,
-    onReplace: (NavKey) -> Unit,
+    onReplace: (route: NavKey, replacement: NavKey) -> Unit,
 ) {
     entry<ServerUrl> {
         val serverLock = koinInject<ServerLock>()
         ServerUrlScreen(
             // Locked: this screen is a transient connect step, so it is replaced rather than kept
             // under Login (back from Login would otherwise land on a spinner).
-            onServerValidate = { if (serverLock.isLocked) onReplace(Login) else onNavigate(Login) },
+            onServerValidate = { if (serverLock.isLocked) onReplace(ServerUrl, Login) else onNavigate(Login) },
         )
     }
     entry<AddAccountServerUrl> {

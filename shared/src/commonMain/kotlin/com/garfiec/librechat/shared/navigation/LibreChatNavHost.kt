@@ -707,7 +707,7 @@ fun MainNavDisplay(
             authEntries(
                 onNavigate = { navigator.navigate(it) },
                 onBack = { navigator.goBack() },
-                onReplace = navigator::replaceTop,
+                onReplace = { route, replacement -> navigator.replace(route, replacement) },
                 onAuthComplete = {
                     navHostViewModel.onAuthComplete()
                     // accountTransitions() doesn't fire on login-from-logged-out, so the drawer's
