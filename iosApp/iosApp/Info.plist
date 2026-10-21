@@ -4,6 +4,23 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<!-- The UI strings live in Compose resources, so iOS only learns the app speaks these languages
+	     from this list. Without it NSLocale.currentLocale pins the language to English (en_BR on a
+	     Brazilian device), which sends Auto-detect dictation to the English recognizer and leaves
+	     system prompts in English. Keep in step with the composeResources values-* folders. -->
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>ar</string>
+		<string>de</string>
+		<string>es</string>
+		<string>fr</string>
+		<string>ja</string>
+		<string>ko</string>
+		<string>pt</string>
+		<string>ru</string>
+		<string>zh-Hans</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>Lideri Chat</string>
 	<key>CFBundleExecutable</key>

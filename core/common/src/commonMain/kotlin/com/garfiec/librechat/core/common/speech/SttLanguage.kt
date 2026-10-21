@@ -17,6 +17,7 @@ private val STT_LANGUAGES: List<Pair<String, String?>> = listOf(
     "Spanish" to "es-ES",
     "French" to "fr-FR",
     "German" to "de-DE",
+    "Portuguese" to "pt-BR",
     "Japanese" to "ja-JP",
     "Chinese" to "zh-CN",
 )
