@@ -104,17 +104,63 @@ Which spec applies, and whether it is prioritized, is `util/SpecSeed.kt`, a port
   Tier-0 override yields it. `ChatViewModel.onPendingNavigationHandled` re-arms it, so the next new
   chat is back on the spec. A spec agent the loaded list doesn't contain (deleted, not shared, no
   agents at all, agents denied) falls through to the ordinary tiers.
+- **Last spec**: a spec the user picked is stored with the last-used pair (`lastUsedSpec`; a raw
+  pick clears it). Unless a spec is marked `default`, new chats reopen on it, under `prioritize` too
+  and ahead of a soft default, as web reopens on `LAST_CONVO_SETUP.spec`. On restore the name is kept
+  only while the server still offers that spec on the same endpoint and model. Known divergence: web
+  also rewrites that setup when a conversation is opened, so opening a spec-B chat makes B the next
+  new chat's spec; mobile writes last-used only on a pick.
 - **Soft default**: applies only when last-used can't, so a user's own selection wins.
 
-**Known mobile gap: the user's preferred model is ignored under prioritize.** Last-used is still
-saved on every pick, but under a prioritized spec it never seeds a new chat. A pick lasts for the
-chat it was made in. That is web parity, and deliberate for now. A setting to prefer the user's own
-model over the server's spec is a possible follow-up. It would be a mobile addition (web has none),
-so it belongs in Settings, not in the resolver.
+**Known mobile gap: a raw model pick is ignored under prioritize.** Last-used is still saved on
+every pick, but under a prioritized spec a raw model never seeds a new chat; only a spec pick
+carries over. That is web parity. A setting to prefer the user's own model over the server's spec
+is a possible follow-up (#552). It would be a mobile addition (web has none), so it belongs in
+Settings, not in the resolver.
 
-Only the preset's (endpoint, model) or `agent_id` is applied. Nothing else from the preset is
-applied, and no `spec` name is sent with the request, so a `modelSpecs.enforce` server may still
-reject a send.
+**The selection is one value, `ModelChoice`: `Raw(endpoint, model)` or `Spec(name, endpoint,
+model)`.** Write it whole, through `ModelSelectionDelegate.applySelection`; the preset load, the
+queued-edit composer swap and the seeder's spec-config update write it in the same emission as
+another field instead. Build a `Spec` from the server's config (`SpecSeed.toChoice`) or, for a
+stored value, `ModelChoice.restore`. A conversation or preset loaded before the spec config keeps
+its spec unchecked until the seeder holds it against the config, so the type does not prove a
+`Spec` is still offered on its pair. The chat selection, queued turns, composer snapshots and the
+new-chat handoff hold a `ModelChoice`; don't give them a separate spec field again. Compare's staged
+picks (`ComparisonState`'s second lane, `ComparisonPick`, `CompareSetupPick`) and `LastUsedSelection`
+(`:core:data`) still keep separate fields and convert at the boundary; the paused-run pin
+(`ResumeTurnPin`) records what was sent and stays as it is.
+
+**The spec name travels with the selection and is sent as `spec`.** Named specs are separate picker
+rows even when they share a model, and a raw pick clears the name. Nothing infers a spec from a
+model match, with one exception: under `enforce`, a Tier-0 entry point (an agent card, a model
+shortcut) adopts the spec when exactly one opens on its pair (`uniqueSpecFor`), since the server
+would refuse the raw pair anyway. With none or several, the send preflight asks. Queue and
+composer snapshots, the new-chat handoff, the conversation cache (`spec` column, Room 10→11), comparison, presets, edit/regenerate and paused-run pins all carry it. Sending
+it changes what the server does even without `enforce`: it fills the spec's unset private preset
+fields (`promptPrefix`, `instructions`, `system`, …) into the request (`mergeModelSpecPreset`), so a
+chat opened on a spec gets the admin's prompt as on web.
+
+**`enforce` has no exception for `addedEndpoints`.** With `modelSpecs.enforce` and a non-empty list
+the server rejects any send without a `spec` (`buildEndpointOption.js`). So `requiresSpec` blocks
+such a send in the preflight, and the picker greys the raw rows it still lists (those in
+`addedEndpoints`, as web lists them) under a note. With no `addedEndpoints` it lists no raw rows at
+all, where web lists everything and every pick fails. A cached conversation with no spec under
+`enforce` is refreshed from the server once per account and process, read against the fetched
+config rather than the selection (unseeded when the conversation loads); a failed refresh is
+retried on the next open.
+
+**A stored spec is kept only while the server still offers it on the same endpoint and model**
+(`offeredOn`): on a conversation load, a preset load (which adopts the spec's own pair when the
+preset names none), the last-used restore, and again whenever the spec config changes. This is
+stricter than the server, whose mismatch check compares the endpoint only, so a spec whose model
+an admin changed is dropped too. Under `enforce` the send is then blocked with "Select a model"
+rather than refused by the server.
+
+**Spec rows** (`visibleSpecs`) sort by `order`, ascending with unordered specs after in list order
+(librechatios parity; web ignores `order`), and leave out an agent spec once the agents list has
+loaded without its agent (web parity; until then, and after a failed fetch, every spec shows).
+The list is one page of up to 100 agents where web loads them all, so a full page hides nothing.
+Compare setup stages specs like models, so a spec can be either lane before the comparison starts.
 
 ## Message Tree
 - Messages stored flat, linked by `parentMessageId` (root = `NO_PARENT` UUID)
@@ -262,7 +308,6 @@ reject a send.
 | `MessageBubble` | Icon + content column + action bar + sibling nav |
 | `MessageList` | LazyColumn of MessageBubbles with scroll-to-bottom FAB |
 | `ModelSelectorSheet` | Bottom sheet: search + endpoint-grouped model list |
-| `ModelSelectorButton` | Header chip showing current model |
 | `SiblingNavigator` | "1/3" with chevrons for branch switching |
 | `LandingContent` | Greeting, entity icon, conversation starters |
 | `StreamingCursor` | Live insertion point during generation; `StreamingWaitIndicator` before the first delta |

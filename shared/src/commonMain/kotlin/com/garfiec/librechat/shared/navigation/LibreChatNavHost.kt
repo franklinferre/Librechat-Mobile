@@ -84,6 +84,9 @@ import com.garfiec.librechat.feature.chat.navigation.Chat
 import com.garfiec.librechat.feature.chat.navigation.ModelShortcutBus
 import com.garfiec.librechat.feature.chat.navigation.NewChat
 import com.garfiec.librechat.feature.chat.navigation.chatEntries
+import com.garfiec.librechat.feature.chat.navigation.handoffKey
+import com.garfiec.librechat.feature.chat.navigation.isPlainLanding
+import com.garfiec.librechat.feature.chat.viewmodel.PromptInsertionHandoff
 import com.garfiec.librechat.feature.chat.viewmodel.ServerFileSelectionHandoff
 import com.garfiec.librechat.feature.conversations.drawer.DrawerViewModel
 import com.garfiec.librechat.feature.conversations.navigation.ArchivedConversations
@@ -497,7 +500,8 @@ fun PhoneLayout(
                     isOpen = drawerOpen,
                     onNewChat = {
                         scope.launch { drawerState.close() }
-                        if (navigator.currentRoute !is NewChat) {
+                        // A project's landing is not the plain one, so New chat still leaves it.
+                        if ((navigator.currentRoute as? NewChat)?.isPlainLanding != true) {
                             navigator.navigateToTopLevel(NewChat())
                         }
                     },
@@ -533,6 +537,10 @@ fun PhoneLayout(
                     onOpenProjectsIndex = {
                         scope.launch { drawerState.close() }
                         navigator.navigate(Projects)
+                    },
+                    onNewChatInProject = { projectId, projectName ->
+                        scope.launch { drawerState.close() }
+                        navigator.navigateToNewChatInProject(projectId, projectName)
                     },
                     onOpenSearch = { query ->
                         scope.launch { drawerState.close() }
@@ -678,6 +686,7 @@ fun MainNavDisplay(
     navHostViewModel: NavHostViewModel = koinViewModel(),
     drawerViewModel: DrawerViewModel = koinViewModel(),
     serverFileSelectionHandoff: ServerFileSelectionHandoff = koinInject(),
+    promptInsertionHandoff: PromptInsertionHandoff = koinInject(),
 ) {
     NavDisplay(
         backStack = navigator.backStack,
@@ -716,6 +725,7 @@ fun MainNavDisplay(
             chatEntries(
                 onNavigate = { navigator.navigate(it) },
                 onBack = { navigator.goBack() },
+                onRemove = { navigator.remove(it) },
                 onNavigateToChat = { conversationId, isTemporary ->
                     navigator.navigateToChat(conversationId, isTemporary)
                 },
@@ -726,7 +736,11 @@ fun MainNavDisplay(
                 onAttachFromServer = {
                     // Tag the picker with the launching conversation (null on the new-chat
                     // landing) so its selection routes back only to this chat.
-                    val launchingId = (navigator.currentRoute as? Chat)?.conversationId
+                    val launchingId = when (val route = navigator.currentRoute) {
+                        is Chat -> route.conversationId
+                        is NewChat -> route.handoffKey
+                        else -> null
+                    }
                     navigator.navigate(FilesPicker(targetConversationId = launchingId))
                 },
                 onOpenWhatsNew = { navigator.navigate(WhatsNew) },
@@ -737,7 +751,11 @@ fun MainNavDisplay(
                 onNavigateToProject = { projectId, projectName ->
                     navigator.navigate(ProjectChats(projectId, projectName))
                 },
+                onNewChatInProject = { projectId, projectName ->
+                    navigator.navigateToNewChatInProject(projectId, projectName)
+                },
                 onBack = { navigator.goBack() },
+                onRemove = { navigator.remove(it) },
                 onOpenMessage = { conversationId, messageId, query, inReasoning ->
                     navigator.navigateToMessage(conversationId, messageId, query, inReasoning)
                 },
@@ -745,12 +763,20 @@ fun MainNavDisplay(
             agentsEntries(
                 onNavigate = { navigator.navigate(it) },
                 onBack = { navigator.goBack() },
-                onReplace = { navigator.replaceTop(it) },
+                onReplace = { route, replacement -> navigator.replace(route, replacement) },
+                onRemove = { navigator.remove(it) },
                 onPopWhile = { navigator.popWhile(it) },
                 onStartChat = { agentId ->
                     // Carry the agent id into the new chat so it opens on that agent
                     // (Tier-0 override in ModelSelectionDelegate) rather than falling
                     // back to last-used / first-agent / first-model.
+                    navigator.navigateToTopLevel(NewChat(agentId))
+                },
+                // The starter lands in the new chat's composer unsent: staged here, taken by the
+                // landing's ChatScreen when it enters composition (a fresh NewChat(agentId) entry,
+                // or the existing one re-entering when it already was that agent's landing).
+                onStartChatWithPrompt = { agentId, prompt ->
+                    promptInsertionHandoff.put(prompt)
                     navigator.navigateToTopLevel(NewChat(agentId))
                 },
             )
@@ -787,6 +813,7 @@ fun MainNavDisplay(
                 onBack = { navigator.goBack() },
             )
             mcpServersEntry(
+                onNavigate = { navigator.navigate(it) },
                 onBack = { navigator.goBack() },
             )
         },

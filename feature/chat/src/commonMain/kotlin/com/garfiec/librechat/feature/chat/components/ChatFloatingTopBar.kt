@@ -142,7 +142,11 @@ internal fun ChatFloatingTopBar(
             ChatOverflowItem.LOAD_PRESET -> onLoadPreset()
             ChatOverflowItem.SAVE_PRESET -> onSavePreset()
             ChatOverflowItem.PROMPTS_LIBRARY -> onOpenPromptsLibrary?.invoke()
-            ChatOverflowItem.COMPARE -> viewModel.toggleComparison()
+            ChatOverflowItem.COMPARE -> when {
+                uiState.comparisonState.isEnabled -> viewModel.stopComparison()
+                uiState.comparisonState.isSettingUp -> viewModel.cancelComparisonSetup()
+                else -> viewModel.beginComparisonSetup()
+            }
             ChatOverflowItem.TRACE -> showTraceViewer = true
             ChatOverflowItem.CONTEXT_USAGE -> showContextSheet = true
             ChatOverflowItem.COMPACT -> showCompactConfirm = true
@@ -342,6 +346,8 @@ private fun MaterialChatTopBar(
                             selectedEndpoint = uiState.selectedEndpoint,
                             selectedModel = uiState.selectedModel,
                             agents = uiState.agents,
+                            selectedSpec = uiState.selectedSpec,
+                            modelSpecs = uiState.modelSpecs,
                         )
                         FloatingBarLabelChip(
                             text = label.displayModel ?: stringResource(Res.string.select_model),
@@ -401,7 +407,8 @@ private fun MaterialChatTopBar(
                     expanded = showOverflowMenu,
                     onDismiss = { showOverflowMenu = false },
                     sections = sections,
-                    isComparisonEnabled = uiState.comparisonState.isEnabled,
+                    isComparisonEnabled = uiState.comparisonState.isEnabled || uiState.comparisonState.isSettingUp,
+                    canToggleComparison = uiState.canToggleComparison,
                     contextGauge = uiState.contextGaugeDetails,
                     onItem = onItem,
                     dragSelection = overflowDrag.takeIf { !isLiquidGlass },

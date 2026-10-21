@@ -194,10 +194,28 @@ class SettingsDataStore(
     // Account-scoped: the last endpoint/model is per-account (server A's pick must not seed server B).
     // Emits nothing while the account is Warming (NOT null) so a one-shot/wait-on-unresolved consumer
     // — the model seeder — blocks for the real value instead of mistaking Warming for "none saved" and
-    // seeding a lower tier; emits null only once the account resolves (logged out or genuinely absent).
-    val lastUsedEndpoint: Flow<String?> = scopedString(::endpointKey)
-
-    val lastUsedModel: Flow<String?> = scopedString(::modelKey)
+    // seeding a lower tier; emits [LastUsedSelection.NONE] only once the account resolves (logged out),
+    // and null fields when nothing was saved.
+    //
+    // One snapshot rather than a flow per key: [setLastUsedModel] writes the three in one edit, and
+    // three flows combined downstream can pair the new model with the old spec for an emission.
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val lastUsedSelection: Flow<LastUsedSelection> =
+        activeAccountProvider.state.flatMapLatest { state ->
+            when (state) {
+                AccountState.Warming -> emptyFlow()
+                is AccountState.Resolved ->
+                    state.id?.let { id ->
+                        dataStore.data.map { prefs ->
+                            LastUsedSelection(
+                                endpoint = prefs[endpointKey(id.value)],
+                                model = prefs[modelKey(id.value)],
+                                spec = prefs[specKey(id.value)],
+                            )
+                        }.distinctUntilChanged() // any other preference write re-emits the file
+                    } ?: flowOf(LastUsedSelection.NONE)
+            }
+        }
 
     /**
      * The account's most-used endpoint/model pairs, ranked by send count (recency breaks ties),
@@ -521,32 +539,23 @@ class SettingsDataStore(
         }
     }
 
-    suspend fun setLastUsedModel(endpoint: String, model: String) {
+    suspend fun setLastUsedModel(endpoint: String, model: String, spec: String? = null) {
         val accountId = activeAccountProvider.currentAccountId()?.value ?: return
         dataStore.edit { prefs ->
             prefs[endpointKey(accountId)] = endpoint
             prefs[modelKey(accountId)] = model
+            if (spec != null) prefs[specKey(accountId)] = spec else prefs.remove(specKey(accountId))
             // Reset migration: drop the pre-keying bare entries (they'd mis-attribute A's model to B).
             prefs.remove(stringPreferencesKey(LAST_USED_ENDPOINT))
             prefs.remove(stringPreferencesKey(LAST_USED_MODEL))
         }
     }
 
-    // Suspends (emits nothing) while Warming; once Resolved emits the account's scoped value, or null
-    // when logged out. flatMapLatest re-subscribes on every identity transition so a switch re-emits.
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private fun scopedString(keyFor: (String) -> Preferences.Key<String>): Flow<String?> =
-        activeAccountProvider.state.flatMapLatest { state ->
-            when (state) {
-                AccountState.Warming -> emptyFlow()
-                is AccountState.Resolved ->
-                    state.id?.let { id -> dataStore.data.map { it[keyFor(id.value)] } } ?: flowOf(null)
-            }
-        }
-
     private fun endpointKey(accountId: String) = accountScopedKey(accountId, LAST_USED_ENDPOINT)
 
     private fun modelKey(accountId: String) = accountScopedKey(accountId, LAST_USED_MODEL)
+
+    private fun specKey(accountId: String) = accountScopedKey(accountId, LAST_USED_SPEC)
 
     private fun usageKey(accountId: String) = accountScopedKey(accountId, MODEL_USAGE)
 
@@ -878,6 +887,7 @@ class SettingsDataStore(
         private val KEY_SELECTED_VOICE_ID = stringPreferencesKey("selected_voice_id")
         private const val LAST_USED_ENDPOINT = "last_used_endpoint"
         private const val LAST_USED_MODEL = "last_used_model"
+        private const val LAST_USED_SPEC = "last_used_spec"
         private const val MODEL_USAGE = "model_usage"
         private const val PREFETCH_LIST_REFRESHED_AT = "prefetch_list_refreshed_at"
         private const val PREFETCH_LAST_SCHEDULED_RUN = "prefetch_last_scheduled_run"

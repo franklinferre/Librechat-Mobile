@@ -15,6 +15,7 @@ import com.garfiec.librechat.feature.auth.navigation.ServerUrl
 import com.garfiec.librechat.feature.auth.navigation.isAddAccountFlowRoute
 import com.garfiec.librechat.feature.chat.navigation.Chat
 import com.garfiec.librechat.feature.chat.navigation.NewChat
+import com.garfiec.librechat.feature.chat.navigation.isPlainLanding
 import com.garfiec.librechat.feature.conversations.navigation.Search
 import com.garfiec.librechat.feature.settings.navigation.ProviderKeys
 
@@ -38,10 +39,25 @@ class Navigator(val backStack: NavBackStack<NavKey>) {
         backStack.removeLastOrNull()
     }
 
-    /** Swap the top entry for [route], so back skips the screen being left. */
-    fun replaceTop(route: NavKey) {
+    /**
+     * Removes every copy of [route] wherever it sits, for a screen that closes itself. Unlike [goBack]
+     * it can't pop a different screen when [route] isn't on top, e.g. while predictive back draws it
+     * underneath. Equal keys share one ViewModel, so a copy left behind would be just as closed.
+     * Never empties the stack.
+     */
+    fun remove(route: NavKey) {
+        if (backStack.any { it != route }) backStack.removeAll { it == route }
+    }
+
+    /**
+     * Swap [route] for [replacement] so back skips [route], but only while [route] is the top entry:
+     * a screen that hands itself over once a request finishes can't drop a different screen when the
+     * user has already left it and the result lands during its exit animation.
+     */
+    fun replace(route: NavKey, replacement: NavKey) {
+        if (backStack.lastOrNull() != route) return
         backStack.removeLastOrNull()
-        backStack.add(route)
+        backStack.add(replacement)
     }
 
     /** Pop while [predicate] holds for the top entry. Never pops the last one. */
@@ -77,12 +93,29 @@ class Navigator(val backStack: NavBackStack<NavKey>) {
 
     /** Navigate to a chat, replacing any current chat on the stack. [isTemporary] marks a
      *  temporary chat so a restored Chat(id) entry stays temp-aware and never persists
-     *  the server-hidden conversation to Room — see [Chat.isTemporary]. */
+     *  the server-hidden conversation to Room — see [Chat.isTemporary]. A project-scoped landing
+     *  is replaced too, so Back from the chat it started returns to the project. */
     fun navigateToChat(conversationId: String, isTemporary: Boolean = false) {
-        if (backStack.lastOrNull() is Chat) {
+        val top = backStack.lastOrNull()
+        if (top is Chat || (top is NewChat && !top.isPlainLanding)) {
             backStack.removeLastOrNull()
         }
         backStack.add(Chat(conversationId, isTemporary))
+    }
+
+    /**
+     * A new chat filed into [projectId], pushed over the current screen so Back returns there (the
+     * project page, say). A chat or another project's landing on top is replaced, as [navigateToChat]
+     * replaces one, so chats never stack; the same project's landing is kept.
+     */
+    fun navigateToNewChatInProject(projectId: String, projectName: String) {
+        val top = backStack.lastOrNull()
+        if (top is NewChat && top.chatProjectId == projectId) return
+        if (top is Chat || (top is NewChat && !top.isPlainLanding)) backStack.removeLastOrNull()
+        // The same project's landing further down would share this one's key, and with it its
+        // ViewModel: move it up rather than holding two.
+        backStack.removeAll { it is NewChat && it.chatProjectId == projectId }
+        backStack.add(NewChat(chatProjectId = projectId, chatProjectName = projectName))
     }
 
     /**
@@ -91,7 +124,9 @@ class Navigator(val backStack: NavBackStack<NavKey>) {
      * beneath stays, so back returns to the results.
      */
     fun navigateToMessage(conversationId: String, messageId: String, query: String, inReasoning: Boolean = false) {
-        if (backStack.lastOrNull() is Chat) {
+        // Replaces what navigateToChat replaces, so both ways of opening a chat leave one back stack.
+        val top = backStack.lastOrNull()
+        if (top is Chat || (top is NewChat && !top.isPlainLanding)) {
             backStack.removeLastOrNull()
         }
         backStack.add(

@@ -1236,7 +1236,7 @@
         "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/util/SpecSeed.kt",
         "symbol": "resolveDefaultModelSpec"
       },
-      "why": "Which model spec a new chat opens on: a `default` spec, else a `softDefault` one (which yields to the user's prior selection unless `interface.modelSelect` is off), else the first spec when `prioritize` is on or the selector is off. ModelSelectionDelegate seeds the landing from it ahead of (prioritized) or just behind (soft) the user's last-used model.",
+      "why": "Which model spec a new chat opens on: a `default` spec, else the spec the user last picked (`LAST_CONVO_SETUP.spec`; mobile stores it with the last-used pair), else a `softDefault` one (which yields to the user's prior selection unless `interface.modelSelect` is off), else the first spec when `prioritize` is on or the selector is off. ModelSelectionDelegate seeds the landing from it ahead of (prioritized) or just behind (soft) the user's last-used model.",
       "failure_mode": "Upstream changes the precedence and new chats on mobile open on a different agent or model than on web for the same server -- typically a raw model without the admin's agent, prompt and tools -- with nothing failing."
     },
     {
@@ -1251,6 +1251,60 @@
       },
       "why": "`shouldApplyModelSpec` decides whether getDefaultModelSpec's answer is used at all: only under `prioritize === true` or `interface.modelSelect` off, or for a soft default when the new chat carries no selection. The resolver folds that gate in. Watched as a file because the gate is a nested const the block extractor cannot isolate.",
       "failure_mode": "Upstream loosens or tightens when a spec overrides the user's selection, and mobile keeps applying the old rule -- forcing a spec web no longer forces, or leaving a raw model where web now opens the spec."
+    },
+    {
+      "id": "model-spec-added-endpoints",
+      "upstream": {
+        "file": "client/src/hooks/Endpoint/useEndpoints.ts",
+        "symbol": "filteredEndpoints",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/util/SpecSeed.kt",
+        "symbol": "showsRawEndpoint"
+      },
+      "why": "Which raw endpoints the model picker lists next to the named specs: only those in `modelSpecs.addedEndpoints` when it is set. Mobile also hides every raw row under `enforce` with no `addedEndpoints`, where web lists them and every pick fails.",
+      "failure_mode": "Upstream changes the filter and the picker offers endpoints web hides (an admin's spec-only deployment shows raw models) or hides ones web offers."
+    },
+    {
+      "id": "model-spec-agent-visibility",
+      "upstream": {
+        "file": "client/src/components/Chat/Menus/Endpoints/ModelSelectorContext.tsx",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/util/SpecSeed.kt",
+        "symbol": "visibleSpecs"
+      },
+      "why": "The `modelSpecs` memo leaves an agent spec out of the picker once the agents map has loaded without its agent, and keeps every spec while there is no map. Mobile ports both halves (a failed or pending fetch keeps them all). Watched as a file because the filter is a nested memo the block extractor cannot isolate.",
+      "failure_mode": "Upstream changes which specs it hides and the mobile picker lists an agent spec web hides (a send then fails on an agent the user cannot use) or hides one web offers."
+    },
+    {
+      "id": "agents-list-default-limit",
+      "upstream": {
+        "file": "api/server/controllers/agents/v1.js",
+        "symbol": "getListAgentsHandler",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/util/SpecSeed.kt",
+        "symbol": "AGENTS_LIST_PAGE_SIZE"
+      },
+      "why": "`GET /api/agents` with no `limit` returns a page of 100, which is all mobile fetches. `visibleSpecs` treats a shorter list as complete and hides agent specs whose agent is missing from it; a full page proves nothing, so every spec stays.",
+      "failure_mode": "Upstream lowers the default page and a full page reads as complete: agent specs whose agent sits past it vanish from the picker. Raising it only keeps specs visible a little longer than needed."
+    },
+    {
+      "id": "model-spec-enforce",
+      "upstream": {
+        "file": "api/server/middleware/buildEndpointOption.js",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/util/SpecSeed.kt",
+        "symbol": "requiresSpec"
+      },
+      "why": "Under `modelSpecs.enforce` with a non-empty list the server rejects any send without a `spec` (`No model spec selected`), with no exception for `addedEndpoints`. The send preflight blocks such a send and the picker greys raw rows, so the user picks a spec instead of meeting the server's error.",
+      "failure_mode": "Upstream relaxes the rule (say, exempting `addedEndpoints`) and mobile keeps blocking sends web allows, or tightens it and mobile lets through sends the server now rejects."
     },
     {
       "id": "context-gauge-estimate",
@@ -1622,6 +1676,143 @@
       },
       "why": "The server's PPTX renderer. pptx-preview is not vendored because it is not FOSS (no LICENSE in the tarball; its README forbids republishing or modifying the source), so the client strips it and PPTX documents show the server's slide-list fallback.",
       "failure_mode": "Upstream switches PPTX to a different, FOSS renderer and mobile keeps showing the slide-list fallback without anyone noticing it could now render at full fidelity. Or a re-licensed pptx-preview goes unnoticed. Check the license of whatever this block now names."
+    },
+    {
+      "id": "mcp-status-badge",
+      "upstream": {
+        "file": "client/src/components/SidePanel/MCPBuilder/MCPStatusBadge.tsx",
+        "symbol": "getStatusDotColor",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/mcp/McpDisplayStatus.kt",
+        "symbol": "mcpDisplayStatus"
+      },
+      "why": "Which connection states the MCP servers page shows as connected, connecting, needing sign-in, idle or failed, and so which servers get a Sign in or Retry button and sort first.",
+      "failure_mode": "A state upstream starts reporting falls through to the wrong label: a server that needs the user's action reads as merely disconnected, or a healthy one as failed. Nothing errors."
+    },
+    {
+      "id": "mcp-trust-checkbox",
+      "upstream": {
+        "file": "client/src/components/SidePanel/MCPBuilder/MCPServerDialog/sections/TrustSection.tsx",
+        "symbol": "TrustSection",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "feature/settings/src/commonMain/kotlin/com/garfiec/librechat/feature/settings/viewmodel/McpServerEditorViewModel.kt",
+        "symbol": "McpServerEditorUiState.canSave (draft.trusted)"
+      },
+      "why": "The web form refuses to add an MCP server until the user ticks the trust acknowledgement, and starts an edit already ticked. The server never checks it, so the rule lives only in the two clients.",
+      "failure_mode": "Upstream changes when the acknowledgement is asked (every edit, or a new required consent) and the app keeps adding servers without it. No request fails, so nothing reports the gap."
+    },
+    {
+      "id": "mcp-server-access",
+      "upstream": {
+        "file": "client/src/hooks/MCP/useMCPServerManager.ts",
+        "symbol": "effectivePermissions (dbId / consumeOnly gating)",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "feature/settings/src/commonMain/kotlin/com/garfiec/librechat/feature/settings/viewmodel/McpServerAccess.kt",
+        "symbol": "mcpServerAccess"
+      },
+      "why": "Which MCP servers offer Edit and Delete: none without a dbId (YAML-defined) or with consumeOnly, otherwise the effective permission bits keyed by dbId. Deliberately looser than upstream where the bits are unknown.",
+      "failure_mode": "Upstream adds a new read-only marker or changes which id the permissions map is keyed by, and the app offers Edit/Delete on servers the user can't change (each save refused) or hides them on servers they can. Nothing errors until a write is attempted."
+    },
+    {
+      "id": "image-gen-faux-progress",
+      "upstream": {
+        "file": "client/src/components/Chat/Messages/Content/Parts/OpenAIImageGen/OpenAIImageGen.tsx",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/components/ImageGenCard.kt",
+        "symbol": "imageGenFauxDurationMs / imageGenFauxProgress"
+      },
+      "why": "The server sends no progress while an image generates, so the card's percentage and pixel reveal are a client-side timer: 10s / 20s / 50s by quality plus up to 30% jitter, 200ms ticks, a near-linear curve to 80% of the run easing out over the last 20%, from 0.1 to a 0.9 cap. All of it lives inside the component's useEffect body, which the block extractor cannot isolate, so the whole file is watched; churn in the rest of the component (sizing, cancelled state, intent labels) reports DRIFT -- check those constants, not the file.",
+      "failure_mode": "The mobile bar runs faster or slower than web's for the same quality, or stalls at a different point. Nothing errors."
+    },
+    {
+      "id": "agent-category-sentinels",
+      "upstream": {
+        "file": "api/server/controllers/agents/v1.js",
+        "symbol": "getAgentCategories",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "feature/agents/src/commonMain/kotlin/com/garfiec/librechat/feature/agents/viewmodel/AgentListFilter.kt",
+        "symbol": "AgentListFilter.PROMOTED / AgentListFilter.ALL"
+      },
+      "why": "The categories route appends two entries that are not categories: `promoted` (only when some agent is promoted) and `all`. The client recognises them by value and turns them into the list route's own filters instead of sending them as `category`.",
+      "failure_mode": "Upstream renames a sentinel or adds another, and the app sends it as a category. The list route filters on a category no agent has and answers with an empty page, so the chip shows no agents and nothing errors."
+    },
+    {
+      "id": "agent-grid-query-params",
+      "upstream": {
+        "file": "client/src/components/Agents/AgentGrid.tsx",
+        "symbol": "queryParams",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "feature/agents/src/commonMain/kotlin/com/garfiec/librechat/feature/agents/viewmodel/AgentListFilter.kt",
+        "symbol": "AgentListFilter.of"
+      },
+      "why": "How the web grid turns the selected chip and search into list params: `promoted` -> `promoted=1`, `all` -> no filter, anything else -> `category`; while searching, `promoted` and `all` send neither so the search covers every agent.",
+      "failure_mode": "Upstream changes which filters a search keeps (or adds a chip), and the app keeps narrowing or widening results differently from the web. Every request succeeds; the lists just disagree."
+    },
+    {
+      "id": "agent-list-query-contract",
+      "upstream": {
+        "file": "api/server/controllers/agents/v1.js",
+        "symbol": "getListAgentsHandler",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/network/src/commonMain/kotlin/com/garfiec/librechat/core/network/api/AgentsApi.kt",
+        "symbol": "AgentsApi.getAgentsPaginated"
+      },
+      "why": "The query parameters `GET /api/agents` reads: `limit`, `cursor` (the previous page's `after`), `search`, `category`, `promoted` (matched as the strings '1' and '0'), `requiredPermission`. A parameter it does not read is dropped without an error.",
+      "failure_mode": "Upstream renames a parameter or changes the `promoted` values, and the app's filter or paging is silently ignored: load-more re-reads the first page or Top picks shows every agent. Nothing fails to decode."
+    },
+    {
+      "id": "agent-chat-link",
+      "upstream": {
+        "file": "client/src/utils/resources.ts",
+        "symbol": "RESOURCE_CONFIGS",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "feature/agents/src/commonMain/kotlin/com/garfiec/librechat/feature/agents/viewmodel/AgentDisplayMappers.kt",
+        "symbol": "agentChatLink"
+      },
+      "why": "The link the agent page's Copy link puts on the clipboard: the web's own agent URL, `<origin>/c/new?agent_id=<id>` (the AGENT entry's getResourceUrl). It is pasted into the web, so it must name a route the web client opens.",
+      "failure_mode": "Upstream moves the new-chat route or renames the agent query parameter, and a copied link opens the web on a 404 or on a new chat without the agent. Nothing in the app fails."
+    },
+    {
+      "id": "agent-description-html",
+      "upstream": {
+        "file": "client/src/utils/configHtml.ts",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "feature/agents/src/commonMain/kotlin/com/garfiec/librechat/feature/agents/util/AgentDescriptionMarkup.kt",
+        "symbol": "AGENT_DESCRIPTION_TAGS / isAgentDescriptionHtml; HtmlDescription.kt safeHref and HtmlRenderer.tag"
+      },
+      "why": "Which tags an agent description may use as HTML (a, strong, b, em, i, br, code, span, p, div, ul, ol, li) and which links survive (CONFIG_HTML_SAFE_URI: http(s), mailto, tel, or relative). Detection (a description is HTML only when it starts with an allowlisted tag, decisions C7) is the separate agent-description-html-detection entry; the card strips it with core/common HtmlText.kt htmlToPlainText.",
+      "failure_mode": "Upstream widens or narrows the allowlist or the safe-URI rule, and the same description renders differently on the web and in the app: a tag the web styles shows as bare text, or a link the web drops becomes tappable here. Nothing errors."
+    },
+    {
+      "id": "agent-description-html-detection",
+      "upstream": {
+        "file": "client/src/components/ui/Description.tsx",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "feature/agents/src/commonMain/kotlin/com/garfiec/librechat/feature/agents/util/AgentDescriptionMarkup.kt",
+        "symbol": "isAgentDescriptionHtml"
+      },
+      "why": "How the web decides a description is HTML at all. The rule lives in Description.tsx: `isHtmlDescription` matches `^<\\s*\\/?\\s*([a-z][a-z0-9]*)\\b` on the trimmed text and checks the tag against `descriptionHtmlTags` (CONFIG_HTML_RICH_TEXT_TAGS plus CONFIG_HTML_MEDIA_TAGS, so `img` counts). This client ports it as `isAgentDescriptionHtml` (decisions C7): only a description that starts with such a tag is HTML, so `List<String>` or a tag mid-sentence stays plain. Other upstream revisions use `description.trim().startsWith('<')` instead. The whole file is watched so a change to the regex or the tag set is seen.",
+      "failure_mode": "Upstream changes its detection, and a description the web shows as text renders as HTML here (placeholders vanish) or the reverse (markup shows raw). Nothing fails to decode."
     }
   ]
 }

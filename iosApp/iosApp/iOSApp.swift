@@ -11,11 +11,13 @@ struct iOSApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
-        // Before Koin: starting it runs the eager prefetch coordinator, which submits background task
-        // requests as soon as a stored session resolves, and BGTaskScheduler throws for a request whose
-        // identifier has no launch handler yet. SwiftUI builds the App before the delegate's
-        // didFinishLaunching, so registering there is too late on a relaunch while signed in. This
-        // still runs before launch finishes, and on background-task launches too (no scene needed).
+        // Before Koin, on this same thread: starting Koin eagerly creates the prefetch schedule
+        // coordinator, whose collector submits BGTask requests from a background dispatcher as soon
+        // as a signed-in account resolves. Submitting an identifier with no launch handler is an
+        // uncatchable NSInternalInconsistencyException, and `didFinishLaunching` runs only after
+        // this initializer returns, so registering there lost the race on nearly every cold launch.
+        // Here rather than in the scene delegate: a launch triggered by a background task connects
+        // no scene at all, but it still constructs the App.
         PrefetchBackgroundTasks.register()
         // Initialize Koin DI — must happen before any KMP code is used
         IosKoinHelperKt.startIosKoin()
@@ -39,6 +41,16 @@ struct iOSApp: App {
 
 /// Supplies a scene delegate; that's the object iOS delivers quick-action taps to.
 final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        // The BGTask launch handlers are registered in `iOSApp.init()`, which runs before this and
+        // before Koin can submit anything. Registering again here would throw: iOS accepts each
+        // identifier once per process.
+        return true
+    }
+
     func application(
         _ application: UIApplication,
         configurationForConnecting connectingSceneSession: UISceneSession,

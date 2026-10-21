@@ -5,9 +5,12 @@ import androidx.compose.runtime.Immutable
 @Immutable
 data class ComparisonState(
     val isEnabled: Boolean = false,
+    // The user turned Compare on and is choosing the second model; nothing is enabled yet.
+    val isSettingUp: Boolean = false,
     // Secondary agent/model selection (set by user via model selector)
     val secondaryEndpoint: String? = null,
     val secondaryModel: String? = null,
+    val secondarySpec: String? = null,
     // Resolved agent IDs from SSE events (set during streaming)
     val primaryAgentId: String? = null,
     val secondaryAgentId: String? = null,
@@ -24,3 +27,7 @@ data class ComparisonState(
     val primaryFinalContent: String? = null,
     val secondaryFinalContent: String? = null,
 )
+
+/** One Compare lane's pick: a model, and the spec it came from when it was a spec row. */
+@Immutable
+data class ComparisonPick(val endpoint: String, val model: String, val spec: String? = null)

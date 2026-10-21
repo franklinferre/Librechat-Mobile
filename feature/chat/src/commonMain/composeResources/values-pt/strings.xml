@@ -29,7 +29,27 @@
     <!-- Neutral label for the active agent when its name hasn't resolved yet (never a model string). -->
     <string name="chat_agent_fallback_label">Agente</string>
     <string name="compare_models">Comparar modelos</string>
+    <string name="compare_with">Comparar com</string>
+    <string name="compare_start">Começar</string>
+    <string name="compare_setup_hint">Cada mensagem vai para os dois modelos. Toque em A ou B para escolher o modelo.</string>
+    <string name="compare_same_model">Mesmo modelo, outra resposta</string>
+    <string name="compare_pick_below">Escolha abaixo</string>
+    <string name="compare_message_both">Mensagem para os dois modelos</string>
+    <string name="compare_pick_to_send">Escolha o modelo B para enviar</string>
+    <string name="compare_not_picked">Ainda não escolhido</string>
+    <string name="compare_empty_lane">Envie uma mensagem para ver a resposta dele aqui.</string>
+    <string name="compare_empty_pick_right">Escolha à direita um modelo para comparar.</string>
+    <string name="compare_empty_ready">Toque em Começar e envie uma mensagem. Os dois modelos respondem lado a lado.</string>
+    <string name="compare_browse_all">Ver todos os modelos</string>
+    <string name="compare_pick_second_model">Escolha o segundo modelo</string>
+    <string name="compare_also_asking">Também perguntando a</string>
+    <string name="cd_change_compared_models">Alterar os modelos comparados</string>
+    <string name="cd_change_first_model">Alterar o primeiro modelo, %1$s</string>
+    <string name="cd_change_second_model">Alterar o segundo modelo, %1$s</string>
+    <string name="compare_lane_a">A</string>
+    <string name="compare_lane_b">B</string>
     <string name="how_can_i_help">Como posso ajudar você hoje?</string>
+    <string name="chat_in_project">Em %1$s</string>
     <string name="recording">Gravando…</string>
     <string name="hint_message_model">Mensagem para %1$s</string>
     <string name="hint_message">Mensagem…</string>
@@ -100,7 +120,6 @@
     <string name="cd_code_execution_result">Resultado da execução do código</string>
     <string name="cd_exit_code_success">Código de saída 0 (sucesso)</string>
     <string name="cd_exit_code_failure">Código de saída %1$d (falha)</string>
-    <string name="exit_code">saída %1$d</string>
     <string name="label_code">Código</string>
     <string name="label_output">Saída:</string>
     <string name="label_error">Erro:</string>
@@ -442,7 +461,6 @@
 
     <!-- Comparison mode -->
     <string name="continue_with_response">Continuar com esta resposta</string>
-    <string name="waiting_for_response">Aguardando resposta…</string>
 
     <!-- Provider Keys chat-time errors. -->
     <string name="provider_keys_chat_error_no_key">Nenhuma chave encontrada. Forneça uma chave e tente novamente.</string>
@@ -636,6 +654,7 @@
     <string name="compact_confirm_not_now">Agora não</string>
     <string name="compact_confirm_action">Compactar</string>
     <string name="cd_temporary_chat">Chat temporário</string>
+    <string name="temporary_chat_banner">Chat temporário: esta conversa não será salva no seu histórico</string>
     <string name="notice_rename_failed">Não foi possível renomear a conversa</string>
     <string name="notice_delete_failed">Não foi possível excluir a conversa</string>
     <string name="notice_archive_failed">Não foi possível arquivar a conversa</string>
@@ -694,7 +713,10 @@
     <string name="sandbox_starting">Iniciando ambiente sandbox</string>
     <string name="analyzing">Analisando</string>
     <string name="analyzing_finished">Análise concluída</string>
-    <string name="show_all_lines">Mostrar todas as linhas</string>
+    <plurals name="show_all_n_lines">
+        <item quantity="one">Mostrar %1$d linha</item>
+        <item quantity="other">Mostrar todas as %1$d linhas</item>
+    </plurals>
     <string name="cd_copy_output">Copiar saída</string>
     <string name="expired">Expirado</string>
     <string name="expired_explainer">Os arquivos do sandbox de código são mantidos por 24 horas. Este expirou e não pode mais ser baixado.</string>
@@ -725,11 +747,11 @@
     <string name="cd_mcp_server_enabled">Servidor MCP %1$s ativado</string>
     <string name="cd_code_block">Bloco de código</string>
     <string name="cd_code_block_language">Bloco de código %1$s</string>
-    <string name="comparison_primary">Principal</string>
     <string name="log_output_title">Saída do log</string>
     <string name="cd_attached_image">Imagem anexada</string>
     <string name="model_selector_search">Pesquisar modelos…</string>
     <string name="model_selector_my_agents">Meus agentes</string>
+    <string name="model_selector_spec_only_note">Este servidor só aceita as opções listadas acima.</string>
     <string name="agent_handoff_to">Agente %1$s</string>
     <string name="agent_handoff_run">Execução: %1$s</string>
     <string name="sibling_position">Resposta %1$d de %2$d</string>
@@ -755,4 +777,6 @@
     <string name="prompt_permission_view_only">Somente visualizar</string>
     <string name="prompt_permission_can_edit">Pode editar</string>
     <string name="prompt_preview_placeholder">Insira os valores das variáveis para ver a prévia</string>
+    <string name="cd_sync_scroll_on">Os painéis rolam juntos. Desvincular</string>
+    <string name="cd_sync_scroll_off">Os painéis rolam separadamente. Vincular</string>
 </resources>

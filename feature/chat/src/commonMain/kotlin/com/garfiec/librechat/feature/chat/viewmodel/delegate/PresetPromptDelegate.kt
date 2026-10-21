@@ -12,6 +12,8 @@ import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.prompts.PromptInsertion
 import com.garfiec.librechat.feature.chat.prompts.resolvePromptInsertion
 import com.garfiec.librechat.feature.chat.prompts.resolvePromptText
+import com.garfiec.librechat.feature.chat.util.offeredOrUnchecked
+import com.garfiec.librechat.feature.chat.util.toSeed
 import com.garfiec.librechat.feature.chat.viewmodel.ChatNotice
 import com.garfiec.librechat.feature.chat.viewmodel.PendingVariablePrompt
 import com.garfiec.librechat.feature.chat.viewmodel.PresetPromptHandle
@@ -107,6 +109,7 @@ class PresetPromptDelegate(
             title = name,
             endpoint = state.selectedEndpoint.takeIf { it.isNotBlank() },
             model = state.selectedModel,
+            spec = state.selectedSpec,
             // ModelParameters has non-nullable typed slots seeded with the
             // "neutral" default for each field, so we can't tell "user set
             // 1.0" from "user never touched the slider". Pragmatic
@@ -169,9 +172,17 @@ class PresetPromptDelegate(
     fun loadPreset(displayData: PresetDisplayData) {
         val preset = cachedPresets.find { it.presetId == displayData.presetId } ?: return
         handle.update {
+            val specs = selection.modelSpecs
+            // A preset that names a spec but neither endpoint nor model opens on the spec's pair, not
+            // the current one. Only whole: half of each would pair one endpoint with another's model.
+            val specSeed = preset.spec?.takeIf { preset.endpoint == null && preset.model == null }
+                ?.let { name -> specs?.list?.find { it.name == name }?.toSeed() }
+            val endpoint = specSeed?.endpoint ?: preset.endpoint ?: selection.selectedEndpoint
+            val model = specSeed?.model ?: preset.model ?: selection.selectedModel
             selection = selection.copy(
-                selectedEndpoint = preset.endpoint ?: selection.selectedEndpoint,
-                selectedModel = preset.model ?: selection.selectedModel,
+                // The spec is kept only while the server still offers it on that pair: a retargeted
+                // spec fails every send with "Model spec mismatch". Unchecked before the spec config loads.
+                choice = preset.spec.offeredOrUnchecked(endpoint, model, specs, checkable = specs != null),
                 // Authoritative load: a preset represents a complete saved
                 // configuration. Merging from current parameters would let
                 // unrelated fields (e.g. a temperature from the previous

@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
@@ -39,6 +40,9 @@ import com.garfiec.librechat.feature.chat.components.AskUserQuestionPanel
 import com.garfiec.librechat.feature.chat.components.ChatComposer
 import com.garfiec.librechat.feature.chat.components.ChatFloatingTopBar
 import com.garfiec.librechat.feature.chat.components.ChatRoot
+import com.garfiec.librechat.feature.chat.components.ComparisonLane
+import com.garfiec.librechat.feature.chat.components.ComposerComparison
+import com.garfiec.librechat.feature.chat.components.ComposerComparisonHint
 import com.garfiec.librechat.feature.chat.components.ToolApprovalPanel
 import com.garfiec.librechat.feature.chat.components.UpdateAvailableBanner
 import com.garfiec.librechat.feature.chat.components.UploadRoutingSheet
@@ -87,6 +91,9 @@ fun ChatScreen(
     targetMessageId: String? = null,
     highlightQuery: String? = null,
     targetInReasoning: Boolean = false,
+    /** A new chat started from a project: filed into [chatProjectId], named by [chatProjectName]. */
+    chatProjectId: String? = null,
+    chatProjectName: String? = null,
     onConversationStart: ((conversationId: String, isTemporary: Boolean) -> Unit)? = null,
     onNavigateToConversation: ((String) -> Unit)? = null,
     onOpenDrawer: (() -> Unit)? = null,
@@ -111,6 +118,7 @@ fun ChatScreen(
                 targetMessageId,
                 highlightQuery,
                 targetInReasoning,
+                chatProjectId,
             )
         }
     // Chrome-rate state; ChatContent collects at full rate. Never read a neutralized field here.
@@ -144,6 +152,23 @@ fun ChatScreen(
     var showSavePresetDialog by remember { mutableStateOf(false) }
     var showSecondaryModelSheet by remember { mutableStateOf(false) }
     var activeComparisonTab by remember { mutableIntStateOf(0) }
+    val compareSetupPick = rememberCompareSetupPick(uiState.comparisonState.isSettingUp)
+    val compareSetupActions = remember(viewModel) { viewModel.compareSetupActions() }
+    // A wide setup's "Browse all models" opens the setup sheet over the panes; it closes with setup.
+    var showCompareBrowseAll by remember { mutableStateOf(false) }
+    LaunchedEffect(uiState.comparisonState.isSettingUp) {
+        if (!uiState.comparisonState.isSettingUp) showCompareBrowseAll = false
+    }
+    // The chat's own width (not the window's: a tablet sidebar takes some) decides whether Compare
+    // shows its panes side by side, and with it whether setup is a sheet or the empty second pane.
+    // Until onSizeChanged reports for this window size, the window's width stands in: a fold,
+    // unfold or rotation then lays out right from its first frame instead of flashing the other
+    // layout. Keyed on the window width so a measurement from the previous posture is never reused.
+    val windowWidthPx = LocalWindowInfo.current.containerSize.width
+    var chatWidthPx by remember(windowWidthPx) { mutableIntStateOf(0) }
+    val effectiveChatWidthPx = if (chatWidthPx > 0) chatWidthPx else windowWidthPx
+    val comparisonWide = with(LocalDensity.current) { effectiveChatWidthPx.toDp() } >= ComparisonWideBreakpoint
+    val setupInPanes = uiState.comparisonState.isSettingUp && uiState.showsComparisonPanes(comparisonWide)
 
     // Header/composer model labels (agent name vs model name, with the "never a raw
     // model string under agents" rule).
@@ -151,6 +176,8 @@ fun ChatScreen(
         selectedEndpoint = uiState.selectedEndpoint,
         selectedModel = uiState.selectedModel,
         agents = uiState.agents,
+        selectedSpec = uiState.selectedSpec,
+        modelSpecs = uiState.modelSpecs,
     )
 
     val onStartRecordingWithPermission = rememberChatStartRecording(
@@ -165,13 +192,67 @@ fun ChatScreen(
     // and the pull-up, hence the controller. Independent of uiState.showModelSheet (the standalone
     // selector), which keeps dismissing straight to the chat.
     val optionsController = rememberChatOptionsSheetController()
-    // On comparison tab 1 the composer edits the secondary model, so the selector page and label
-    // both follow the active tab.
-    val isSecondaryTab = uiState.comparisonState.isEnabled && activeComparisonTab == 1
+    // On a phone's comparison tab 1 the composer edits the secondary model, so the selector page and
+    // label both follow the active tab. Side by side there is no current tab (the remembered index
+    // can be stale from before an unfold), so it is never the secondary one.
+    val isSecondaryTab = uiState.comparisonState.isEnabled && activeComparisonTab == 1 && !comparisonWide
+    val secondaryModelLabel = if (uiState.comparisonState.isEnabled) {
+        comparisonLaneLabel(
+            uiState.comparisonState.secondaryEndpoint,
+            uiState.comparisonState.secondaryModel,
+            uiState.agents,
+            uiState.comparisonState.secondarySpec,
+            uiState.modelSpecs,
+        )
+    } else {
+        null
+    }
+    val composerComparisonHint = when {
+        uiState.comparisonState.isSettingUp -> ComposerComparisonHint.SETTING_UP
+        uiState.comparisonState.isEnabled && comparisonWide -> ComposerComparisonHint.BOTH
+        else -> ComposerComparisonHint.NONE
+    }
+    // On a phone the composer names its tab's model, so an "Also asking" row names the other tab's
+    // (A on the B tab). Side by side it is the A·B badge pair inside the field, whose menu opens
+    // either model's selector.
+    // Lane A without a model reads "Select model", never B's name.
+    val primaryLaneLabel = comparisonLaneLabel(
+        uiState.selectedEndpoint,
+        uiState.selectedModel,
+        uiState.agents,
+        uiState.selectedSpec,
+        uiState.modelSpecs,
+    )
+    val composerComparison = remember(
+        secondaryModelLabel,
+        primaryLaneLabel,
+        isSecondaryTab,
+        comparisonWide,
+        viewModel,
+    ) {
+        secondaryModelLabel?.let { secondaryLabel ->
+            when {
+                comparisonWide -> ComposerComparison.BothModels(
+                    primaryLabel = primaryLaneLabel,
+                    secondaryLabel = secondaryLabel,
+                    onChangePrimary = viewModel::openModelSheet,
+                    onChangeSecondary = { showSecondaryModelSheet = true },
+                )
+                isSecondaryTab -> ComposerComparison.OtherModel(
+                    lane = ComparisonLane.A,
+                    label = primaryLaneLabel,
+                    onChangeModel = viewModel::openModelSheet,
+                )
+                else -> ComposerComparison.OtherModel(
+                    lane = ComparisonLane.B,
+                    label = secondaryLabel,
+                    onChangeModel = { showSecondaryModelSheet = true },
+                )
+            }
+        }
+    }
     val effectiveSelectedModelDisplay = if (isSecondaryTab) {
-        viewModel.getSecondaryModelDisplayName()
-            ?: uiState.comparisonState.secondaryModel
-            ?: displayModel
+        secondaryModelLabel ?: displayModel
     } else {
         displayModel
     }
@@ -265,6 +346,12 @@ fun ChatScreen(
         val bottomContentPadding = with(LocalDensity.current) {
             maxOf(160.dp, inputBarHeightPx.toDp() + 16.dp)
         }
+        // Side-by-side comparison panes are cards that stop above the composer, not lists that
+        // scroll under it, so they sit on the measured bar itself. The list floor above would
+        // leave a band of empty space, widest with the keyboard up (the bar loses its nav-bar inset).
+        val paneBottomInset = with(LocalDensity.current) {
+            if (inputBarHeightPx > 0) inputBarHeightPx.toDp() + 8.dp else bottomContentPadding
+        }
         // Floor the top inset at status bar + one chip row so content clears the bar on the first
         // frame (before onSizeChanged reports the real height), avoiding a content-under-bar flash
         // on each screen entry. Mirrors the bottomContentPadding floor.
@@ -273,7 +360,9 @@ fun ChatScreen(
             maxOf(statusBarTop + 56.dp, topBarHeightPx.toDp())
         }
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .onSizeChanged { chatWidthPx = it.width },
         ) {
             val pullUp = rememberChatPullUpSheetState()
             Box(Modifier.fillMaxSize().glassBackdropSource(pullUp.backdrop.takeIf { pullUp.visible })) {
@@ -294,7 +383,6 @@ fun ChatScreen(
                         pullUpModifier = pullUp.landingModifier,
                         viewModel = viewModel,
                         agentName = agentName,
-                        displayModel = displayModel,
                         fontSizeMultiplier = fontSizeMultiplier,
                         showImageDescriptions = showImageDescriptions,
                         chatLayoutStyle = chatLayoutStyle,
@@ -302,9 +390,16 @@ fun ChatScreen(
                         showBubbles = showBubbles,
                         useKatex = useKatex,
                         bottomContentPadding = bottomContentPadding,
+                        paneBottomInset = paneBottomInset,
                         topContentPadding = topContentPadding,
                         onShowSecondaryModelSheet = { showSecondaryModelSheet = true },
                         onComparisonTabChange = { activeComparisonTab = it },
+                        projectName = chatProjectName,
+                        comparisonWide = comparisonWide,
+                        compareSetupPick = compareSetupPick,
+                        compareSetupActions = compareSetupActions,
+                        primaryLaneLabel = primaryLaneLabel,
+                        onBrowseAllModels = { showCompareBrowseAll = true },
                     )
                 }
 
@@ -452,12 +547,15 @@ fun ChatScreen(
                                 // After a Stop/error pause, the queue waits for an explicit nudge.
                                 queuedPausedCount = uiState.pausedQueueCount,
                                 queueHeldForRefusal = uiState.isQueueHeldForRefusal,
+                                isTemporaryChat = uiState.isTemporaryChat,
                                 onSendQueuedMessages = viewModel::sendQueuedNow,
                                 isEditingQueued = uiState.isEditingQueued,
                                 onCommitEdit = viewModel::commitQueuedEdit,
                                 onCancelEdit = viewModel::cancelQueuedEdit,
                                 isAwaitingUploadSend = uiState.isAwaitingUploadSend,
                                 arePicksUnsettled = uiState.arePicksUnsettled,
+                                comparison = composerComparison,
+                                comparisonHint = composerComparisonHint,
                                 onCancelPendingSend = viewModel::cancelPendingUploadSend,
                                 queuedMessages = uiState.messageQueue,
                                 onEditQueuedMessage = viewModel::editQueued,
@@ -524,6 +622,7 @@ fun ChatScreen(
         onAttachFromServer = onAttachFromServer,
         onNavigateToProviderKeys = onNavigateToProviderKeys,
         onShowSavePresetDialog = { showSavePresetDialog = true },
+        compareSetupPick = compareSetupPick,
     )
 
     ChatScreenDialogs(
@@ -537,6 +636,17 @@ fun ChatScreen(
         onSetShowSavePresetDialog = { showSavePresetDialog = it },
         onSetShowSecondaryModelSheet = { showSecondaryModelSheet = it },
         onNavigateToProviderKeys = onNavigateToProviderKeys,
+        // The sheet whenever the panes can't hold setup (narrow, or a wide chat still loading or
+        // failed to load), and over them for "Browse all models".
+        showCompareSetupSheet = uiState.comparisonState.isSettingUp && (!setupInPanes || showCompareBrowseAll),
+        onCompareSetupSheetDismiss = if (setupInPanes) {
+            { showCompareBrowseAll = false }
+        } else {
+            null
+        },
+        compareSetupPick = compareSetupPick,
+        primaryModelLabel = primaryLaneLabel,
+        compareSetupActions = compareSetupActions,
     )
 
     LaunchedEffect(Unit) { viewModel.consumePendingPromptInsertion() }
@@ -579,6 +689,8 @@ fun NewChatScreen(
     initialAgentId: String? = null,
     initialEndpoint: String? = null,
     initialModel: String? = null,
+    chatProjectId: String? = null,
+    chatProjectName: String? = null,
     onOpenDrawer: (() -> Unit)? = null,
     onNavigateToPromptsLibrary: (() -> Unit)? = null,
     onAttachFromServer: () -> Unit = {},
@@ -589,6 +701,8 @@ fun NewChatScreen(
         initialAgentId = initialAgentId,
         initialEndpoint = initialEndpoint,
         initialModel = initialModel,
+        chatProjectId = chatProjectId,
+        chatProjectName = chatProjectName,
         onConversationStart = onConversationStart,
         onOpenDrawer = onOpenDrawer,
         onNavigateToPromptsLibrary = onNavigateToPromptsLibrary,

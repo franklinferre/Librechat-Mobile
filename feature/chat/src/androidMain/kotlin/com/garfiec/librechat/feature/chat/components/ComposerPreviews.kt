@@ -23,6 +23,7 @@ import com.garfiec.librechat.core.ui.theme.LibreChatTheme
 import com.garfiec.librechat.feature.chat.viewmodel.CompactNudge
 import com.garfiec.librechat.feature.chat.viewmodel.ContextGaugeDetails
 import com.garfiec.librechat.feature.chat.viewmodel.DuringRunSendTarget
+import com.garfiec.librechat.feature.chat.viewmodel.ModelChoice
 import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import com.garfiec.librechat.feature.chat.viewmodel.QueuedTurnServerState
 
@@ -40,6 +41,14 @@ private fun ComposerMidRunGlassPreview() = ComposerSurface(UiStyle.LIQUID_GLASS)
 @PreviewNarrowScreens
 @Composable
 private fun ComposerQueueHeldPreview() = ComposerSurface(UiStyle.MATERIAL) { QueueHeldComposerHost() }
+
+@PreviewNarrowScreens
+@Composable
+private fun ComposerTemporaryChatMaterialPreview() = ComposerSurface(UiStyle.MATERIAL) { TemporaryChatComposerHost() }
+
+@PreviewNarrowScreens
+@Composable
+private fun ComposerTemporaryChatGlassPreview() = ComposerSurface(UiStyle.LIQUID_GLASS) { TemporaryChatComposerHost() }
 
 @PreviewNarrowScreens
 @Composable
@@ -108,6 +117,19 @@ private fun QueueHeldComposerHost() {
         onOpenTools = {},
         queueHeldForRefusal = true,
         queuedMessages = listOf(queuedRefused),
+    )
+}
+
+@Composable
+private fun TemporaryChatComposerHost() {
+    ChatInput(
+        inputText = "",
+        isStreaming = false,
+        onInputChange = {},
+        onSend = {},
+        onStop = {},
+        onOpenTools = {},
+        isTemporaryChat = true,
     )
 }
 
@@ -181,9 +203,7 @@ private val previewDispatch = EndpointDispatch(endpointType = null, key = null, 
 private val queuedRefused = QueuedMessage(
     localId = "refused",
     text = "And book the character breakfast for the second morning if it's still open",
-    endpoint = "openAI",
-    model = "gpt-5.1",
-    agentId = null,
+    choice = ModelChoice.Raw("openAI", "gpt-5.1"),
     dispatch = previewDispatch,
     server = QueuedTurnServerState(status = QueuedTurnServerState.Status.Rejected),
 )

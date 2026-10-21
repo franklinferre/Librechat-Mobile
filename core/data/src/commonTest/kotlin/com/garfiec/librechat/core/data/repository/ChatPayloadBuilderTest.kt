@@ -33,6 +33,18 @@ class ChatPayloadBuilderTest {
     }
 
     @Test
+    fun projectIdRidesOnlyWhenGiven() {
+        val filed = ChatPayloadBuilder.build(
+            text = "hi", conversationId = null, endpoint = "openAI", model = "gpt-4o", chatProjectId = "proj-1",
+        )
+        assertTrue("\"chatProjectId\":\"proj-1\"" in json.encodeToString(ChatRequest.serializer(), filed))
+
+        // Absent, not null: on a later turn a present field would move the chat.
+        val plain = ChatPayloadBuilder.build(text = "hi", conversationId = "c-1", endpoint = "openAI", model = "gpt-4o")
+        assertFalse("chatProjectId" in Json { explicitNulls = false }.encodeToString(ChatRequest.serializer(), plain))
+    }
+
+    @Test
     fun builtInUserProvidedEndpointSendsKey() {
         val req = ChatPayloadBuilder.build(
             text = "hi",
@@ -116,5 +128,20 @@ class ChatPayloadBuilderTest {
         assertNull(req.messageId)
         val encoded = json.encodeToString(ChatRequest.serializer(), req)
         assertFalse("\"messageId\"" in encoded, "messageId must be omitted when not provided (regenerate/continue)")
+    }
+
+    @Test
+    fun selected_spec_is_serialized_for_an_enforced_server() {
+        val request = ChatPayloadBuilder.build(
+            text = "hello",
+            conversationId = null,
+            endpoint = "custom",
+            model = "shared-model",
+            spec = "curated-spec",
+        )
+        val body = ChatPayloadBuilder.toBody(json, request, null)
+        assertEquals("curated-spec", body["spec"]?.toString()?.trim('"'))
+        val raw = request.copy(spec = null)
+        assertFalse("spec" in ChatPayloadBuilder.toBody(json, raw, null))
     }
 }

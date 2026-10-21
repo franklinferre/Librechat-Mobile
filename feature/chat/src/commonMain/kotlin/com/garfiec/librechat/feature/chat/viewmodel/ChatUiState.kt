@@ -15,6 +15,7 @@ import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.PendingAction
+import com.garfiec.librechat.core.model.config.ModelSpecs
 import com.garfiec.librechat.core.model.content.Compaction
 import com.garfiec.librechat.core.model.endpoint.KeyState
 import com.garfiec.librechat.core.model.response.FilePreviewResponse
@@ -101,12 +102,15 @@ data class ChatUiState(
     val forkedConversationId: String? get() = actions.forkedConversationId
     val editingMessageId: String? get() = editing.editingMessageId
     val editingText: String get() = editing.editingText
+    val selectedSpec: String? get() = selection.selectedSpec
+    val modelSpecs: ModelSpecs? get() = selection.modelSpecs
     val selectedModel: String? get() = selection.selectedModel
     val selectedEndpoint: String get() = selection.selectedEndpoint
     val endpointConfigs: Map<String, EndpointConfig> get() = selection.endpointConfigs
     val endpointKeyStates: Map<String, KeyState> get() = selection.endpointKeyStates
     val availableModels: Map<String, List<String>> get() = selection.availableModels
     val agents: List<Agent> get() = selection.agents
+    val agentsLoaded: Boolean get() = selection.agentsLoaded
     val selectedAgentProvider: String? get() = selection.selectedAgentProvider
     val modelParameters: ModelParameters get() = selection.modelParameters
     val showModelSheet: Boolean get() = selection.showModelSheet
@@ -150,6 +154,7 @@ data class ChatUiState(
             Compaction.supportsCompaction(selectedEndpoint) &&
             !conversationId.isNullOrBlank() &&
             !isStreaming &&
+            canStartRun &&
             compactionLeaf != null
 
     /**
@@ -215,6 +220,20 @@ data class ChatUiState(
     val activeBranches: Map<String, Int> get() = content.activeBranches
     val justSettledMessageId: String? get() = content.justSettledMessageId
     val isStreaming: Boolean get() = content.isStreaming
+
+    /**
+     * Whether the Compare Models menu item may act. A live comparison can't be turned off mid-reply
+     * (see ComparisonModeDelegate.stopComparison); starting or cancelling a setup always can.
+     */
+    val canToggleComparison: Boolean get() = !(comparisonState.isEnabled && isStreaming)
+
+    /**
+     * Whether anything may start a run: a send, a queue drain, an edit's resubmit, regenerate,
+     * continue or compact. False through Compare setup, which has no second model yet. The send
+     * gate (`SendReadinessDelegate`) and the queue drain refuse on it, and every control that would
+     * start a run reads it to disable or hide itself, so no tap is refused with nothing shown.
+     */
+    val canStartRun: Boolean get() = !comparisonState.isSettingUp
     val isCompacting: Boolean get() = content.isCompacting
     val streamingContent: String get() = content.streamingContent
     val streamingThinking: String get() = content.streamingThinking

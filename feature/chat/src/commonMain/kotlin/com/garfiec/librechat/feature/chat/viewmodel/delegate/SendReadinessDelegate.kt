@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
 import com.garfiec.librechat.core.common.EndpointConstants
+import com.garfiec.librechat.feature.chat.util.requiresSpec
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.SendBlockReason
 import com.garfiec.librechat.feature.chat.viewmodel.SendReadinessHandle
@@ -44,6 +45,12 @@ class SendReadinessDelegate(
      */
     fun runWhenSendReady(onRefused: () -> Unit, action: () -> Unit) {
         val current = handle.state
+        // Compare setup: nothing starts a run until it ends (see ChatUiState.canStartRun). The
+        // controls already show why, so there is nothing to surface.
+        if (!current.canStartRun) {
+            onRefused()
+            return
+        }
         preflightSendBlockReason(current)?.let { reason ->
             surfaceModelSheet(reason)
             onRefused()
@@ -55,7 +62,9 @@ class SendReadinessDelegate(
         }
         handle.scope.launch {
             if (awaitSendReady()) {
-                action()
+                // A setup that began during the wait refuses it too; the caller's onRefused puts
+                // back whatever it was holding.
+                if (handle.state.canStartRun) action() else onRefused()
             } else {
                 surfaceModelSheet(sendReadinessTimeoutReason(handle.state))
                 onRefused()
@@ -70,6 +79,10 @@ class SendReadinessDelegate(
      * instantaneous instead of waiting out the readiness timeout.
      */
     private fun preflightSendBlockReason(state: ChatUiState): SendBlockReason? {
+        // The server rejects a send naming no spec, `addedEndpoints` or not.
+        if (state.modelSpecs.requiresSpec && state.selectedSpec.isNullOrBlank()) {
+            return SendBlockReason.SelectModel
+        }
         if (state.selectedModel == null) {
             return if (state.selectedEndpoint == EndpointConstants.AGENTS) {
                 SendBlockReason.SelectAgent

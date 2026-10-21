@@ -126,11 +126,7 @@ class QueueOrchestrationDelegate(
             localId = receipt.clientRequestId,
             text = receipt.text,
             attachments = receipt.files.orEmpty().map { it.toAttachedFile(state.serverUrl) },
-            endpoint = state.selectedEndpoint,
-            model = state.selectedModel,
-            agentId = state.selectedModel.takeIf {
-                state.selectedEndpoint == EndpointConstants.AGENTS
-            },
+            choice = state.selection.choice,
             dispatch = requestBuilder.currentDispatch(),
             accountId = activeAccountProvider.currentAccountId()?.value,
         )
@@ -438,8 +434,7 @@ class QueueOrchestrationDelegate(
         return ComposerSnapshot(
             text = state.inputText,
             attachments = fileHandler.attachedFiles.value,
-            endpoint = state.selectedEndpoint,
-            model = state.selectedModel,
+            choice = state.selection.choice,
             enabledTools = state.enabledTools,
             mcpServerNames = state.selectedMcpServerNames,
             modelParameters = state.modelParameters,
@@ -456,8 +451,7 @@ class QueueOrchestrationDelegate(
             // The snapshot replaces the whole tray, so an undecided batch from before the edit
             // no longer belongs to anything on screen.
             pendingUploadRouting = null
-            selectedEndpoint = snapshot.endpoint
-            selectedModel = snapshot.model
+            choice = snapshot.choice
             enabledTools = snapshot.enabledTools
             selectedMcpServerNames = snapshot.mcpServerNames
             modelParameters = snapshot.modelParameters
@@ -465,7 +459,11 @@ class QueueOrchestrationDelegate(
     }
 
     /** Puts a drained item back at the head after the send gate refused it. */
-    fun requeueRefusedDrain(spec: QueuedMessage): Unit = queueDelegate.reinsert(0, spec)
+    fun requeueRefusedDrain(spec: QueuedMessage): Unit = queueDelegate.requeueRefusedDrain(spec)
+
+    fun releaseCompareSetupHold(): Boolean = queueDelegate.releaseCompareSetupHold()
+
+    fun clearCompareSetupHold(): Unit = queueDelegate.clearCompareSetupHold()
 
     /**
      * Restarts the queued-turn reconcile poll, whose first read is unconditional.

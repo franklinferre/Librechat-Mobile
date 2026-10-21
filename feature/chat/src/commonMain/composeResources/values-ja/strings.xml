@@ -29,7 +29,27 @@
     <!-- Neutral label for the active agent when its name hasn't resolved yet (never a model string). -->
     <string name="chat_agent_fallback_label">エージェント</string>
     <string name="compare_models">モデルを比較</string>
+    <string name="compare_with">比較する相手</string>
+    <string name="compare_start">開始</string>
+    <string name="compare_setup_hint">各メッセージは両方のモデルに送信されます。AまたはBをタップしてモデルを選択します。</string>
+    <string name="compare_same_model">同じモデルで別の回答</string>
+    <string name="compare_pick_below">下から選択</string>
+    <string name="compare_message_both">両方のモデルにメッセージ</string>
+    <string name="compare_pick_to_send">送信するにはモデルBを選択</string>
+    <string name="compare_not_picked">未選択</string>
+    <string name="compare_empty_lane">メッセージを送ると、ここに回答が表示されます。</string>
+    <string name="compare_empty_pick_right">右側で比較するモデルを選んでください。</string>
+    <string name="compare_empty_ready">「開始」をタップしてからメッセージを送信してください。両方のモデルが並べて回答します。</string>
+    <string name="compare_browse_all">すべてのモデルを見る</string>
+    <string name="compare_pick_second_model">2つ目のモデルを選択</string>
+    <string name="compare_also_asking">同時に質問</string>
+    <string name="cd_change_compared_models">比較中のモデルを変更</string>
+    <string name="cd_change_first_model">1つ目のモデルを変更、%1$s</string>
+    <string name="cd_change_second_model">2つ目のモデルを変更、%1$s</string>
+    <string name="compare_lane_a">A</string>
+    <string name="compare_lane_b">B</string>
     <string name="how_can_i_help">今日は何をお手伝いしましょうか？</string>
+    <string name="chat_in_project">%1$s 内</string>
     <string name="recording">録音中…</string>
     <string name="hint_message_model">%1$s にメッセージ</string>
     <string name="hint_message">メッセージ…</string>
@@ -100,7 +120,6 @@
     <string name="cd_code_execution_result">コードの実行結果</string>
     <string name="cd_exit_code_success">終了コード 0（成功）</string>
     <string name="cd_exit_code_failure">終了コード %1$d（失敗）</string>
-    <string name="exit_code">終了 %1$d</string>
     <string name="label_code">コード</string>
     <string name="label_output">出力:</string>
     <string name="label_error">エラー:</string>
@@ -442,7 +461,6 @@
 
     <!-- Comparison mode -->
     <string name="continue_with_response">この応答で続ける</string>
-    <string name="waiting_for_response">応答を待っています…</string>
 
     <!-- Provider Keys chat-time errors. -->
     <string name="provider_keys_chat_error_no_key">キーが見つかりません。キーを入力してもう一度お試しください。</string>
@@ -636,6 +654,7 @@
     <string name="compact_confirm_not_now">後で</string>
     <string name="compact_confirm_action">圧縮</string>
     <string name="cd_temporary_chat">一時チャット</string>
+    <string name="temporary_chat_banner">一時チャット：この会話は履歴に保存されません</string>
     <string name="notice_rename_failed">会話の名前を変更できませんでした</string>
     <string name="notice_delete_failed">会話を削除できませんでした</string>
     <string name="notice_archive_failed">会話をアーカイブできませんでした</string>
@@ -684,7 +703,9 @@
     <string name="sandbox_starting">サンドボックス環境を起動中</string>
     <string name="analyzing">分析中</string>
     <string name="analyzing_finished">分析終了</string>
-    <string name="show_all_lines">すべての行を表示</string>
+    <plurals name="show_all_n_lines">
+        <item quantity="other">%1$d 行をすべて表示</item>
+    </plurals>
     <string name="cd_copy_output">出力をコピー</string>
     <string name="expired">期限切れ</string>
     <string name="expired_explainer">コードサンドボックスのファイルは24時間保持されます。このファイルは期限切れのため、ダウンロードできません。</string>
@@ -711,11 +732,11 @@
     <string name="cd_mcp_server_enabled">MCP サーバー %1$s 有効</string>
     <string name="cd_code_block">コードブロック</string>
     <string name="cd_code_block_language">%1$s のコードブロック</string>
-    <string name="comparison_primary">メイン</string>
     <string name="log_output_title">ログ出力</string>
     <string name="cd_attached_image">添付画像</string>
     <string name="model_selector_search">モデルを検索…</string>
     <string name="model_selector_my_agents">マイエージェント</string>
+    <string name="model_selector_spec_only_note">このサーバーでは上に表示されたオプションのみ使用できます。</string>
     <string name="agent_handoff_to">エージェント %1$s</string>
     <string name="agent_handoff_run">実行：%1$s</string>
     <string name="sibling_position">回答 %1$d / %2$d</string>
@@ -741,4 +762,6 @@
     <string name="prompt_permission_view_only">閲覧のみ</string>
     <string name="prompt_permission_can_edit">編集可能</string>
     <string name="prompt_preview_placeholder">変数の値を入力するとプレビューが表示されます</string>
+    <string name="cd_sync_scroll_on">ペインは連動してスクロールします。連動を解除</string>
+    <string name="cd_sync_scroll_off">ペインは個別にスクロールします。連動させる</string>
 </resources>

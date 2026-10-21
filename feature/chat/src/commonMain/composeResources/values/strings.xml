@@ -29,7 +29,27 @@
     <!-- Neutral label for the active agent when its name hasn't resolved yet (never a model string). -->
     <string name="chat_agent_fallback_label">Agent</string>
     <string name="compare_models">Compare Models</string>
+    <string name="compare_with">Compare with</string>
+    <string name="compare_start">Start</string>
+    <string name="compare_setup_hint">Each message goes to both models. Tap A or B to choose its model.</string>
+    <string name="compare_same_model">Same model, a second take</string>
+    <string name="compare_pick_below">Pick below</string>
+    <string name="compare_message_both">Message both models</string>
+    <string name="compare_pick_to_send">Pick model B to send</string>
+    <string name="compare_not_picked">Not picked yet</string>
+    <string name="compare_empty_lane">Send a message to see its answer here.</string>
+    <string name="compare_empty_pick_right">Pick a model on the right to compare with.</string>
+    <string name="compare_empty_ready">Tap Start, then send a message. Both models answer side by side.</string>
+    <string name="compare_browse_all">Browse all models</string>
+    <string name="compare_pick_second_model">Pick the second model</string>
+    <string name="compare_also_asking">Also asking</string>
+    <string name="cd_change_compared_models">Change compared models</string>
+    <string name="cd_change_first_model">Change first model, %1$s</string>
+    <string name="cd_change_second_model">Change second model, %1$s</string>
+    <string name="compare_lane_a">A</string>
+    <string name="compare_lane_b">B</string>
     <string name="how_can_i_help">How can I help you today?</string>
+    <string name="chat_in_project">In %1$s</string>
     <string name="recording">Recording\u2026</string>
     <string name="hint_message_model">Message %1$s</string>
     <string name="hint_message">Message\u2026</string>
@@ -60,6 +80,7 @@
     <string name="title_edit_keep_editing">Keep editing</string>
     <string name="cd_more_options">More options</string>
     <string name="cd_temporary_chat">Temporary chat</string>
+    <string name="temporary_chat_banner">Temporary chat: this conversation won't be saved to your history</string>
     <string name="cd_scroll_to_bottom">Scroll to bottom</string>
     <string name="cd_select_model">Select model</string>
     <string name="cd_librechat">Lideri Chat</string>
@@ -101,7 +122,6 @@
     <string name="cd_code_execution_result">Code execution result</string>
     <string name="cd_exit_code_success">Exit code 0 (success)</string>
     <string name="cd_exit_code_failure">Exit code %1$d (failure)</string>
-    <string name="exit_code">exit %1$d</string>
     <string name="label_code">Code</string>
     <string name="label_output">Output:</string>
     <string name="label_error">Error:</string>
@@ -454,7 +474,6 @@
 
     <!-- Comparison mode -->
     <string name="continue_with_response">Continue with this response</string>
-    <string name="waiting_for_response">Waiting for response\u2026</string>
 
     <!-- Provider Keys chat-time errors. -->
     <string name="provider_keys_chat_error_no_key">No key found. Please provide a key and try again.</string>
@@ -727,7 +746,10 @@
     <!-- Code-execution card status once the code has run -->
     <string name="analyzing_finished">Finished analyzing</string>
     <!-- Expands a code run's output past its first lines -->
-    <string name="show_all_lines">Show all lines</string>
+    <plurals name="show_all_n_lines">
+        <item quantity="one">Show %1$d line</item>
+        <item quantity="other">Show all %1$d lines</item>
+    </plurals>
     <!-- Accessibility label of the copy button on a code run's output -->
     <string name="cd_copy_output">Copy output</string>
     <!-- Second line of a generated file the code sandbox no longer has -->
@@ -762,11 +784,11 @@
     <string name="cd_mcp_server_enabled">%1$s MCP server enabled</string>
     <string name="cd_code_block">Code block</string>
     <string name="cd_code_block_language">%1$s code block</string>
-    <string name="comparison_primary">Primary</string>
     <string name="log_output_title">Log Output</string>
     <string name="cd_attached_image">Attached image</string>
     <string name="model_selector_search">Search models…</string>
     <string name="model_selector_my_agents">My Agents</string>
+    <string name="model_selector_spec_only_note">This server only accepts the options listed above.</string>
     <string name="agent_handoff_to">Agent %1$s</string>
     <string name="agent_handoff_run">Run: %1$s</string>
     <string name="sibling_position">Response %1$d of %2$d</string>
@@ -792,4 +814,6 @@
     <string name="prompt_permission_view_only">View only</string>
     <string name="prompt_permission_can_edit">Can edit</string>
     <string name="prompt_preview_placeholder">Enter variable values to see preview</string>
+    <string name="cd_sync_scroll_on">Panes scroll together. Unlink</string>
+    <string name="cd_sync_scroll_off">Panes scroll separately. Link</string>
 </resources>

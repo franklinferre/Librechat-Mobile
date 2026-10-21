@@ -20,10 +20,13 @@ import com.garfiec.librechat.core.data.repository.TagRepository
 import com.garfiec.librechat.core.model.ChatProject
 import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.ConversationTag
+import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.SAVED_TAG
+import com.garfiec.librechat.core.model.config.ModelSpecs
 import com.garfiec.librechat.core.model.config.isSchedulesEnabled
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
+import com.garfiec.librechat.core.model.permissions.UserRolePermissions
 import com.garfiec.librechat.core.model.permissions.canCreateSharedLinks
 import com.garfiec.librechat.core.model.permissions.hasAccessOrPermissive
 import com.garfiec.librechat.feature.conversations.export.ConversationExporter
@@ -32,6 +35,7 @@ import com.garfiec.librechat.feature.conversations.viewmodel.ConversationListAct
 import com.garfiec.librechat.feature.conversations.viewmodel.ConversationListEvent
 import com.garfiec.librechat.feature.conversations.viewmodel.ProjectActionsDelegate
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -42,6 +46,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
@@ -51,6 +56,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
 /**
@@ -128,6 +134,13 @@ class DrawerViewModel(
     private val _projects = MutableStateFlow<List<ChatProject>>(emptyList())
     val projects: StateFlow<List<ChatProject>> = _projects.asStateFlow()
 
+    // The drawer shows only the first page; true when the server has more, so it can point at the index.
+    private val _hasMoreProjects = MutableStateFlow(false)
+    val hasMoreProjects: StateFlow<Boolean> = _hasMoreProjects.asStateFlow()
+    private var projectsLoadJob: Job? = null
+    private var expandedChatsJob: Job? = null
+    private var lastProjectsReload: TimeSource.Monotonic.ValueTimeMark? = null
+
     // Inline project-chat accordion for the drawer Projects tab. Network-direct per project (Room
     // can't filter by project — see ProjectChatsViewModel), single-expand: only the open project's
     // chats are held. Mapped to the drawer row type against the active id + endpoint configs so the
@@ -136,16 +149,29 @@ class DrawerViewModel(
     private val _expandedProjectChats = MutableStateFlow<List<Conversation>>(emptyList())
     private val _expandedProjectLoading = MutableStateFlow(false)
 
+    // This transport snapshot needs no structural equality. A concrete type also keeps the
+    // native optimizer from joining this configuration to unrelated generic Pair payloads.
+    private class DrawerModelConfig(
+        val endpoints: Map<String, EndpointConfig>,
+        val specs: ModelSpecs?,
+    )
+
+    private val drawerModelConfig = combine(
+        configRepository.endpointConfigs,
+        // Only the specs matter here: any other startup-config change would re-map the whole list.
+        configRepository.startupConfig.map { it?.modelSpecs }.distinctUntilChanged(),
+    ) { endpoints, specs -> DrawerModelConfig(endpoints, specs) }
+
     val inlineProjectChats: StateFlow<InlineProjectChatsState> = combine(
         _expandedProjectId,
         _expandedProjectChats,
         _expandedProjectLoading,
         conversationListStateHolder.activeConversationId,
-        configRepository.endpointConfigs,
-    ) { expandedId, convos, loading, activeId, configs ->
+        drawerModelConfig,
+    ) { expandedId, convos, loading, activeId, modelConfig ->
         InlineProjectChatsState(
             expandedProjectId = expandedId,
-            conversations = convos.map { it.toDrawerDisplayData(activeId, configs) },
+            conversations = convos.map { it.toDrawerDisplayData(activeId, modelConfig.endpoints, modelConfig.specs) },
             isLoading = loading,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InlineProjectChatsState())
@@ -176,8 +202,6 @@ class DrawerViewModel(
     private val projectActions = ProjectActionsDelegate(
         scope = viewModelScope,
         projectRepository = projectRepository,
-        onChanged = { loadProjects() },
-        onDeleted = { loadProjects() },
         emitError = { _events.emit(ConversationListEvent.ShowError(it)) },
     )
 
@@ -200,17 +224,7 @@ class DrawerViewModel(
      */
     private val drawerPermissionFlags: StateFlow<DrawerPermissionFlags> =
         roleRepository.userPermissions
-            .map { role ->
-                DrawerPermissionFlags(
-                    agentsEnabled = role.hasAccessOrPermissive(PermissionType.AGENTS, Permission.USE),
-                    bookmarksEnabled = role.hasAccessOrPermissive(PermissionType.BOOKMARKS, Permission.USE),
-                    // USE gate is fail-OPEN (read/list visibility); mutation gating
-                    // lives fail-CLOSED inside feature/skills.
-                    skillsEnabled = role.hasAccessOrPermissive(PermissionType.SKILLS, Permission.USE),
-                    schedulesPermitted =
-                        role.hasAccessOrPermissive(PermissionType.SCHEDULES, Permission.USE),
-                )
-            }
+            .map(::drawerPermissionFlags)
             .stateIn(viewModelScope, SharingStarted.Eagerly, DrawerPermissionFlags())
 
     /**
@@ -229,14 +243,14 @@ class DrawerViewModel(
         favoriteConversations,
         pinnedConversations,
         conversationListStateHolder.activeConversationId,
-        configRepository.endpointConfigs,
-    ) { grouped, favConvos, pinnedConvos, activeId, endpointConfigs ->
+        drawerModelConfig,
+    ) { grouped, favConvos, pinnedConvos, activeId, modelConfig ->
         DrawerDisplaySnapshot(
             grouped = grouped.map { (group, convos) ->
-                group to convos.map { it.toDrawerDisplayData(activeId, endpointConfigs) }
+                group to convos.map { it.toDrawerDisplayData(activeId, modelConfig.endpoints, modelConfig.specs) }
             },
-            favorites = favConvos.map { it.toDrawerDisplayData(activeId, endpointConfigs) },
-            pinned = pinnedConvos.map { it.toDrawerDisplayData(activeId, endpointConfigs) },
+            favorites = favConvos.map { it.toDrawerDisplayData(activeId, modelConfig.endpoints, modelConfig.specs) },
+            pinned = pinnedConvos.map { it.toDrawerDisplayData(activeId, modelConfig.endpoints, modelConfig.specs) },
         )
     }
 
@@ -274,6 +288,7 @@ class DrawerViewModel(
             isLoadingMore = loadingMore,
             hasMore = hasMore,
             agentsEnabled = perms.agentsEnabled,
+            marketplaceEnabled = perms.marketplaceEnabled,
             bookmarksEnabled = perms.bookmarksEnabled,
             skillsEnabled = perms.skillsEnabled,
             // BOTH halves, in upstream's order: the permission, then the server flag.
@@ -289,17 +304,10 @@ class DrawerViewModel(
     fun isActiveAccount(accountId: String): Boolean = activeAccountProvider.currentAccountId()?.value == accountId
 
     private companion object {
+        private val PROJECTS_RELOAD_MERGE = 1.seconds
         const val ACTIVE_JOBS_POLL_MS = 5_000L
         const val ACTIVE_JOBS_GRACE_MS = 30_000L
     }
-
-    private data class DrawerPermissionFlags(
-        val agentsEnabled: Boolean = true,
-        val bookmarksEnabled: Boolean = true,
-        val skillsEnabled: Boolean = true,
-        /** The permission half only. Scheduled chats need the server flag too — see the combine. */
-        val schedulesPermitted: Boolean = true,
-    )
 
     private data class DrawerActionMenuState(
         val availableTags: List<ConversationTag> = emptyList(),
@@ -364,6 +372,9 @@ class DrawerViewModel(
                 }
             }
         }
+        viewModelScope.launch {
+            projectRepository.revision.drop(1).collect { reloadProjects(force = true) }
+        }
         // The active account changed underneath this Activity-scoped VM. This is the drawer half of
         // the reset the nav shell also performs (NavHostViewModel runs the nav/session half against
         // its own independent accountTransitions() subscription — the flow is cold per-collector, so
@@ -373,10 +384,12 @@ class DrawerViewModel(
         viewModelScope.launch {
             activeAccountProvider.accountTransitions().collect { transition ->
                 _activeJobIds.value = emptySet()
+                // A load started for the outgoing account would otherwise land after this reset.
+                projectsLoadJob?.cancel()
+                lastProjectsReload = null
                 _projects.value = emptyList()
-                _expandedProjectId.value = null
-                _expandedProjectChats.value = emptyList()
-                _expandedProjectLoading.value = false
+                _hasMoreProjects.value = false
+                closeExpandedProject()
                 conversationListStateHolder.reset()
                 // No tagRepository.clearCache() here: observeTags() is account-scoped, so the
                 // outgoing account's tags never show, and RefreshTagsSessionTask (fired by the nav
@@ -462,14 +475,29 @@ class DrawerViewModel(
      */
     fun toggleProjectExpanded(projectId: String) {
         if (_expandedProjectId.value == projectId) {
-            _expandedProjectId.value = null
-            _expandedProjectChats.value = emptyList()
+            closeExpandedProject()
             return
         }
         _expandedProjectId.value = projectId
         _expandedProjectChats.value = emptyList()
         _expandedProjectLoading.value = true
-        viewModelScope.launch {
+        loadExpandedChats(projectId)
+    }
+
+    private fun closeExpandedProject() {
+        expandedChatsJob?.cancel()
+        _expandedProjectId.value = null
+        _expandedProjectChats.value = emptyList()
+        _expandedProjectLoading.value = false
+    }
+
+    /**
+     * Loads the open folder's chats, latest wins. The spinner is cleared by whichever load finishes,
+     * so a reload that replaces a folder's first load also ends that load's spinner.
+     */
+    private fun loadExpandedChats(projectId: String) {
+        expandedChatsJob?.cancel()
+        expandedChatsJob = viewModelScope.launch {
             val result = conversationRepository.getConversationsForProject(projectId = projectId)
             // The user may have collapsed or opened another folder while this was in flight.
             if (_expandedProjectId.value != projectId) return@launch
@@ -482,11 +510,44 @@ class DrawerViewModel(
         }
     }
 
-    /** Loads the user's projects for the move-to-project picker. */
+    /**
+     * Reloads the folders and the open folder's chats, keeping the rows on screen meanwhile. Runs on
+     * a project change (which includes a new chat filed into one) and when the Projects tab comes on
+     * screen.
+     */
+    fun reloadProjects(force: Boolean = false) {
+        if (!drawerUiState.value.projectsEnabled) return
+        // The drawer opening and the panel sliding into view land within a moment of each other; one
+        // fetch answers both. A project change is news, so it always reloads.
+        val last = lastProjectsReload
+        if (!force && last != null && last.elapsedNow() < PROJECTS_RELOAD_MERGE) return
+        lastProjectsReload = TimeSource.Monotonic.markNow()
+        loadProjects()
+        _expandedProjectId.value?.let(::loadExpandedChats)
+    }
+
+    /** Loads the user's projects for the folder list and the move-to-project picker. */
     fun loadProjects() {
-        viewModelScope.launch {
+        // Latest wins: create-then-assign bumps the revision twice, and an older answer landing last
+        // would leave a stale count.
+        projectsLoadJob?.cancel()
+        projectsLoadJob = viewModelScope.launch {
             when (val result = projectRepository.listProjects()) {
-                is Result.Success -> _projects.value = result.data.projects
+                is Result.Success -> {
+                    _projects.value = result.data.projects
+                    _hasMoreProjects.value = result.data.nextCursor != null
+                    // The open folder was deleted (here or on the Projects index): close it, which
+                    // also drops the header's "New chat in" for it. Only a whole list can say a
+                    // project is gone; past one page it may just have sorted further down. Not in a
+                    // project is never listed.
+                    val expanded = _expandedProjectId.value
+                    if (expanded != null && expanded != ChatProject.UNASSIGNED &&
+                        result.data.nextCursor == null &&
+                        result.data.projects.none { it.id == expanded }
+                    ) {
+                        closeExpandedProject()
+                    }
+                }
                 is Result.Error -> Logger.w(result.exception) { "Failed to load projects" }
                 is Result.Loading -> Unit
             }
@@ -497,7 +558,7 @@ class DrawerViewModel(
     fun moveConversationToProject(conversationId: String, projectId: String?) {
         viewModelScope.launch {
             when (val result = projectRepository.assignConversation(conversationId, projectId)) {
-                is Result.Success -> onProjectAssignmentChanged()
+                is Result.Success -> Unit
                 is Result.Error -> {
                     Logger.e(result.exception) { "Failed to move conversation to project" }
                     _events.emit(ConversationListEvent.ShowError("Failed to move conversation"))
@@ -517,7 +578,7 @@ class DrawerViewModel(
                             Logger.e(assign.exception) { "Failed to assign new project" }
                             _events.emit(ConversationListEvent.ShowError("Failed to move conversation"))
                         }
-                        is Result.Success -> onProjectAssignmentChanged()
+                        is Result.Success -> Unit
                         is Result.Loading -> Unit
                     }
                 }
@@ -530,24 +591,14 @@ class DrawerViewModel(
         }
     }
 
-    /**
-     * Refresh the Projects mode after a conversation's project assignment changes: reload the
-     * folders, whose conversationCount is now stale.
-     */
-    private fun onProjectAssignmentChanged() {
-        loadProjects()
-    }
+    fun createProject(name: String, description: String) = projectActions.create(name, description)
 
-    fun createProject(name: String) = projectActions.create(name)
-
-    fun renameProject(projectId: String, name: String) = projectActions.rename(projectId, name)
+    fun editProject(projectId: String, name: String, description: String) =
+        projectActions.edit(projectId, name, description)
 
     fun deleteProject(projectId: String) {
         // Collapse the inline accordion if the deleted project was open, so its stale chats clear.
-        if (_expandedProjectId.value == projectId) {
-            _expandedProjectId.value = null
-            _expandedProjectChats.value = emptyList()
-        }
+        if (_expandedProjectId.value == projectId) closeExpandedProject()
         projectActions.delete(projectId)
     }
 
@@ -586,3 +637,23 @@ class DrawerViewModel(
         }
     }
 }
+
+internal data class DrawerPermissionFlags(
+    val agentsEnabled: Boolean = true,
+    val marketplaceEnabled: Boolean = true,
+    val bookmarksEnabled: Boolean = true,
+    val skillsEnabled: Boolean = true,
+    /** The permission half only. Scheduled chats need the server flag too — see the combine. */
+    val schedulesPermitted: Boolean = true,
+)
+
+/** The role's drawer flags; a null role (still loading, failed, timed out) is permissive. */
+internal fun drawerPermissionFlags(role: UserRolePermissions?): DrawerPermissionFlags = DrawerPermissionFlags(
+    agentsEnabled = role.hasAccessOrPermissive(PermissionType.AGENTS, Permission.USE),
+    marketplaceEnabled = role.hasAccessOrPermissive(PermissionType.MARKETPLACE, Permission.USE),
+    bookmarksEnabled = role.hasAccessOrPermissive(PermissionType.BOOKMARKS, Permission.USE),
+    // USE gate is fail-OPEN (read/list visibility); mutation gating
+    // lives fail-CLOSED inside feature/skills.
+    skillsEnabled = role.hasAccessOrPermissive(PermissionType.SKILLS, Permission.USE),
+    schedulesPermitted = role.hasAccessOrPermissive(PermissionType.SCHEDULES, Permission.USE),
+)

@@ -29,7 +29,27 @@
     <!-- Neutral label for the active agent when its name hasn't resolved yet (never a model string). -->
     <string name="chat_agent_fallback_label">에이전트</string>
     <string name="compare_models">모델 비교</string>
+    <string name="compare_with">비교 대상</string>
+    <string name="compare_start">시작</string>
+    <string name="compare_setup_hint">모든 메시지가 두 모델에 전송됩니다. A 또는 B를 탭해 모델을 선택하세요.</string>
+    <string name="compare_same_model">같은 모델, 두 번째 답변</string>
+    <string name="compare_pick_below">아래에서 선택</string>
+    <string name="compare_message_both">두 모델에 메시지 보내기</string>
+    <string name="compare_pick_to_send">보내려면 모델 B를 선택하세요</string>
+    <string name="compare_not_picked">아직 선택 안 됨</string>
+    <string name="compare_empty_lane">메시지를 보내면 여기에 답변이 표시됩니다.</string>
+    <string name="compare_empty_pick_right">오른쪽에서 비교할 모델을 선택하세요.</string>
+    <string name="compare_empty_ready">시작을 탭한 다음 메시지를 보내세요. 두 모델이 나란히 답변합니다.</string>
+    <string name="compare_browse_all">모든 모델 보기</string>
+    <string name="compare_pick_second_model">두 번째 모델 선택</string>
+    <string name="compare_also_asking">함께 묻는 모델</string>
+    <string name="cd_change_compared_models">비교 중인 모델 변경</string>
+    <string name="cd_change_first_model">첫 번째 모델 변경, %1$s</string>
+    <string name="cd_change_second_model">두 번째 모델 변경, %1$s</string>
+    <string name="compare_lane_a">A</string>
+    <string name="compare_lane_b">B</string>
     <string name="how_can_i_help">오늘 무엇을 도와드릴까요?</string>
+    <string name="chat_in_project">%1$s에서</string>
     <string name="recording">녹음 중…</string>
     <string name="hint_message_model">%1$s에게 메시지</string>
     <string name="hint_message">메시지…</string>
@@ -100,7 +120,6 @@
     <string name="cd_code_execution_result">코드 실행 결과</string>
     <string name="cd_exit_code_success">종료 코드 0 (성공)</string>
     <string name="cd_exit_code_failure">종료 코드 %1$d (실패)</string>
-    <string name="exit_code">종료 %1$d</string>
     <string name="label_code">코드</string>
     <string name="label_output">출력:</string>
     <string name="label_error">오류:</string>
@@ -442,7 +461,6 @@
 
     <!-- Comparison mode -->
     <string name="continue_with_response">이 응답으로 계속하기</string>
-    <string name="waiting_for_response">응답 대기 중…</string>
 
     <!-- Provider Keys chat-time errors. -->
     <string name="provider_keys_chat_error_no_key">키를 찾을 수 없습니다. 키를 입력한 후 다시 시도하세요.</string>
@@ -636,6 +654,7 @@
     <string name="compact_confirm_not_now">나중에</string>
     <string name="compact_confirm_action">압축</string>
     <string name="cd_temporary_chat">임시 채팅</string>
+    <string name="temporary_chat_banner">임시 채팅: 이 대화는 기록에 저장되지 않습니다</string>
     <string name="notice_rename_failed">대화 이름을 변경하지 못했습니다</string>
     <string name="notice_delete_failed">대화를 삭제하지 못했습니다</string>
     <string name="notice_archive_failed">대화를 보관하지 못했습니다</string>
@@ -684,7 +703,9 @@
     <string name="sandbox_starting">샌드박스 환경 시작 중</string>
     <string name="analyzing">분석 중</string>
     <string name="analyzing_finished">분석 완료</string>
-    <string name="show_all_lines">모든 줄 보기</string>
+    <plurals name="show_all_n_lines">
+        <item quantity="other">%1$d줄 모두 보기</item>
+    </plurals>
     <string name="cd_copy_output">출력 복사</string>
     <string name="expired">만료됨</string>
     <string name="expired_explainer">코드 샌드박스의 파일은 24시간 동안 보관됩니다. 이 파일은 만료되어 더 이상 다운로드할 수 없습니다.</string>
@@ -711,11 +732,11 @@
     <string name="cd_mcp_server_enabled">MCP 서버 %1$s 사용 중</string>
     <string name="cd_code_block">코드 블록</string>
     <string name="cd_code_block_language">%1$s 코드 블록</string>
-    <string name="comparison_primary">기본</string>
     <string name="log_output_title">로그 출력</string>
     <string name="cd_attached_image">첨부된 이미지</string>
     <string name="model_selector_search">모델 검색…</string>
     <string name="model_selector_my_agents">내 에이전트</string>
+    <string name="model_selector_spec_only_note">이 서버에서는 위에 표시된 옵션만 사용할 수 있습니다.</string>
     <string name="agent_handoff_to">에이전트 %1$s</string>
     <string name="agent_handoff_run">실행: %1$s</string>
     <string name="sibling_position">응답 %1$d/%2$d</string>
@@ -741,4 +762,6 @@
     <string name="prompt_permission_view_only">보기만 가능</string>
     <string name="prompt_permission_can_edit">편집 가능</string>
     <string name="prompt_preview_placeholder">변수 값을 입력하면 미리보기가 표시됩니다</string>
+    <string name="cd_sync_scroll_on">창이 함께 스크롤됩니다. 연결 해제</string>
+    <string name="cd_sync_scroll_off">창이 따로 스크롤됩니다. 연결</string>
 </resources>
