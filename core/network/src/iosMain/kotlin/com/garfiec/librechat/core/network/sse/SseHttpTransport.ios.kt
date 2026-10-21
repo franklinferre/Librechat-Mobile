@@ -10,6 +10,7 @@ import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.client.TokenManager
 import com.garfiec.librechat.core.network.client.customHeaderLines
 import com.garfiec.librechat.core.network.client.refreshBearerFor
+import com.garfiec.librechat.core.network.sse.nwparams.librechat_connection_receive
 import com.garfiec.librechat.core.network.sse.nwparams.librechat_make_default_tls_tcp_parameters
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -30,7 +31,6 @@ import platform.Foundation.NSURL
 import platform.Network.nw_connection_cancel
 import platform.Network.nw_connection_create
 import platform.Network.nw_connection_force_cancel
-import platform.Network.nw_connection_receive
 import platform.Network.nw_connection_send
 import platform.Network.nw_connection_set_queue
 import platform.Network.nw_connection_set_state_changed_handler
@@ -254,18 +254,20 @@ actual class SseHttpTransport(
 
         // Recursive receive loop. Each call to nw_connection_receive arms a
         // single-shot callback; we re-arm inside the callback until isComplete
-        // or an error fires.
+        // or an error fires. Goes through the C shim so the content context never
+        // crosses the bridge: on completion Network.framework can hand over a block
+        // literal there, which the lambda bridge cannot convert (see the .def file).
         fun armReceive() {
-            nw_connection_receive(
+            librechat_connection_receive(
                 connection = connection,
                 minimum_incomplete_length = 1u,
                 maximum_length = RECEIVE_MAX_LENGTH.toUInt(),
-            ) { data, _, isComplete, error ->
-                if (handled) return@nw_connection_receive
+            ) { data, isComplete, error ->
+                if (handled) return@librechat_connection_receive
 
                 if (error != null) {
                     handleError(mapNwError(error))
-                    return@nw_connection_receive
+                    return@librechat_connection_receive
                 }
 
                 if (data != null) {
@@ -281,11 +283,11 @@ actual class SseHttpTransport(
                                     // Parser headers are lower-cased.
                                     if (AccessGatewaySignal.isGatewayChallenge(event.headers["www-authenticate"])) {
                                         handleError(AccessGatewayException())
-                                        return@nw_connection_receive
+                                        return@librechat_connection_receive
                                     }
                                     if (event.statusCode !in SUCCESS_LOW..SUCCESS_HIGH) {
                                         handleError(SseHttpStatusException(event.statusCode))
-                                        return@nw_connection_receive
+                                        return@librechat_connection_receive
                                     }
                                 }
 
@@ -295,12 +297,12 @@ actual class SseHttpTransport(
 
                                 HttpResponseParser.ParseEvent.EndOfStream -> {
                                     handleCompletion()
-                                    return@nw_connection_receive
+                                    return@librechat_connection_receive
                                 }
 
                                 is HttpResponseParser.ParseEvent.Error -> {
                                     handleError(SseStreamException("parser: ${event.message}"))
-                                    return@nw_connection_receive
+                                    return@librechat_connection_receive
                                 }
                             }
                         }
@@ -309,7 +311,7 @@ actual class SseHttpTransport(
 
                 if (isComplete) {
                     handleCompletion()
-                    return@nw_connection_receive
+                    return@librechat_connection_receive
                 }
 
                 armReceive()

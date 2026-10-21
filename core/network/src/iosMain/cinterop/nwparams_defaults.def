@@ -21,3 +21,25 @@ static inline nw_parameters_t librechat_make_default_tls_tcp_parameters(void) {
         NW_PARAMETERS_DEFAULT_CONFIGURATION
     );
 }
+
+// C-level wrapper around nw_connection_receive that drops the content-context
+// argument before Kotlin sees it. When a connection completes, Network.framework
+// may pass a global block literal as the context; Kotlin/Native's bridge for the
+// completion lambda converts every object argument, takes the block for a Kotlin
+// function, and aborts with "Converting Obj-C blocks with non-reference-typed
+// return value to kotlin.Any is not supported". The transport never reads the
+// context, so it stays on this side of the bridge.
+typedef void (^librechat_receive_handler_t)(dispatch_data_t content, bool is_complete, nw_error_t error);
+
+static inline void librechat_connection_receive(
+    nw_connection_t connection,
+    uint32_t minimum_incomplete_length,
+    uint32_t maximum_length,
+    librechat_receive_handler_t handler
+) {
+    nw_connection_receive(connection, minimum_incomplete_length, maximum_length,
+        ^(dispatch_data_t content, nw_content_context_t context, bool is_complete, nw_error_t error) {
+            (void)context;
+            handler(content, is_complete, error);
+        });
+}
