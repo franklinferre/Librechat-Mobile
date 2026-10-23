@@ -126,13 +126,15 @@ internal fun ChatFloatingTopBar(
         presetsEnabled = uiState.presetsEnabled,
         hasPromptsLibrary = onOpenPromptsLibrary != null,
         promptsEnabled = uiState.promptsEnabled,
-        multiConvoEnabled = uiState.multiConvoEnabled,
+        // Compare is two pickers; with none to offer it has nothing to set up.
+        multiConvoEnabled = uiState.multiConvoEnabled && uiState.modelPickerShown,
         traceViewerAvailable = uiState.traceViewerAvailable,
         contextUsage = uiState.contextUsage,
         contextUsageEnabled = uiState.contextUsageEnabled,
         contextBarPlacement = uiState.contextBarPlacement,
         compactNudgeVisible = uiState.compactNudge != null,
         sharedLinksEnabled = uiState.sharedLinksEnabled,
+        firstTurnStreaming = uiState.isFirstTurnStreaming,
     )
     val overflowSections = remember(overflowGates) { chatOverflowSections(overflowGates) }
     val onOverflowItem: (ChatOverflowItem) -> Unit = { item ->
@@ -352,7 +354,7 @@ private fun MaterialChatTopBar(
                         FloatingBarLabelChip(
                             text = label.displayModel ?: stringResource(Res.string.select_model),
                             fillWidth = fillWidth,
-                            onClick = actions.onOpenModelSheet,
+                            onClick = actions.onOpenModelSheet.takeIf { uiState.modelPickerShown },
                         )
                     }
 
@@ -410,6 +412,7 @@ private fun MaterialChatTopBar(
                     isComparisonEnabled = uiState.comparisonState.isEnabled || uiState.comparisonState.isSettingUp,
                     canToggleComparison = uiState.canToggleComparison,
                     contextGauge = uiState.contextGaugeDetails,
+                    shareLinkActive = uiState.shareLinkActive,
                     onItem = onItem,
                     dragSelection = overflowDrag.takeIf { !isLiquidGlass },
                 )

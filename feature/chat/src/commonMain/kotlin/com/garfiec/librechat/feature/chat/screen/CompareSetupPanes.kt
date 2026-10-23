@@ -180,9 +180,11 @@ private fun QuickPicker(
         uiState.agents,
         uiState.favoriteModelKeys,
         uiState.favoriteAgentIds,
+        uiState.favoriteSpecNames,
         uiState.endpointKeyStates,
         specs,
         uiState.modelSpecs,
+        uiState.modelSelectEnabled,
         agentCaption,
     ) {
         value = withContext(Dispatchers.Default) {
@@ -193,7 +195,9 @@ private fun QuickPicker(
                 agents = uiState.agents,
                 favoriteModelKeys = uiState.favoriteModelKeys,
                 favoriteAgentIds = uiState.favoriteAgentIds,
+                favoriteSpecNames = uiState.favoriteSpecNames,
                 agentCaption = agentCaption,
+                modelSelect = uiState.modelSelectEnabled,
                 endpointKeyStates = uiState.endpointKeyStates,
                 specs = specs,
                 modelSpecs = uiState.modelSpecs,

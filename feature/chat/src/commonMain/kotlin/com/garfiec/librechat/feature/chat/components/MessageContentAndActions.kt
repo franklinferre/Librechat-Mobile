@@ -375,6 +375,20 @@ internal fun MessageContentAndActions(
                         )
                     }
 
+                    // The skills primed into this turn (always-applied, then picked), beside its
+                    // quotes as on web. Chrome, so "Select all" leaves the names out.
+                    val alwaysAppliedSkills = message.alwaysAppliedSkills.orEmpty()
+                    val manualSkills = message.manualSkills.orEmpty()
+                    if (isUser && (alwaysAppliedSkills.isNotEmpty() || manualSkills.isNotEmpty())) {
+                        DisableSelection {
+                            SkillPills(
+                                alwaysApplied = alwaysAppliedSkills,
+                                manual = manualSkills,
+                                modifier = Modifier.padding(bottom = 6.dp),
+                            )
+                        }
+                    }
+
                     // Render attached files above message text (matches web app behavior)
                     val messageFiles = message.files
                     if (!messageFiles.isNullOrEmpty()) {
@@ -511,8 +525,12 @@ internal fun MessageContentAndActions(
                                                             group.groupedToolCallIds(),
                                                         )
                                                     }
+                                                    val groupFailed = remember(inlineAttachments, group) {
+                                                        activityGroupFailed(group, inlineAttachments)
+                                                    }
                                                     ActivityGroup(
                                                         group = group,
+                                                        failed = groupFailed,
                                                         stateKey = "${message.messageId}:${group.key}",
                                                         autoExpand = group.key == focusedGroupKey,
                                                         autoExpandKey = LocalSearchFocusNonce.current,
@@ -620,7 +638,10 @@ internal fun MessageContentAndActions(
                     DisableSelection {
                         MemoryArtifactsSection(
                             artifacts = orphanMemory,
-                            stateKey = message.messageId,
+                            stateKey = remember(inlineAttachments, message.messageId) {
+                                memoryArtifactsStateKey(inlineAttachments, message.messageId)
+                            },
+                            onManage = LocalOpenMemories.current,
                         )
                     }
                 }

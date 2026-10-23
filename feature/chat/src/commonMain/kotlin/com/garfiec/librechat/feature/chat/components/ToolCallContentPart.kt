@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -164,6 +165,22 @@ internal fun ToolCallDispatcher(
     Column(modifier = modifier) {
         val cardModifier = Modifier.fillMaxWidth()
         when {
+            // Exact name, as upstream routes it: `contains` would claim an MCP tool named
+            // "find_skill". Ahead of the `contains` branches below for the same reason.
+            isSkillToolCall(namedTool) -> {
+                val skillName = remember(toolCall) {
+                    parseSkillName(toolCall?.args) ?: parseSkillName(toolCall?.function?.arguments)
+                }
+                SkillCallCard(
+                    skillName = skillName,
+                    verdict = toolCallVerdict(toolCall?.effectiveRunStepStatus, isComplete = true),
+                    intent = intent,
+                    durationMs = toolCall?.runStepDurationMs,
+                    output = output,
+                    stateKey = cardKey,
+                    modifier = cardModifier,
+                )
+            }
             toolNameLower.startsWith(ToolConstants.LC_TRANSFER_TO_PREFIX) -> {
                 val target = toolName.substring(ToolConstants.LC_TRANSFER_TO_PREFIX.length).ifBlank { toolName }
                 AgentHandoffCard(
@@ -220,17 +237,24 @@ internal fun ToolCallDispatcher(
                     GenericToolCallCard(displayName, displayArgs, output, cardModifier, cardKey, toolCall?.effectiveRunStepStatus)
                 }
             }
-            toolNameLower.contains(ToolConstants.MEMORY) -> {
+            isMemoryToolCall(namedTool) -> {
                 // The `memory` attachment carries the key and the remembered value; the tool's own
                 // output is only a sentence about them, which is all a server without the payload
-                // gives us.
-                val artifacts = remember(attachments, toolCall?.id, output) {
-                    collectMemoryArtifacts(attachments, toolCall?.id)
-                        .ifEmpty { listOfNotNull(parseMemoryArtifact(output)) }
+                // gives us. A refusal in that sentence, or an error artifact, draws an error card.
+                val artifacts = remember(namedTool, attachments, toolCall?.id, output) {
+                    memoryToolArtifacts(namedTool, output, attachments, toolCall?.id)
                 }
                 if (artifacts.isNotEmpty()) {
-                    artifacts.forEach { artifact ->
-                        MemoryArtifactCard(artifact = artifact, modifier = cardModifier)
+                    // Spaced as the live cards are, so nothing moves when the reply is saved.
+                    val onManage = LocalOpenMemories.current
+                    Column(modifier = cardModifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        artifacts.forEachIndexed { index, artifact ->
+                            MemoryArtifactCard(
+                                artifact = artifact,
+                                onManage = onManage,
+                                stateKey = memoryCardStateKey(toolCall?.id, index),
+                            )
+                        }
                     }
                 } else {
                     GenericToolCallCard(displayName, displayArgs, output, cardModifier, cardKey, toolCall?.effectiveRunStepStatus)

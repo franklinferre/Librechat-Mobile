@@ -10,6 +10,7 @@
     <string name="action_insert">Inserir</string>
     <string name="action_open">Abrir</string>
     <string name="action_share">Compartilhar</string>
+    <string name="action_share_link_active">Compartilhar · Link ativo</string>
     <string name="action_search">Buscar</string>
     <string name="action_archive">Arquivar</string>
     <string name="action_duplicate">Duplicar</string>
@@ -42,10 +43,7 @@
     <string name="compare_empty_ready">Toque em Começar e envie uma mensagem. Os dois modelos respondem lado a lado.</string>
     <string name="compare_browse_all">Ver todos os modelos</string>
     <string name="compare_pick_second_model">Escolha o segundo modelo</string>
-    <string name="compare_also_asking">Também perguntando a</string>
     <string name="cd_change_compared_models">Alterar os modelos comparados</string>
-    <string name="cd_change_first_model">Alterar o primeiro modelo, %1$s</string>
-    <string name="cd_change_second_model">Alterar o segundo modelo, %1$s</string>
     <string name="compare_lane_a">A</string>
     <string name="compare_lane_b">B</string>
     <string name="how_can_i_help">Como posso ajudar você hoje?</string>
@@ -303,18 +301,27 @@
     <string name="cd_mcp_resource">Recurso MCP: %1$s</string>
 
     <!-- Memory artifact -->
-    <string name="cd_memory_artifact">Artefato de memória: %1$s</string>
-    <string name="memory_artifact_untitled">Sem título</string>
     <string name="label_memory">Memória</string>
-    <string name="cd_memory_artifacts">Atualizações de memória: %1$d</string>
+    <string name="memory_manage">Gerenciar</string>
+    <string name="cd_memory_manage">Gerenciar memórias</string>
+    <plurals name="cd_memory_artifacts_summary">
+        <item quantity="one">%1$s, %2$s alteração</item>
+        <item quantity="other">%1$s, %2$s alterações</item>
+    </plurals>
     <string name="memory_updated">Memória salva atualizada</string>
     <string name="memory_error">Erro de memória</string>
     <string name="memory_updated_items">Memórias atualizadas</string>
     <string name="memory_deleted_items">Memórias excluídas</string>
     <string name="memory_deleted">Memória excluída</string>
     <string name="memory_storage_full">Armazenamento de memória cheio</string>
-    <string name="memory_already_exceeded">Armazenamento de memória já está cheio — excedido em %1$d tokens. Exclua memórias existentes antes de adicionar novas.</string>
-    <string name="memory_would_exceed">Não é possível salvar — excederia o limite em %1$d tokens. Exclua memórias existentes para liberar espaço.</string>
+    <plurals name="memory_already_exceeded">
+        <item quantity="one">Armazenamento de memória já está cheio — excedido em %1$s token. Exclua memórias existentes antes de adicionar novas.</item>
+        <item quantity="other">Armazenamento de memória já está cheio — excedido em %1$s tokens. Exclua memórias existentes antes de adicionar novas.</item>
+    </plurals>
+    <plurals name="memory_would_exceed">
+        <item quantity="one">Não é possível salvar — excederia o limite em %1$s token. Exclua memórias existentes para liberar espaço.</item>
+        <item quantity="other">Não é possível salvar — excederia o limite em %1$s tokens. Exclua memórias existentes para liberar espaço.</item>
+    </plurals>
     <string name="files_searched">Pesquisou seus arquivos</string>
     <string name="cd_file_search_source">Fonte da busca em arquivos: %1$s</string>
     <string name="file_search_relevance">%1$d%%</string>
@@ -573,6 +580,21 @@
     <string name="cd_collapse_ask_user_question">Recolher detalhes da pergunta</string>
     <string name="tool_memory">Memória</string>
     <string name="tool_memory_desc">Permita que o assistente lembre detalhes desta conversa</string>
+    <string name="tool_skills">Habilidades</string>
+    <string name="tool_skills_desc">Permita que o assistente use suas habilidades nesta conversa</string>
+    <string name="cd_skills_enabled">Habilidades ativadas</string>
+    <string name="picker_type_prompt">Prompt</string>
+    <string name="picker_type_skill">Habilidade</string>
+    <string name="picker_no_matches">Nenhum resultado</string>
+    <string name="picker_loading_skills">Carregando habilidades…</string>
+    <string name="picker_skills_failed">Não foi possível carregar as habilidades</string>
+    <string name="cd_pending_skills">Habilidades para a próxima mensagem</string>
+    <string name="cd_remove_skill">Remover a habilidade %1$s</string>
+    <string name="cd_skill_always_applied">Habilidade sempre aplicada: %1$s</string>
+    <string name="cd_skill_used">Habilidade usada: %1$s</string>
+    <string name="skill_call_running">Executando %1$s</string>
+    <string name="skill_call_finished">%1$s executada</string>
+    <string name="skill_call_fallback_name">habilidade</string>
     <string name="cd_steer_message">Direcionar esta resposta</string>
     <string name="cd_cancel_steer">Cancelar direcionamento</string>
     <string name="cd_during_run_options">Escolha o que o envio faz agora</string>
@@ -659,7 +681,6 @@
     <string name="notice_delete_failed">Não foi possível excluir a conversa</string>
     <string name="notice_archive_failed">Não foi possível arquivar a conversa</string>
     <string name="notice_duplicate_failed">Não foi possível duplicar a conversa</string>
-    <string name="notice_share_link_failed">Não foi possível criar o link de compartilhamento</string>
     <string name="notice_preset_save_failed">Não foi possível salvar a predefinição</string>
     <string name="notice_preset_delete_failed">Não foi possível excluir a predefinição</string>
     <string name="notice_preset_update_failed">Não foi possível atualizar a predefinição</string>
@@ -673,6 +694,8 @@
     <string name="notice_speech_permission_denied">Permissão de reconhecimento de fala negada</string>
     <string name="notice_speech_unavailable">O reconhecimento de fala não está disponível. Verifique Ajustes &gt; Privacidade &gt; Reconhecimento de Fala.</string>
     <string name="notice_send_refused">O servidor recusou esta mensagem.</string>
+    <string name="notice_skills_not_sent">Algumas habilidades não podem ser usadas neste chat e não foram enviadas.</string>
+    <string name="notice_skills_removed_from_queued">Algumas habilidades não podem ser usadas neste chat e foram removidas da mensagem na fila.</string>
     <plurals name="notice_message_limit_retry_minutes">
         <item quantity="one">Você atingiu o limite de mensagens deste servidor. Tente novamente em %1$d minuto.</item>
         <item quantity="many">Você atingiu o limite de mensagens deste servidor. Tente novamente em %1$d minutos.</item>
@@ -757,7 +780,6 @@
     <string name="sibling_position">Resposta %1$d de %2$d</string>
     <string name="cd_assistant_responding">O assistente está respondendo: %1$s</string>
     <string name="tool_call_fallback">Chamada de ferramenta</string>
-    <string name="share_link_copied">Link de compartilhamento copiado</string>
     <string name="prompt_filter_title">Filtrar e ordenar</string>
     <string name="prompt_sort_recent">Recentes</string>
     <string name="prompt_sort_popular">Populares</string>
@@ -779,4 +801,27 @@
     <string name="prompt_preview_placeholder">Insira os valores das variáveis para ver a prévia</string>
     <string name="cd_sync_scroll_on">Os painéis rolam juntos. Desvincular</string>
     <string name="cd_sync_scroll_off">Os painéis rolam separadamente. Vincular</string>
+    <!-- Shared chat viewer -->
+    <string name="shared_chat_title_fallback">Chat compartilhado</string>
+    <string name="shared_chat_subtitle">Chat compartilhado · %1$s</string>
+    <string name="shared_chat_continue">Continuar este chat</string>
+    <string name="shared_chat_open_in_browser">Abrir no navegador</string>
+    <string name="shared_chat_langfuse">Ver sessão no Langfuse</string>
+    <string name="shared_chat_link_updated">Este link foi atualizado. A versão mais recente está sendo exibida.</string>
+    <string name="shared_chat_continue_rate_limited">Muitas solicitações para continuar chats. Tente novamente mais tarde.</string>
+    <string name="shared_chat_continue_failed">Não foi possível continuar este chat</string>
+    <string name="shared_chat_continue_unsupported">Este servidor não permite continuar chats compartilhados</string>
+    <string name="shared_chat_refresh_failed">Não foi possível atualizar este chat compartilhado</string>
+    <string name="shared_chat_continue_blocked">Seu servidor bloqueou a cópia deste chat</string>
+    <string name="shared_chat_continue_blocked_reason">Seu servidor bloqueou a cópia deste chat: %1$s</string>
+    <string name="shared_chat_not_found">Link compartilhado não encontrado</string>
+    <string name="shared_chat_not_found_description">Ele pode ter sido excluído, ou o link está errado.</string>
+    <string name="shared_chat_no_access">Você não pode abrir este chat compartilhado</string>
+    <string name="shared_chat_no_access_description">Ele não está compartilhado com esta conta.</string>
+    <string name="shared_chat_rate_limited">Muitas solicitações de links compartilhados</string>
+    <string name="shared_chat_rate_limited_description">Tente novamente em instantes.</string>
+    <string name="shared_chat_blocked">Seu servidor bloqueou este chat compartilhado</string>
+    <string name="shared_chat_load_failed">Não foi possível carregar este chat compartilhado</string>
+    <string name="shared_chat_user">Usuário</string>
+    <string name="shared_chat_file_failed">Não foi possível abrir este arquivo</string>
 </resources>

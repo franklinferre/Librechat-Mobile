@@ -28,7 +28,6 @@ import com.garfiec.librechat.feature.chat.components.MessageList
 import com.garfiec.librechat.feature.chat.components.SecondaryMessageList
 import com.garfiec.librechat.feature.chat.components.comparisonSyncLead
 import com.garfiec.librechat.feature.chat.components.rememberComparisonScrollSync
-import com.garfiec.librechat.feature.chat.util.READING_LINE
 import com.garfiec.librechat.feature.chat.util.buildComparisonDisplayMessages
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
@@ -72,6 +71,10 @@ internal fun ComparisonPanes(
     /** Pane B's scroll position, hoisted beside pane A's (see ChatContent). */
     secondaryListState: LazyListState,
     modifier: Modifier = Modifier,
+    /** The pull-up tools sheet's nested-scroll bridge, for the live panes (not setup). */
+    listPullUpModifier: Modifier = Modifier,
+    /** The pull-up sheet's direct drag, for a live pane with no messages: only its centred column scrolls. */
+    emptyPanePullUpModifier: Modifier = Modifier,
 ) {
     val comparisonState = uiState.comparisonState
 
@@ -143,14 +146,15 @@ internal fun ComparisonPanes(
     // a little room at its foot; the tab pager's lists run under the composer and need all of it.
     val listBottomPadding = if (wide) PaneListBottomPadding else bottomContentPadding
 
-    // Reading room past the last line, enough to scroll it up to the reading line the panes are
-    // synced on, so a reply's end can be compared where the rest of it was. The same in both panes,
-    // so their ends still meet. Measured from pane A's list; both panes are the same height. In
-    // both layouts: on a phone it gives each tab the same comfortable end to read into.
+    // Reading room past the last line, so a reply's end can be scrolled up clear of the composer.
+    // The same in both panes, so their ends still meet. Measured from pane A's list; both panes are
+    // the same height. In both layouts: on a phone it gives each tab the same comfortable end to
+    // read into.
     val settingUp = comparisonState.isSettingUp
+    val emptyPaneModifier = if (settingUp) Modifier else emptyPanePullUpModifier
     var paneListHeightPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
-    val extraEndSpace = with(density) { (paneListHeightPx * (1f - READING_LINE)).toDp() }
+    val extraEndSpace = with(density) { (paneListHeightPx * PaneEndSpaceFraction).toDp() }
         .minus(listBottomPadding + MESSAGE_LIST_BOTTOM_GAP)
         .coerceAtLeast(0.dp)
     val extraEndPx = with(density) { extraEndSpace.toPx() }
@@ -167,7 +171,12 @@ internal fun ComparisonPanes(
     val syncHold = { scrollSync.holdingTails }
     val primaryMessageListBody: @Composable () -> Unit = {
         if (primaryDisplayMessages.isEmpty() && !comparisonState.primaryIsStreaming && !uiState.isStreaming) {
-            ComparisonPaneEmpty(ComparisonLane.A, primaryLaneLabel, bottomPadding = listBottomPadding)
+            ComparisonPaneEmpty(
+                ComparisonLane.A,
+                primaryLaneLabel,
+                bottomPadding = listBottomPadding,
+                modifier = emptyPaneModifier,
+            )
         } else {
             MessageList(
                 recordsGlassBackdrop = false,
@@ -240,7 +249,12 @@ internal fun ComparisonPanes(
 
     val secondaryMessageList: @Composable () -> Unit = {
         if (secondaryDisplayMessages.isEmpty() && !comparisonState.secondaryIsStreaming) {
-            ComparisonPaneEmpty(ComparisonLane.B, secondaryModelName, bottomPadding = listBottomPadding)
+            ComparisonPaneEmpty(
+                ComparisonLane.B,
+                secondaryModelName,
+                bottomPadding = listBottomPadding,
+                modifier = emptyPaneModifier,
+            )
         } else {
             SecondaryMessageList(
                 displayMessages = secondaryDisplayMessages,
@@ -334,7 +348,7 @@ internal fun ComparisonPanes(
                     primaryDisplayMessages.isNotEmpty() && secondaryDisplayMessages.isNotEmpty()
                 },
                 onSyncScrollChange = viewModel::setCompareSyncScroll,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().then(listPullUpModifier),
             )
         } else {
             ComparisonTabBar(
@@ -345,10 +359,11 @@ internal fun ComparisonPanes(
                 onContinueWithPrimary = onContinuePrimary,
                 onContinueWithSecondary = onContinueSecondary,
                 onTabChange = onComparisonTabChange,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().then(listPullUpModifier),
             )
         }
     }
 }
 
 private val PaneListBottomPadding = 16.dp
+private const val PaneEndSpaceFraction = 1f / 3f

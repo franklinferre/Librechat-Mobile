@@ -26,6 +26,7 @@ import com.garfiec.librechat.core.data.repository.FavoritesRepository
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.data.repository.KeyRepository
 import com.garfiec.librechat.core.data.repository.McpRepository
+import com.garfiec.librechat.core.data.repository.MemoryRepository
 import com.garfiec.librechat.core.data.repository.MessageRepository
 import com.garfiec.librechat.core.data.repository.PresetRepository
 import com.garfiec.librechat.core.data.repository.PromptRepository
@@ -33,9 +34,12 @@ import com.garfiec.librechat.core.data.repository.QueuedTurnRepository
 import com.garfiec.librechat.core.data.repository.ResumePinStore
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.ShareRepository
+import com.garfiec.librechat.core.data.repository.SkillsRepository
 import com.garfiec.librechat.core.data.repository.TraceRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
+import com.garfiec.librechat.core.data.share.ShareLinkControllerFactory
 import com.garfiec.librechat.core.data.util.PermissionGate
+import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.model.queuedturn.QueuedTurnOutcome
 import com.garfiec.librechat.core.model.usage.ContextDetailPreset
 import com.garfiec.librechat.core.model.usage.DEFAULT_COMPACT_NUDGE_THRESHOLD
@@ -47,6 +51,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 
 /**
@@ -80,11 +85,30 @@ internal class ChatViewModelTestFixture {
     val presetRepository = mockk<PresetRepository>(relaxed = true)
     val promptRepository = mockk<PromptRepository>(relaxed = true)
     val queuedTurnRepository = mockk<QueuedTurnRepository>(relaxed = true)
-    val shareRepository = mockk<ShareRepository>(relaxed = true)
+
+    // A real revision flow: the link-active lookup collects it, and a relaxed StateFlow can't be collected.
+    val shareRepository = mockk<ShareRepository>(relaxed = true).also {
+        every { it.revision } returns MutableStateFlow(0L)
+    }
+    val shareLinkControllerFactory = mockk<ShareLinkControllerFactory>(relaxed = true)
     val traceRepository = mockk<TraceRepository>(relaxed = true)
     val mcpRepository = mockk<McpRepository>(relaxed = true)
+    val skillsRepository = mockk<SkillsRepository>(relaxed = true)
     val userRepository = mockk<UserRepository>(relaxed = true)
     val roleRepository = mockk<RoleRepository>(relaxed = true)
+    val memoryRepository = mockk<MemoryRepository>(relaxed = true)
+
+    /** The shared memory opt-out; null until a test publishes one, as before any fetch. */
+    val memoriesEnabled = MutableStateFlow<Boolean?>(null)
+
+    /** Moves on every [toggleMemoriesInSettings], like MemoryRepositoryImpl's write generation. */
+    private var memoryPreferenceWrites = 0
+
+    /** A Settings toggle: a preference write the stubbed profile read must not undo. */
+    fun toggleMemoriesInSettings(enabled: Boolean) {
+        memoryPreferenceWrites++
+        memoriesEnabled.value = enabled
+    }
     val permissionGate = mockk<PermissionGate>(relaxed = true)
     val connectivityObserver = mockk<ConnectivityObserver>(relaxed = true)
     val serverDataStore = mockk<ServerDataStore>(relaxed = true)
@@ -97,6 +121,9 @@ internal class ChatViewModelTestFixture {
     val siteIconPromptSession = SiteIconPromptSession()
     val promptInsertionHandoff = PromptInsertionHandoff()
 
+    /** The per-conversation Skills toggle store, by slot (a conversation id, `new` or `__defaults__`). */
+    val skillsToggles = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+
     /** Driven by hand where a test needs a prompt mutation to reach a retained ViewModel. */
     val promptRevision = MutableStateFlow(0L)
 
@@ -107,6 +134,17 @@ internal class ChatViewModelTestFixture {
         every { configRepository.endpointConfigs } returns MutableStateFlow(emptyMap())
         every { configRepository.availableModels } returns MutableStateFlow(emptyMap())
         every { roleRepository.userPermissions } returns MutableStateFlow(null)
+        every { memoryRepository.memoriesEnabled } returns memoriesEnabled
+        // The real repository's contract: run the caller's profile GET and publish the opt-out it
+        // carries, unless a preference write happened while it was in flight.
+        coEvery { memoryRepository.fetchUserPublishingPreference(any()) } coAnswers {
+            val generation = memoryPreferenceWrites
+            val result = firstArg<suspend () -> Result<User>>().invoke()
+            if (result is Result.Success && memoryPreferenceWrites == generation) {
+                memoriesEnabled.value = result.data.personalization?.memories ?: true
+            }
+            result
+        }
         every { favoritesRepository.favorites } returns MutableStateFlow(emptyList())
         every { keyRepository.keyInvalidations } returns MutableSharedFlow()
         every { agentRepository.revision } returns MutableStateFlow(0L)
@@ -140,8 +178,17 @@ internal class ChatViewModelTestFixture {
         every { settingsDataStore.compactNudgeThreshold } returns MutableStateFlow(DEFAULT_COMPACT_NUDGE_THRESHOLD)
         every { settingsDataStore.compactNudgeSnoozes } returns MutableStateFlow(emptyMap())
         every { preferenceStore.observe(AppPreferences.SiteIcons) } returns MutableStateFlow(null)
+        every { preferenceStore.observe(AppPreferences.PreferLastUsedModel) } returns MutableStateFlow(false)
         every { preferenceStore.initial(AppPreferences.SiteIcons) } returns null
         every { settingsDataStore.duringRunAction } returns MutableStateFlow(DuringRunAction.QUEUE)
+        // A real slot map rather than a relaxed Flow, so a toggle written here reads back.
+        every { settingsDataStore.skillsToggle(any()) } answers {
+            val slot = firstArg<String>()
+            skillsToggles.map { it[slot] }
+        }
+        coEvery { settingsDataStore.setSkillsToggle(any(), any()) } answers {
+            skillsToggles.value = skillsToggles.value + (firstArg<String>() to secondArg<Boolean>())
+        }
     }
 
     fun build(
@@ -172,10 +219,13 @@ internal class ChatViewModelTestFixture {
         promptRepository = promptRepository,
         queuedTurnRepository = queuedTurnRepository,
         shareRepository = shareRepository,
+        shareLinkControllerFactory = shareLinkControllerFactory,
         traceRepository = traceRepository,
         mcpRepository = mcpRepository,
+        skillsRepository = skillsRepository,
         userRepository = userRepository,
         roleRepository = roleRepository,
+        memoryRepository = memoryRepository,
         permissionGate = permissionGate,
         connectivityObserver = connectivityObserver,
         serverDataStore = serverDataStore,

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.BackendVersion
+import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.identity.AccountTransition
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.accountTransitions
@@ -15,8 +16,9 @@ import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.ProjectRepository
 import com.garfiec.librechat.core.data.repository.RoleRepository
-import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.TagRepository
+import com.garfiec.librechat.core.data.share.ShareLinkController
+import com.garfiec.librechat.core.data.share.ShareLinkControllerFactory
 import com.garfiec.librechat.core.model.ChatProject
 import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.ConversationTag
@@ -72,7 +74,7 @@ class DrawerViewModel(
     private val tagRepository: TagRepository,
     private val projectRepository: ProjectRepository,
     private val configRepository: ConfigRepository,
-    private val shareRepository: ShareRepository,
+    shareLinkControllerFactory: ShareLinkControllerFactory,
     private val conversationExporter: ConversationExporter,
     private val activeAccountProvider: ActiveAccountProvider,
     private val settingsDataStore: SettingsDataStore,
@@ -193,7 +195,7 @@ class DrawerViewModel(
         events = _events,
         conversationRepository = conversationRepository,
         tagRepository = tagRepository,
-        shareRepository = shareRepository,
+        shareLinkControllerFactory = shareLinkControllerFactory,
         conversationExporter = conversationExporter,
         onMutated = {},
     )
@@ -220,11 +222,13 @@ class DrawerViewModel(
     /**
      * Role-permission flags for drawer UI. Permissive-default (`?: true`) until the
      * role loads; once it does, denied permissions flip the flags off and the drawer
-     * re-composes to hide the corresponding surfaces.
+     * re-composes to hide the corresponding surfaces. Skills also needs the agents
+     * endpoint's `skills` capability (see [isSkillsNavEnabled]).
      */
     private val drawerPermissionFlags: StateFlow<DrawerPermissionFlags> =
-        roleRepository.userPermissions
-            .map(::drawerPermissionFlags)
+        combine(roleRepository.userPermissions, configRepository.endpointConfigs) { role, endpoints ->
+            drawerPermissionFlags(role, endpoints[EndpointConstants.AGENTS]?.capabilities)
+        }
             .stateIn(viewModelScope, SharingStarted.Eagerly, DrawerPermissionFlags())
 
     /**
@@ -384,6 +388,8 @@ class DrawerViewModel(
         viewModelScope.launch {
             activeAccountProvider.accountTransitions().collect { transition ->
                 _activeJobIds.value = emptySet()
+                // A share sheet open on the outgoing account's chat must not act on the new one.
+                conversationActions.closeShareSheet()
                 // A load started for the outgoing account would otherwise land after this reset.
                 projectsLoadJob?.cancel()
                 lastProjectsReload = null
@@ -608,7 +614,11 @@ class DrawerViewModel(
         isActive = conversationListStateHolder.activeConversationId.value == id,
     )
 
+    val shareLink: ShareLinkController get() = conversationActions.shareLink
+
     fun shareConversation(conversationId: String) = conversationActions.shareConversation(conversationId)
+
+    fun closeShareSheet() = conversationActions.closeShareSheet()
 
     fun duplicateConversation(conversationId: String, title: String?) =
         conversationActions.duplicateConversation(conversationId, title)
@@ -642,18 +652,21 @@ internal data class DrawerPermissionFlags(
     val agentsEnabled: Boolean = true,
     val marketplaceEnabled: Boolean = true,
     val bookmarksEnabled: Boolean = true,
-    val skillsEnabled: Boolean = true,
+    /** Fail-closed on the capability half, so false until the endpoint config arrives. */
+    val skillsEnabled: Boolean = false,
     /** The permission half only. Scheduled chats need the server flag too — see the combine. */
     val schedulesPermitted: Boolean = true,
 )
 
-/** The role's drawer flags; a null role (still loading, failed, timed out) is permissive. */
-internal fun drawerPermissionFlags(role: UserRolePermissions?): DrawerPermissionFlags = DrawerPermissionFlags(
-    agentsEnabled = role.hasAccessOrPermissive(PermissionType.AGENTS, Permission.USE),
-    marketplaceEnabled = role.hasAccessOrPermissive(PermissionType.MARKETPLACE, Permission.USE),
-    bookmarksEnabled = role.hasAccessOrPermissive(PermissionType.BOOKMARKS, Permission.USE),
-    // USE gate is fail-OPEN (read/list visibility); mutation gating
-    // lives fail-CLOSED inside feature/skills.
-    skillsEnabled = role.hasAccessOrPermissive(PermissionType.SKILLS, Permission.USE),
-    schedulesPermitted = role.hasAccessOrPermissive(PermissionType.SCHEDULES, Permission.USE),
-)
+/**
+ * The role's drawer flags; a null role (still loading, failed, timed out) is permissive. Skills also
+ * needs the agents endpoint's [agentsCapabilities] to include `skills` ([isSkillsNavEnabled]).
+ */
+internal fun drawerPermissionFlags(role: UserRolePermissions?, agentsCapabilities: List<String>?): DrawerPermissionFlags =
+    DrawerPermissionFlags(
+        agentsEnabled = role.hasAccessOrPermissive(PermissionType.AGENTS, Permission.USE),
+        marketplaceEnabled = role.hasAccessOrPermissive(PermissionType.MARKETPLACE, Permission.USE),
+        bookmarksEnabled = role.hasAccessOrPermissive(PermissionType.BOOKMARKS, Permission.USE),
+        skillsEnabled = isSkillsNavEnabled(role, agentsCapabilities),
+        schedulesPermitted = role.hasAccessOrPermissive(PermissionType.SCHEDULES, Permission.USE),
+    )

@@ -40,7 +40,6 @@ import com.garfiec.librechat.feature.chat.components.AskUserQuestionPanel
 import com.garfiec.librechat.feature.chat.components.ChatComposer
 import com.garfiec.librechat.feature.chat.components.ChatFloatingTopBar
 import com.garfiec.librechat.feature.chat.components.ChatRoot
-import com.garfiec.librechat.feature.chat.components.ComparisonLane
 import com.garfiec.librechat.feature.chat.components.ComposerComparison
 import com.garfiec.librechat.feature.chat.components.ComposerComparisonHint
 import com.garfiec.librechat.feature.chat.components.ToolApprovalPanel
@@ -106,6 +105,8 @@ fun ChatScreen(
     onAttachFromServer: () -> Unit = {},
     /** Opens What's new from the update banner shown on an empty chat. */
     onOpenWhatsNew: () -> Unit = {},
+    /** Opens the Memories page from a memory card's Manage action. Null hides the action. */
+    onOpenMemories: (() -> Unit)? = null,
 ) {
     val viewModel: ChatViewModel =
         koinViewModel {
@@ -209,12 +210,11 @@ fun ChatScreen(
     }
     val composerComparisonHint = when {
         uiState.comparisonState.isSettingUp -> ComposerComparisonHint.SETTING_UP
-        uiState.comparisonState.isEnabled && comparisonWide -> ComposerComparisonHint.BOTH
+        uiState.comparisonState.isEnabled -> ComposerComparisonHint.BOTH
         else -> ComposerComparisonHint.NONE
     }
-    // On a phone the composer names its tab's model, so an "Also asking" row names the other tab's
-    // (A on the B tab). Side by side it is the A·B badge pair inside the field, whose menu opens
-    // either model's selector.
+    // Both models, as the A·B badge pair inside the field, whose menu opens either model's selector.
+    // Compact on a phone, where the tab bar already names both models, and dots once a draft is typed.
     // Lane A without a model reads "Select model", never B's name.
     val primaryLaneLabel = comparisonLaneLabel(
         uiState.selectedEndpoint,
@@ -226,29 +226,17 @@ fun ChatScreen(
     val composerComparison = remember(
         secondaryModelLabel,
         primaryLaneLabel,
-        isSecondaryTab,
         comparisonWide,
         viewModel,
     ) {
         secondaryModelLabel?.let { secondaryLabel ->
-            when {
-                comparisonWide -> ComposerComparison.BothModels(
-                    primaryLabel = primaryLaneLabel,
-                    secondaryLabel = secondaryLabel,
-                    onChangePrimary = viewModel::openModelSheet,
-                    onChangeSecondary = { showSecondaryModelSheet = true },
-                )
-                isSecondaryTab -> ComposerComparison.OtherModel(
-                    lane = ComparisonLane.A,
-                    label = primaryLaneLabel,
-                    onChangeModel = viewModel::openModelSheet,
-                )
-                else -> ComposerComparison.OtherModel(
-                    lane = ComparisonLane.B,
-                    label = secondaryLabel,
-                    onChangeModel = { showSecondaryModelSheet = true },
-                )
-            }
+            ComposerComparison(
+                primaryLabel = primaryLaneLabel,
+                secondaryLabel = secondaryLabel,
+                onChangePrimary = viewModel::openModelSheet,
+                onChangeSecondary = { showSecondaryModelSheet = true },
+                compact = !comparisonWide,
+            )
         }
     }
     val effectiveSelectedModelDisplay = if (isSecondaryTab) {
@@ -256,6 +244,17 @@ fun ChatScreen(
     } else {
         displayModel
     }
+    // The picker's skill rows, narrowed for this chat. Recomputed only when an input changes, not
+    // on every chrome emission.
+    val pickerSkills = remember(
+        uiState.skillCatalog,
+        uiState.canPickSkills,
+        uiState.activeSpecSkills,
+        uiState.selectedEndpoint,
+        uiState.selectedModel,
+        uiState.agents,
+        uiState.pendingManualSkills,
+    ) { uiState.pickerSkills }
     // One launcher set, registered here and shared by both the composer "+" sheet (ChatInput) and
     // the pull-up sheet: a launcher stays usable from descendant compositions while the one that
     // registered it (this screen) is alive, so a second registration would be redundant.
@@ -294,7 +293,6 @@ fun ChatScreen(
     ChatScreenOutcomes(
         uiState = uiState,
         viewModel = viewModel,
-        snackbarHostState = snackbarHostState,
         onConversationStart = onConversationStart,
         onNavigateToConversation = onNavigateToConversation,
     )
@@ -324,6 +322,8 @@ fun ChatScreen(
         siteIcons = prefs.siteIcons,
         onSiteIconsChoice = viewModel::setShowSiteIcons,
         onSiteIconsPromptDismiss = viewModel::dismissSiteIconPrompt,
+        onOpenMemories = onOpenMemories?.takeIf { uiState.gates.memoriesPageEnabled },
+        thinkingOpenByDefault = prefs.thinkingOpenByDefault,
     ) {
     Scaffold(
         modifier = modifier
@@ -518,6 +518,8 @@ fun ChatScreen(
                                 pendingSteers = uiState.pendingSteers,
                                 pendingQuotes = uiState.pendingQuotes,
                                 onRemoveQuote = viewModel::removePendingQuote,
+                                pendingManualSkills = uiState.pendingManualSkills,
+                                onRemoveManualSkill = viewModel::removePendingManualSkill,
                                 onCancelSteer = viewModel::cancelSteer,
                                 onSetDuringRunAction = viewModel::setDuringRunAction,
                                 attachedFiles = attachedFiles,
@@ -525,7 +527,12 @@ fun ChatScreen(
                                 onPasteFiles = viewModel::onFilesSelected,
                                 pasteScope = coroutineScope,
                                 promptSuggestions = uiState.availablePrompts,
-                                onSlashCommandSelect = viewModel::handleSlashCommand,
+                                skillSuggestions = pickerSkills,
+                                isLoadingSkills = uiState.isLoadingSkills && uiState.canPickSkills,
+                                skillsLoadFailed = uiState.skillsLoadFailed && uiState.canPickSkills,
+                                canPickSkills = uiState.canPickSkills,
+                                onRetrySkills = viewModel::retrySkillCatalog,
+                                onPickerSelect = viewModel::selectPickerItem,
                                 isRecording = uiState.isRecording,
                                 isTranscribing = uiState.isTranscribing,
                                 onStartRecording = onStartRecordingWithPermission,
@@ -695,6 +702,7 @@ fun NewChatScreen(
     onNavigateToPromptsLibrary: (() -> Unit)? = null,
     onAttachFromServer: () -> Unit = {},
     onOpenWhatsNew: () -> Unit = {},
+    onOpenMemories: (() -> Unit)? = null,
 ) {
     ChatScreen(
         modifier = modifier,
@@ -709,5 +717,6 @@ fun NewChatScreen(
         onNavigateToProviderKeys = onNavigateToProviderKeys,
         onAttachFromServer = onAttachFromServer,
         onOpenWhatsNew = onOpenWhatsNew,
+        onOpenMemories = onOpenMemories,
     )
 }

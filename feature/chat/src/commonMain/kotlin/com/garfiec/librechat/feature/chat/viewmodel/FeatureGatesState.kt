@@ -66,6 +66,18 @@ data class FeatureGatesState(
      */
     val memoryEnabled: Boolean = false,
     /**
+     * The memory card's Manage action, which opens the Memories page. = MEMORIES USE+READ
+     * (permissive), the same gate as the Data tab row that opens that page. Independent of the
+     * user's own opt-out: the page is where they turn memories back on.
+     */
+    val memoriesPageEnabled: Boolean = false,
+    /**
+     * Role half of the composer Skills toggle and the skill picker: SKILLS.USE, permissive until
+     * the role loads (the drawer's shape). The agents `skills` capability half is folded in at
+     * read time (`ChatUiState.isSkillsToolAvailable`), fail-closed.
+     */
+    val skillsEnabled: Boolean = true,
+    /**
      * Mid-run steering (v0.8.8): whether `POST /api/agents/chat/steer` exists on this server.
      *
      * Fails closed, and unlike the HITL pause this one *can* fail closed safely. A pause is
@@ -137,13 +149,13 @@ data class FeatureGatesState(
  * Feature gates that flow into the composer ([ChatInput] → [ChatToolsSheetContent]),
  * bundled so they thread as one value across Android and iOS. Each defaults to true
  * (shown) so a default-constructed bundle is fully permissive. Built by
- * [ChatUiState.chatInputGates]; see [ChatUiState.modelSelectEnabled] /
+ * [ChatUiState.chatInputGates]; see [ChatUiState.modelPickerShown] /
  * [ChatUiState.parametersEnabled] / [ChatUiState.showEphemeralTools] /
  * [ChatUiState.fileUploadEnabled] for the individual gating rules.
  */
 @Immutable
 data class ChatInputGates(
-    val modelSelectEnabled: Boolean = true,
+    val modelPickerShown: Boolean = true,
     val parametersEnabled: Boolean = true,
     val showEphemeralTools: Boolean = true,
     val fileUploadEnabled: Boolean = true,

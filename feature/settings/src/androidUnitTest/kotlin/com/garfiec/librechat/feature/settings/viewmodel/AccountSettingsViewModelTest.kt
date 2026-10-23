@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.settings.viewmodel
 
 import com.garfiec.librechat.core.common.brand.ServerLock
+import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.repository.AuthRepository
@@ -11,6 +12,7 @@ import com.garfiec.librechat.core.model.Balance
 import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.model.config.BalanceConfig
 import com.garfiec.librechat.core.model.config.StartupConfig
+import com.garfiec.librechat.core.model.response.BackupCodesResponse
 import com.garfiec.librechat.core.ui.media.PreparedImage
 import com.garfiec.librechat.feature.settings.model.AutoRefillInfo
 import com.garfiec.librechat.feature.settings.util.ContentReader
@@ -201,6 +203,137 @@ class AccountSettingsViewModelTest {
 
         assertThat(viewModel.uiState.value.error).isEqualTo("Server error")
         assertThat(viewModel.uiState.value.isAccountDeleted).isFalse()
+    }
+
+    @Test
+    fun `2FA can be turned off with a backup code`() = runTest {
+        coEvery { userRepository.getUser() } returns Result.Success(testUser.copy(twoFactorEnabled = true))
+        coEvery { authRepository.disableTwoFactor(token = null, backupCode = "abcd1234") } returns Result.Success(Unit)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.toggleTwoFactor()
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.showDisableTwoFactorDialog).isTrue()
+
+        viewModel.confirmDisableTwoFactor(token = null, backupCode = "abcd1234")
+        advanceUntilIdle()
+
+        coVerify { authRepository.disableTwoFactor(token = null, backupCode = "abcd1234") }
+        assertThat(viewModel.uiState.value.isTwoFactorEnabled).isFalse()
+        assertThat(viewModel.uiState.value.showDisableTwoFactorDialog).isFalse()
+    }
+
+    @Test
+    fun `regenerating backup codes asks for confirmation, then the code, before any request`() = runTest {
+        coEvery { userRepository.getUser() } returns Result.Success(testUser.copy(twoFactorEnabled = true))
+        coEvery { authRepository.regenerateBackupCodes(token = "123456", backupCode = null) } returns
+            Result.Success(BackupCodesResponse(backupCodes = listOf("code-1", "code-2")))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.requestRegenerateBackupCodes()
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.showRegenerateBackupCodesConfirm).isTrue()
+        coVerify(exactly = 0) { authRepository.regenerateBackupCodes(any(), any()) }
+
+        viewModel.confirmRegenerateBackupCodes()
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.showRegenerateBackupCodesConfirm).isFalse()
+        assertThat(viewModel.uiState.value.showBackupCodesOtpDialog).isTrue()
+        coVerify(exactly = 0) { authRepository.regenerateBackupCodes(any(), any()) }
+
+        viewModel.regenerateBackupCodesWithOtp(token = "123456", backupCode = null)
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.showBackupCodesOtpDialog).isFalse()
+        assertThat(viewModel.uiState.value.showBackupCodesDialog).isTrue()
+        assertThat(viewModel.uiState.value.backupCodes).containsExactly("code-1", "code-2")
+    }
+
+    @Test
+    fun `cancelling the regenerate confirmation leaves the codes alone`() = runTest {
+        coEvery { userRepository.getUser() } returns Result.Success(testUser.copy(twoFactorEnabled = true))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.requestRegenerateBackupCodes()
+        viewModel.dismissRegenerateBackupCodesConfirm()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.showRegenerateBackupCodesConfirm).isFalse()
+        assertThat(viewModel.uiState.value.showBackupCodesOtpDialog).isFalse()
+        coVerify(exactly = 0) { authRepository.regenerateBackupCodes(any(), any()) }
+    }
+
+    @Test
+    fun `deleteAccount asks for the 2FA code before calling the server when 2FA is on`() = runTest {
+        coEvery { userRepository.getUser() } returns Result.Success(testUser.copy(twoFactorEnabled = true))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.deleteAccount()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.showDeleteAccountOtpDialog).isTrue()
+        assertThat(viewModel.uiState.value.error).isNull()
+        coVerify(exactly = 0) { userRepository.deleteUser(any(), any()) }
+    }
+
+    @Test
+    fun `deleteAccount sends the collected code and closes the prompt on success`() = runTest {
+        coEvery { userRepository.getUser() } returns Result.Success(testUser.copy(twoFactorEnabled = true))
+        coEvery { userRepository.deleteUser(token = "123456", backupCode = null) } returns Result.Success(Unit)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.deleteAccount()
+        advanceUntilIdle()
+
+        viewModel.deleteAccount(token = "123456")
+        advanceUntilIdle()
+
+        coVerify { userRepository.deleteUser(token = "123456", backupCode = null) }
+        assertThat(viewModel.uiState.value.isAccountDeleted).isTrue()
+        assertThat(viewModel.uiState.value.showDeleteAccountOtpDialog).isFalse()
+    }
+
+    @Test
+    fun `a 400 asking for the code opens the prompt even when the profile says 2FA is off`() = runTest {
+        val message = "TOTP token or backup code is required to delete account with 2FA enabled"
+        coEvery { userRepository.deleteUser() } returns Result.Error(
+            exception = ApiException(statusCode = 400, message = message, serverAuthored = true),
+            message = message,
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.deleteAccount()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.showDeleteAccountOtpDialog).isTrue()
+        assertThat(viewModel.uiState.value.error).isNull()
+    }
+
+    @Test
+    fun `a 403 shows the server's refusal instead of the code prompt`() = runTest {
+        val message = "You do not have permission to delete this account"
+        coEvery { userRepository.deleteUser() } returns Result.Error(
+            exception = ApiException(statusCode = 403, message = message, serverAuthored = true),
+            message = message,
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.deleteAccount()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.showDeleteAccountOtpDialog).isFalse()
+        assertThat(viewModel.uiState.value.error).isEqualTo(message)
     }
 
     @Test

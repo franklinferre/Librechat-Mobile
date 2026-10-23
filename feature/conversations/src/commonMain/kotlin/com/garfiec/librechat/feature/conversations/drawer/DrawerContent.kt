@@ -110,6 +110,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -162,6 +163,7 @@ import com.garfiec.librechat.feature.conversations.components.ProjectEditorSheet
 import com.garfiec.librechat.feature.conversations.components.ProjectMenuButton
 import com.garfiec.librechat.feature.conversations.components.ProjectPicker
 import com.garfiec.librechat.feature.conversations.components.ProjectTile
+import com.garfiec.librechat.feature.conversations.components.ShareLinkSheetHost
 import com.garfiec.librechat.feature.conversations.components.TagPicker
 import com.garfiec.librechat.feature.conversations.export.ExportFormat
 import com.garfiec.librechat.feature.conversations.export.ExportFormatPicker
@@ -295,15 +297,16 @@ fun DrawerContent(
         if (!isOpen) {
             showAccountSheet = false
             removeAccountTarget = null
+            viewModel.closeShareSheet()
         }
     }
     LaunchedEffect(isOpen, libraryTab) {
         if (isOpen && libraryTab == DrawerTab.Projects) viewModel.reloadProjects()
     }
 
-    // Side-effects for the long-press action menu (share-link copy, export file-save, navigate to
-    // a duplicated conversation, error toasts). Lives in feature/conversations so it owns the
-    // clipboard/toast/file-save plumbing and its localized strings.
+    // Side-effects for the long-press action menu (export file-save, navigate to a duplicated
+    // conversation, error toasts). Lives in feature/conversations so it owns the toast/file-save
+    // plumbing and its localized strings.
     ConversationActionEffects(
         events = viewModel.events,
         onNavigateToConversation = onConversationClick,
@@ -399,7 +402,10 @@ fun DrawerContent(
         onUpdateTags = { data, tags -> viewModel.updateConversationTags(data.conversationId, data.tags, tags) },
         onExportFormat = { data, format -> viewModel.exportConversation(data.conversationId, data.title, format) },
         modifier = modifier,
+        isOpen = isOpen,
     )
+
+    ShareLinkSheetHost(controller = viewModel.shareLink, onDismiss = viewModel::closeShareSheet)
 
     if (showAccountSheet) {
         AccountSwitcherSheet(
@@ -483,6 +489,8 @@ fun DrawerContent(
     searchFieldText: String = uiState.searchQuery,
     /** Cursor and scroll position, kept where the next drawer composed (fold ↔ unfold) finds them. */
     viewMemory: DrawerViewMemory = remember { DrawerViewMemory() },
+    /** Whether the drawer is showing; closing it drops the search field's focus and keyboard. */
+    isOpen: Boolean = true,
 ) {
     // Which row's long-press action menu is currently open (null = none). Keyed by the row's
     // LazyColumn key, not the conversation id: a favorited conversation appears in BOTH the
@@ -583,6 +591,16 @@ fun DrawerContent(
             focusManager.clearFocus()
             searchExpanded = false
             onSearchQueryChange("")
+        }
+        // The closed drawer stays composed, so a search field that still holds focus keeps the
+        // keyboard up over the screen behind it (closing by scrim tap, swipe or back). The query is
+        // kept: a restored search stays visible.
+        val keyboardController = LocalSoftwareKeyboardController.current
+        LaunchedEffect(isOpen) {
+            if (!isOpen && searchFocused) {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+            }
         }
         val slotColor by animateColorAsState(
             targetValue = when {
@@ -815,8 +833,6 @@ fun DrawerContent(
                                 onLoadProjects()
                                 projectPickerTarget = data
                             },
-                            // Share is shown here when the server enables shared links; the
-                            // full-screen list intentionally omits it (passes showShareAction=false).
                             showShareAction = uiState.sharedLinksEnabled,
                             onBookmarkToggle = { onToggleFavorite(data) },
                             onRenameRequest = { renameTarget = data },

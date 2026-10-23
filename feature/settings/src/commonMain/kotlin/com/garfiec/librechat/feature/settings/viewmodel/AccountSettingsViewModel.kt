@@ -83,6 +83,7 @@ data class AccountSettingsUiState(
     val showBackupCodesOtpDialog: Boolean = false,
     /** False on a locked server: its URL and headers are fixed, so the editor row is hidden. */
     val showServerConnection: Boolean = true,
+    val showRegenerateBackupCodesConfirm: Boolean = false,
 )
 
 /** The Balance section. Shown only while [AccountSettingsUiState.balanceEnabled]. */
@@ -172,13 +173,16 @@ class AccountSettingsViewModel(
         twoFactorDelegate.enableTwoFactor(token = token, backupCode = backupCode)
     fun dismissEnableTwoFactorOtpDialog() = twoFactorDelegate.dismissEnableTwoFactorOtpDialog()
     fun confirmEnableTwoFactor(code: String) = twoFactorDelegate.confirmEnableTwoFactor(code)
-    fun confirmDisableTwoFactor(code: String) = twoFactorDelegate.confirmDisableTwoFactor(code)
+    fun confirmDisableTwoFactor(token: String?, backupCode: String?) =
+        twoFactorDelegate.confirmDisableTwoFactor(token = token, backupCode = backupCode)
     fun dismissTwoFactorSetupDialog() = twoFactorDelegate.dismissTwoFactorSetupDialog()
     fun dismissDisableTwoFactorDialog() = twoFactorDelegate.dismissDisableTwoFactorDialog()
     fun dismissBackupCodesDialog() = twoFactorDelegate.dismissBackupCodesDialog()
-    fun viewBackupCodes() = twoFactorDelegate.viewBackupCodes()
-    fun viewBackupCodesWithOtp(token: String?, backupCode: String?) =
-        twoFactorDelegate.viewBackupCodes(token = token, backupCode = backupCode)
+    fun requestRegenerateBackupCodes() = twoFactorDelegate.requestRegenerateBackupCodes()
+    fun dismissRegenerateBackupCodesConfirm() = twoFactorDelegate.dismissRegenerateBackupCodesConfirm()
+    fun confirmRegenerateBackupCodes() = twoFactorDelegate.confirmRegenerateBackupCodes()
+    fun regenerateBackupCodesWithOtp(token: String?, backupCode: String?) =
+        twoFactorDelegate.regenerateBackupCodes(token = token, backupCode = backupCode)
     fun dismissBackupCodesOtpDialog() = twoFactorDelegate.dismissBackupCodesOtpDialog()
 }
 

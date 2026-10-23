@@ -76,8 +76,8 @@ class ChatSettingsViewModel(
         prefsController.setAutoScrollEnabled(enabled)
     }
 
-    fun setShowThinkingBlocks(show: Boolean) {
-        prefsController.setShowThinkingBlocks(show)
+    fun setThinkingOpenByDefault(open: Boolean) {
+        prefsController.setThinkingOpenByDefault(open)
     }
 
     fun setContextBarPlacement(placement: ContextBarPlacement) {
@@ -94,6 +94,10 @@ class ChatSettingsViewModel(
 
     fun setShowImageDescriptions(show: Boolean) {
         prefsController.setShowImageDescriptions(show)
+    }
+
+    fun setPreferLastUsedModel(prefer: Boolean) {
+        prefsController.setPreferLastUsedModel(prefer)
     }
 
     fun setShowSiteIcons(show: Boolean) {

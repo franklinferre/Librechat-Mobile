@@ -92,6 +92,7 @@ internal fun ChatOptionsSheetHost(
             runCodeEnabled = uiState.runCodeEnabled,
             fileSearchEnabled = uiState.fileSearchEnabled,
             memoryEnabled = uiState.isMemoryToolAvailable,
+            skillsEnabled = uiState.isSkillsToolAvailable,
             mcpServersEnabled = uiState.mcpServersEnabled,
             gates = uiState.chatInputGates,
             contextGauge = uiState.contextGaugeDetails,
@@ -105,6 +106,7 @@ internal fun ChatOptionsSheetHost(
         // While comparing, the page edits whichever lane its A/B pair picks, starting on the active
         // tab's; the sheet itself needs no comparison branch.
         selector = ModelSelectorPageParams(
+            modelSelect = uiState.modelSelectEnabled,
             modelSpecs = uiState.modelSpecs,
             selectedSpec = comparison.selectedSpec,
             onSpecSelect = comparison.onSpecSelect,
@@ -126,8 +128,10 @@ internal fun ChatOptionsSheetHost(
             serverUrl = uiState.serverUrl,
             favoriteAgentIds = uiState.favoriteAgentIds,
             favoriteModelKeys = uiState.favoriteModelKeys,
+            favoriteSpecNames = uiState.favoriteSpecNames,
             onToggleAgentFavorite = viewModel::toggleAgentFavorite,
             onToggleModelFavorite = viewModel::toggleModelFavorite,
+            onToggleSpecFavorite = viewModel::toggleSpecFavorite,
             starredDisplay = uiState.starredModelsDisplay,
             endpointKeyStates = uiState.endpointKeyStates,
         ),

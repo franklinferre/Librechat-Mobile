@@ -10,6 +10,7 @@
     <string name="action_insert">إدراج</string>
     <string name="action_open">فتح</string>
     <string name="action_share">مشاركة</string>
+    <string name="action_share_link_active">مشاركة · الرابط نشط</string>
     <string name="action_search">بحث</string>
     <string name="action_archive">أرشفة</string>
     <string name="action_duplicate">تكرار</string>
@@ -42,10 +43,7 @@
     <string name="compare_empty_ready">اضغط «ابدأ»، ثم أرسل رسالة. يجيب النموذجان جنبًا إلى جنب.</string>
     <string name="compare_browse_all">تصفح كل النماذج</string>
     <string name="compare_pick_second_model">اختر النموذج الثاني</string>
-    <string name="compare_also_asking">يُسأل أيضًا</string>
     <string name="cd_change_compared_models">تغيير النماذج المقارنة</string>
-    <string name="cd_change_first_model">تغيير النموذج الأول، %1$s</string>
-    <string name="cd_change_second_model">تغيير النموذج الثاني، %1$s</string>
     <string name="compare_lane_a">A</string>
     <string name="compare_lane_b">B</string>
     <string name="how_can_i_help">كيف يمكنني مساعدتك اليوم؟</string>
@@ -303,18 +301,39 @@
     <string name="cd_mcp_resource">مورد MCP: %1$s</string>
 
     <!-- Memory artifact -->
-    <string name="cd_memory_artifact">عنصر الذاكرة: %1$s</string>
-    <string name="memory_artifact_untitled">بدون عنوان</string>
     <string name="label_memory">الذاكرة</string>
-    <string name="cd_memory_artifacts">تحديثات الذاكرة: %1$d</string>
-    <string name="memory_updated">تم تحديث الذاكرة المحفوظة</string>
+    <string name="memory_manage">إدارة</string>
+    <string name="cd_memory_manage">إدارة الذكريات</string>
+    <plurals name="cd_memory_artifacts_summary">
+        <item quantity="zero">%1$s، %2$s تغيير</item>
+        <item quantity="one">%1$s، تغيير واحد</item>
+        <item quantity="two">%1$s، تغييران</item>
+        <item quantity="few">%1$s، %2$s تغييرات</item>
+        <item quantity="many">%1$s، %2$s تغييرًا</item>
+        <item quantity="other">%1$s، %2$s تغيير</item>
+    </plurals>
+    <string name="memory_updated">تم تحديث الذكرى المحفوظة</string>
     <string name="memory_error">خطأ في الذاكرة</string>
     <string name="memory_updated_items">الذكريات المحدّثة</string>
     <string name="memory_deleted_items">الذكريات المحذوفة</string>
-    <string name="memory_deleted">تم حذف الذاكرة</string>
-    <string name="memory_storage_full">مساحة الذاكرة ممتلئة</string>
-    <string name="memory_already_exceeded">مساحة الذاكرة ممتلئة بالفعل — تم تجاوزها بمقدار %1$d رمز. احذف ذكريات موجودة قبل إضافة ذكريات جديدة.</string>
-    <string name="memory_would_exceed">تعذّر الحفظ — سيتم تجاوز الحد بمقدار %1$d رمز. احذف ذكريات موجودة لإفساح المجال.</string>
+    <string name="memory_deleted">تم حذف الذكرى</string>
+    <string name="memory_storage_full">مساحة الذكريات ممتلئة</string>
+    <plurals name="memory_already_exceeded">
+        <item quantity="zero">مساحة الذكريات ممتلئة بالفعل — تم تجاوزها بمقدار %1$s رمز. احذف ذكريات موجودة قبل إضافة ذكريات جديدة.</item>
+        <item quantity="one">مساحة الذكريات ممتلئة بالفعل — تم تجاوزها بمقدار رمز واحد. احذف ذكريات موجودة قبل إضافة ذكريات جديدة.</item>
+        <item quantity="two">مساحة الذكريات ممتلئة بالفعل — تم تجاوزها بمقدار رمزين. احذف ذكريات موجودة قبل إضافة ذكريات جديدة.</item>
+        <item quantity="few">مساحة الذكريات ممتلئة بالفعل — تم تجاوزها بمقدار %1$s رموز. احذف ذكريات موجودة قبل إضافة ذكريات جديدة.</item>
+        <item quantity="many">مساحة الذكريات ممتلئة بالفعل — تم تجاوزها بمقدار %1$s رمزًا. احذف ذكريات موجودة قبل إضافة ذكريات جديدة.</item>
+        <item quantity="other">مساحة الذكريات ممتلئة بالفعل — تم تجاوزها بمقدار %1$s رمز. احذف ذكريات موجودة قبل إضافة ذكريات جديدة.</item>
+    </plurals>
+    <plurals name="memory_would_exceed">
+        <item quantity="zero">تعذّر الحفظ — سيتم تجاوز الحد بمقدار %1$s رمز. احذف ذكريات موجودة لإفساح المجال.</item>
+        <item quantity="one">تعذّر الحفظ — سيتم تجاوز الحد بمقدار رمز واحد. احذف ذكريات موجودة لإفساح المجال.</item>
+        <item quantity="two">تعذّر الحفظ — سيتم تجاوز الحد بمقدار رمزين. احذف ذكريات موجودة لإفساح المجال.</item>
+        <item quantity="few">تعذّر الحفظ — سيتم تجاوز الحد بمقدار %1$s رموز. احذف ذكريات موجودة لإفساح المجال.</item>
+        <item quantity="many">تعذّر الحفظ — سيتم تجاوز الحد بمقدار %1$s رمزًا. احذف ذكريات موجودة لإفساح المجال.</item>
+        <item quantity="other">تعذّر الحفظ — سيتم تجاوز الحد بمقدار %1$s رمز. احذف ذكريات موجودة لإفساح المجال.</item>
+    </plurals>
     <string name="files_searched">تم البحث في ملفاتك</string>
     <string name="cd_file_search_source">مصدر البحث في الملفات: %1$s</string>
     <string name="file_search_relevance">%1$d%%</string>
@@ -573,6 +592,21 @@
     <string name="cd_collapse_ask_user_question">طي تفاصيل السؤال</string>
     <string name="tool_memory">الذاكرة</string>
     <string name="tool_memory_desc">السماح للمساعد بتذكر تفاصيل من هذه المحادثة</string>
+    <string name="tool_skills">المهارات</string>
+    <string name="tool_skills_desc">السماح للمساعد باستخدام مهاراتك في هذه المحادثة</string>
+    <string name="cd_skills_enabled">المهارات مُفعّلة</string>
+    <string name="picker_type_prompt">مطالبة</string>
+    <string name="picker_type_skill">مهارة</string>
+    <string name="picker_no_matches">لا توجد نتائج مطابقة</string>
+    <string name="picker_loading_skills">جارٍ تحميل المهارات…</string>
+    <string name="picker_skills_failed">تعذّر تحميل المهارات</string>
+    <string name="cd_pending_skills">مهارات للرسالة التالية</string>
+    <string name="cd_remove_skill">إزالة المهارة %1$s</string>
+    <string name="cd_skill_always_applied">مهارة مطبّقة دائمًا: %1$s</string>
+    <string name="cd_skill_used">المهارة المستخدمة: %1$s</string>
+    <string name="skill_call_running">جارٍ تشغيل %1$s</string>
+    <string name="skill_call_finished">تم تشغيل %1$s</string>
+    <string name="skill_call_fallback_name">مهارة</string>
     <string name="cd_steer_message">توجيه هذا الرد</string>
     <string name="cd_cancel_steer">إلغاء التوجيه</string>
     <string name="cd_during_run_options">اختر ما يفعله الإرسال الآن</string>
@@ -659,7 +693,6 @@
     <string name="notice_delete_failed">تعذّر حذف المحادثة</string>
     <string name="notice_archive_failed">تعذّرت أرشفة المحادثة</string>
     <string name="notice_duplicate_failed">تعذّر تكرار المحادثة</string>
-    <string name="notice_share_link_failed">تعذّر إنشاء رابط المشاركة</string>
     <string name="notice_preset_save_failed">تعذّر حفظ الإعداد المسبق</string>
     <string name="notice_preset_delete_failed">تعذّر حذف الإعداد المسبق</string>
     <string name="notice_preset_update_failed">تعذّر تحديث الإعداد المسبق</string>
@@ -673,6 +706,8 @@
     <string name="notice_speech_permission_denied">تم رفض إذن التعرّف على الكلام</string>
     <string name="notice_speech_unavailable">التعرّف على الكلام غير متاح. تحقّق من الإعدادات &gt; الخصوصية &gt; التعرّف على الكلام.</string>
     <string name="notice_send_refused">رفض الخادم هذه الرسالة.</string>
+    <string name="notice_skills_not_sent">لا يمكن استخدام بعض المهارات في هذه المحادثة ولم تُرسَل.</string>
+    <string name="notice_skills_removed_from_queued">لا يمكن استخدام بعض المهارات في هذه المحادثة وأُزيلت من الرسالة في قائمة الانتظار.</string>
     <plurals name="notice_message_limit_retry_minutes">
         <item quantity="zero">لقد بلغت حد الرسائل على هذا الخادم. حاول مرة أخرى بعد %1$d دقيقة.</item>
         <item quantity="one">لقد بلغت حد الرسائل على هذا الخادم. حاول مرة أخرى بعد دقيقة.</item>
@@ -782,7 +817,6 @@
     <string name="sibling_position">الرد %1$d من %2$d</string>
     <string name="cd_assistant_responding">المساعد يرد: %1$s</string>
     <string name="tool_call_fallback">استدعاء أداة</string>
-    <string name="share_link_copied">تم نسخ رابط المشاركة إلى الحافظة</string>
     <string name="prompt_filter_title">التصفية والفرز</string>
     <string name="prompt_sort_recent">الأحدث</string>
     <string name="prompt_sort_popular">الأكثر شيوعًا</string>
@@ -804,4 +838,27 @@
     <string name="prompt_preview_placeholder">أدخل قيم المتغيرات لرؤية المعاينة</string>
     <string name="cd_sync_scroll_on">تتمرّر اللوحتان معًا. إلغاء الربط</string>
     <string name="cd_sync_scroll_off">تتمرّر اللوحتان كلٌّ على حدة. ربط</string>
+    <!-- Shared chat viewer -->
+    <string name="shared_chat_title_fallback">محادثة مشتركة</string>
+    <string name="shared_chat_subtitle">محادثة مشتركة · %1$s</string>
+    <string name="shared_chat_continue">متابعة هذه المحادثة</string>
+    <string name="shared_chat_open_in_browser">فتح في المتصفح</string>
+    <string name="shared_chat_langfuse">عرض الجلسة في Langfuse</string>
+    <string name="shared_chat_link_updated">تم تحديث هذا الرابط. يتم الآن عرض أحدث إصدار.</string>
+    <string name="shared_chat_continue_rate_limited">طلبات كثيرة جدًا لمتابعة المحادثات. حاول مرة أخرى لاحقًا.</string>
+    <string name="shared_chat_continue_failed">تعذّرت متابعة هذه المحادثة</string>
+    <string name="shared_chat_continue_unsupported">لا يدعم هذا الخادم متابعة المحادثات المشتركة</string>
+    <string name="shared_chat_refresh_failed">تعذّر تحديث هذه المحادثة المشتركة</string>
+    <string name="shared_chat_continue_blocked">منع الخادم نسخ هذه المحادثة</string>
+    <string name="shared_chat_continue_blocked_reason">منع الخادم نسخ هذه المحادثة: %1$s</string>
+    <string name="shared_chat_not_found">لم يتم العثور على الرابط المشترك</string>
+    <string name="shared_chat_not_found_description">ربما تم حذفه، أو أن الرابط غير صحيح.</string>
+    <string name="shared_chat_no_access">لا يمكنك فتح هذه المحادثة المشتركة</string>
+    <string name="shared_chat_no_access_description">لم تتم مشاركتها مع هذا الحساب.</string>
+    <string name="shared_chat_rate_limited">طلبات كثيرة جدًا للروابط المشتركة</string>
+    <string name="shared_chat_rate_limited_description">حاول مرة أخرى بعد قليل.</string>
+    <string name="shared_chat_blocked">حظر الخادم هذه المحادثة المشتركة</string>
+    <string name="shared_chat_load_failed">تعذّر تحميل هذه المحادثة المشتركة</string>
+    <string name="shared_chat_user">المستخدم</string>
+    <string name="shared_chat_file_failed">تعذّر فتح هذا الملف</string>
 </resources>

@@ -20,23 +20,20 @@
     <string name="action_verifying">جارٍ التحقّق…</string>
 
     <!-- Content descriptions -->
-    <string name="cd_add_memory">إضافة ذاكرة</string>
     <string name="cd_add_server">إضافة خادم</string>
     <string name="cd_back">رجوع</string>
     <string name="cd_change_avatar">تغيير الصورة الرمزية</string>
     <string name="cd_choose_image">اختيار صورة</string>
     <string name="cd_copy_api_key">نسخ مفتاح API</string>
-    <string name="cd_copy_link">نسخ الرابط</string>
+    <string name="shared_chats_copy_link">نسخ الرابط</string>
     <string name="cd_create_api_key">إنشاء مفتاح API</string>
     <string name="cd_current_avatar">الصورة الرمزية الحالية</string>
     <string name="cd_delete">حذف</string>
     <string name="cd_delete_api_key">حذف مفتاح API</string>
-    <string name="cd_delete_memory">حذف الذاكرة</string>
     <string name="cd_delete_preset">حذف الإعداد المسبق</string>
-    <string name="cd_delete_shared_link">حذف الرابط المشترك</string>
-    <string name="cd_edit_memory">تعديل الذاكرة</string>
     <string name="memory_redacted_key">إدخال مخفي</string>
     <string name="memory_redacted_value">تُخفي سياسة المحتوى في هذا الخادم ما هو مخزّن هنا. لا يزال بإمكانك حذفه.</string>
+    <string name="memory_redacted_value_no_delete">تُخفي سياسة المحتوى في هذا الخادم ما هو مخزّن هنا.</string>
     <string name="cd_loading_profile">جارٍ تحميل الملف الشخصي</string>
     <string name="cd_make_private">جعله خاصًا</string>
     <string name="cd_make_public">جعله عامًا</string>
@@ -48,7 +45,6 @@
     <string name="cd_test_tts_voice">اختبار صوت تحويل النص إلى كلام المحدد</string>
     <string name="cd_toggle_auto_read">تبديل القراءة التلقائية للردود</string>
     <string name="cd_toggle_auto_send_stt">تبديل الإرسال التلقائي بعد الكلام</string>
-    <string name="cd_toggle_memories">تبديل الذكريات</string>
     <string name="cd_tts_voice_selector">اختيار صوت تحويل النص إلى كلام. الحالي %1$s</string>
     <string name="cd_user_avatar">الصورة الرمزية للمستخدم</string>
     <string name="cd_view_all_tools">عرض جميع الأدوات</string>
@@ -148,7 +144,6 @@
     <string name="title_mcp_servers">خوادم MCP</string>
     <string name="title_presets">الإعدادات المسبقة</string>
     <string name="title_settings">الإعدادات</string>
-    <string name="title_shared_links">الروابط المشتركة</string>
 
     <!-- Tabbed settings tabs -->
     <string name="tab_general">عام</string>
@@ -312,6 +307,10 @@
     <string name="starred_models_off">إيقاف</string>
     <string name="starred_models_grouped">مجموعة قابلة للطي في الأعلى</string>
     <string name="starred_models_top">في الأعلى بدون تجميع</string>
+    <string name="new_chat_start_title">بدء المحادثات الجديدة باستخدام</string>
+    <string name="new_chat_start_desc">عندما يحدد الخادم نموذجًا للمحادثات الجديدة، اختر استخدامه أو استخدام آخر نموذج استخدمته. يتم تجاهل ذلك إذا أخفى الخادم أداة اختيار النموذج. إذا اشترط الخادم استخدام أحد نماذجه، فلا يُحتسب آخر نموذج استخدمته إلا إذا كان واحدًا منها.</string>
+    <string name="new_chat_start_server">اختيار الخادم</string>
+    <string name="new_chat_start_last_used">آخر نموذج استخدمته</string>
     <string name="chat_header_title">ترويسة المحادثة</string>
     <string name="chat_header_summary_format">%1$s · %2$s</string>
     <string name="chat_header_content_label">المحتوى</string>
@@ -333,8 +332,8 @@
     <string name="latex_native_desc">يعرض مصدر LaTeX الخام لأداء تمرير أفضل</string>
     <string name="auto_scroll">التمرير التلقائي أثناء البث</string>
     <string name="auto_scroll_desc">التمرير تلقائيًا إلى المحتوى الجديد أثناء إنشاء الرد</string>
-    <string name="show_thinking_blocks">إظهار كتل التفكير</string>
-    <string name="show_thinking_blocks_desc">عرض خطوات استدلال النموذج عند توفّرها</string>
+    <string name="thinking_open_by_default">فتح التفكير افتراضيًا</string>
+    <string name="thinking_open_by_default_desc">عرض استدلال الرد موسّعًا بدلًا من مطويًا</string>
     <string name="context_bar_title">استخدام السياق</string>
     <string name="context_bar_desc">مكان عرض مؤشر استخدام نافذة السياق</string>
     <string name="context_bar_hidden">مخفي</string>
@@ -372,7 +371,7 @@
     <string name="two_factor_auth">المصادقة الثنائية</string>
     <string name="enable_two_factor">تفعيل المصادقة الثنائية</string>
     <string name="disable_two_factor">تعطيل المصادقة الثنائية</string>
-    <string name="view_backup_codes">عرض رموز النسخ الاحتياطي</string>
+    <string name="regenerate_backup_codes">إعادة إنشاء رموز النسخ الاحتياطي</string>
 
     <!-- 2FA setup dialog -->
     <string name="dialog_title_enable_2fa">تفعيل المصادقة الثنائية</string>
@@ -386,7 +385,6 @@
     <string name="action_hide_qr">إخفاء رمز QR</string>
     <string name="cd_twofa_qr">رمز QR للتسجيل على جهاز آخر</string>
     <string name="twofa_disable_instructions">أدخل رمز المصادقة لتعطيل المصادقة الثنائية.</string>
-    <string name="hint_verification_code">رمز التحقق</string>
 
     <!-- OTP verification dialogs -->
     <string name="otp_title_verify_identity">التحقق من الهوية</string>
@@ -402,6 +400,10 @@
     <!-- Backup codes dialog -->
     <string name="dialog_title_backup_codes">رموز النسخ الاحتياطي</string>
     <string name="backup_codes_instructions">احفظ رموز النسخ الاحتياطي هذه في مكان آمن. يمكن استخدام كل رمز مرة واحدة فقط.</string>
+    <string name="dialog_title_regenerate_backup_codes">إعادة إنشاء رموز النسخ الاحتياطي؟</string>
+    <string name="regenerate_backup_codes_warning">ستتوقف رموز النسخ الاحتياطي الحالية عن العمل. ستحصل على مجموعة جديدة لحفظها.</string>
+    <string name="action_regenerate">إعادة الإنشاء</string>
+    <string name="backup_codes_saved_ack">لقد حفظت هذه الرموز</string>
 
     <!-- Danger zone -->
     <string name="delete_account">حذف الحساب</string>
@@ -429,7 +431,6 @@
     <string name="archived_all_count">تمت أرشفة %1$d محادثة</string>
     <string name="archived_conversations">المحادثات المؤرشفة</string>
     <string name="export_all_data">تصدير جميع البيانات</string>
-    <string name="shared_links">الروابط المشتركة</string>
     <string name="clear_cache_with_size">مسح ذاكرة التخزين المؤقت (%1$s)</string>
     <string name="clear_cache">مسح ذاكرة التخزين المؤقت</string>
     <string name="revoke_all_api_keys">إبطال جميع مفاتيح API</string>
@@ -487,19 +488,85 @@
     <string name="tts_preview_voice">معاينة الصوت</string>
 
     <!-- Memories -->
-    <string name="enable_memories">تفعيل الذكريات</string>
-    <string name="enable_memories_desc">السماح للذكاء الاصطناعي بتذكّر المعلومات عبر المحادثات</string>
-    <string name="no_memories_saved">لا توجد ذكريات محفوظة بعد</string>
-    <string name="memories_add_hint">انقر على زر + لإضافة ذاكرة</string>
-    <string name="add_memory">إضافة ذاكرة</string>
-    <string name="edit_memory">تعديل الذاكرة</string>
-    <string name="dialog_title_delete_memory">حذف الذاكرة</string>
-    <string name="dialog_delete_memory_message">هل أنت متأكد أنك تريد حذف الذاكرة "%1$s"؟</string>
+    <string name="add_memory">إضافة ذكرى</string>
+    <string name="edit_memory">تعديل الذكرى</string>
+    <string name="dialog_title_delete_memory">حذف الذكرى</string>
+    <string name="dialog_delete_memory_message">هل أنت متأكد أنك تريد حذف الذكرى "%1$s"؟</string>
     <string name="memory_key_label">المفتاح</string>
     <string name="memory_value_label">القيمة</string>
-    <string name="memory_key_hint">استخدم الأحرف الإنجليزية الصغيرة والشرطات السفلية فقط</string>
-    <string name="memory_key_invalid">يجب أن يحتوي المفتاح على أحرف إنجليزية صغيرة وشرطات سفلية فقط</string>
-    <string name="memory_key_exists">توجد ذاكرة بهذا المفتاح بالفعل</string>
+    <string name="memory_key_hint">استخدم الأحرف الإنجليزية الصغيرة a–z والشرطات السفلية فقط</string>
+    <string name="memory_key_invalid">يجب أن يحتوي المفتاح على أحرف إنجليزية صغيرة a–z وشرطات سفلية فقط</string>
+    <string name="memory_key_exists">توجد ذكرى بهذا المفتاح بالفعل</string>
+    <string name="memory_key_reserved">هذا المفتاح محجوز. اختر مفتاحًا آخر.</string>
+    <string name="memory_key_too_long">يمكن أن يصل طول المفتاح إلى %1$s حرف كحد أقصى.</string>
+    <string name="memory_error_forbidden">ليس لديك إذن بتغيير الذكريات.</string>
+    <string name="memory_error_toggle_forbidden">لا يسمح دورك بتشغيل الذكريات أو إيقافها.</string>
+    <string name="memory_error_content_filtered">حظره عامل تصفية المحتوى على الخادم.</string>
+    <string name="memory_error_agent">لا يمكن تغيير ذكريات هذا الوكيل.</string>
+    <string name="memory_error_network">تعذّر الوصول إلى الخادم. تحقق من اتصالك.</string>
+    <string name="memory_error_save">تعذّر حفظ الذكرى.</string>
+    <string name="memory_error_delete">تعذّر حذف الذكرى.</string>
+    <string name="memory_error_toggle">تعذّر تغيير إعداد الذكريات.</string>
+    <string name="memory_error_not_found">حُذفت هذه الذكرى من مكان آخر.</string>
+    <string name="memory_error_not_found_readd">حُذفت هذه الذكرى من مكان آخر. اضغط حفظ لإضافتها مجددًا.</string>
+    <!-- Memories index -->
+    <string name="memories_use_title">استخدام الذكريات المحفوظة</string>
+    <string name="memories_use_desc">يمكن للمحادثات قراءة الذكريات وحفظها</string>
+    <string name="memories_use_load_failed">تعذّر تحميل هذا الإعداد.</string>
+    <string name="memories_use_loading">جارٍ التحميل</string>
+    <string name="memories_usage_percent">%1$s%</string>
+    <plurals name="memories_usage_tokens">
+        <item quantity="zero">%1$s / %2$s رمز</item>
+        <item quantity="one">%1$s / %2$s رمز</item>
+        <item quantity="two">%1$s / %2$s رمز</item>
+        <item quantity="few">%1$s / %2$s رموز</item>
+        <item quantity="many">%1$s / %2$s رمزًا</item>
+        <item quantity="other">%1$s / %2$s رمز</item>
+    </plurals>
+    <plurals name="memories_usage_a11y">
+        <item quantity="zero">استخدام الذكريات: %1$s، %2$s من %3$s رمز</item>
+        <item quantity="one">استخدام الذكريات: %1$s، %2$s من %3$s رمز</item>
+        <item quantity="two">استخدام الذكريات: %1$s، %2$s من %3$s رمز</item>
+        <item quantity="few">استخدام الذكريات: %1$s، %2$s من %3$s رموز</item>
+        <item quantity="many">استخدام الذكريات: %1$s، %2$s من %3$s رمزًا</item>
+        <item quantity="other">استخدام الذكريات: %1$s، %2$s من %3$s رمز</item>
+    </plurals>
+    <plurals name="memory_token_count">
+        <item quantity="zero">%1$s رمز</item>
+        <item quantity="one">رمز واحد</item>
+        <item quantity="two">رمزان</item>
+        <item quantity="few">%1$s رموز</item>
+        <item quantity="many">%1$s رمزًا</item>
+        <item quantity="other">%1$s رمز</item>
+    </plurals>
+    <string name="memory_agent_fallback">ذكرى الوكيل</string>
+    <string name="memory_agent_numbered">%1$s (%2$s)</string>
+    <string name="memories_search_hint">البحث في الذكريات</string>
+    <string name="memories_no_match">لا توجد ذكريات تطابق "%1$s"</string>
+    <string name="memories_personal_empty">لا توجد ذكريات شخصية بعد</string>
+    <string name="memories_filter_all">الكل</string>
+    <string name="memories_filter_personal">شخصية</string>
+    <string name="memories_empty_title">لا توجد ذكريات بعد</string>
+    <string name="memories_empty_desc">تحفظ المحادثات هنا ما يستحق التذكر. يمكنك أيضًا إضافة ذكرى بنفسك.</string>
+    <string name="memories_empty_desc_no_create">تحفظ المحادثات هنا ما يستحق التذكر.</string>
+    <string name="memories_view_only">يمكن لدورك عرض الذكريات، لكن لا يمكنه إضافتها أو تغييرها.</string>
+    <string name="memories_no_access_title">لا يمكنك الوصول إلى الذكريات</string>
+    <string name="memories_no_access_desc">ليس لدى دورك إذن بعرض الذكريات.</string>
+    <string name="memory_action_edit">تعديل</string>
+    <string name="cd_memory_options">خيارات %1$s</string>
+    <!-- Memory sheet -->
+    <string name="view_memory">عرض الذكرى</string>
+    <string name="action_close">إغلاق</string>
+    <string name="memory_value_counter">%1$s / %2$s</string>
+    <plurals name="memory_token_share">
+        <item quantity="zero">%1$s رمز · %2$s% من ذاكرتك</item>
+        <item quantity="one">رمز واحد · %2$s% من ذاكرتك</item>
+        <item quantity="two">رمزان · %2$s% من ذاكرتك</item>
+        <item quantity="few">%1$s رموز · %2$s% من ذاكرتك</item>
+        <item quantity="many">%1$s رمزًا · %2$s% من ذاكرتك</item>
+        <item quantity="other">%1$s رمز · %2$s% من ذاكرتك</item>
+    </plurals>
+    <string name="memory_updated_at">آخر تحديث: %1$s</string>
 
     <!-- MCP -->
     <string name="add_mcp_server">إضافة خادم MCP</string>
@@ -573,19 +640,10 @@
     <string name="dialog_delete_preset_message">هل أنت متأكد أنك تريد حذف "%1$s"؟</string>
 
     <!-- Shared links -->
-    <string name="no_shared_links">لا توجد روابط مشتركة</string>
-    <string name="no_shared_links_desc">شارك محادثة لرؤيتها هنا</string>
     <string name="mcp_oauth_secret_reentry_required">تغيّرت نقاط نهاية OAuth، لذا لم يعد السر المحفوظ صالحًا. أدخله مجددًا.</string>
     <string name="mcp_api_key_reentry_required">تغيّرت إعدادات الاتصال، لذا لم يعد مفتاح API المحفوظ صالحًا. أدخله مجددًا.</string>
-    <string name="cd_update_shared_link">تحديث الرابط المشترك</string>
-    <string name="dialog_title_update_shared_link">تحديث الرابط المشترك</string>
-    <string name="dialog_update_shared_link_message">سيُعاد نشر "%1$s" بالمحادثة كما هي الآن. سيبقى الرابط كما هو، لذا سيرى كل من لديه الرابط المحتوى المحدّث.</string>
-    <string name="dialog_update_shared_link_message_new_url">سيُعاد نشر "%1$s" بالمحادثة كما هي الآن. يُصدر هذا الخادم رابطًا جديدًا، لذا سيفقد كل من لديه الرابط القديم إمكانية الوصول.</string>
-    <string name="action_update_shared_link">تحديث</string>
     <string name="dialog_title_delete_shared_link">حذف الرابط المشترك</string>
     <string name="dialog_delete_shared_link_message">سيؤدي هذا إلى إزالة الرابط المشترك لـ "%1$s". لن يتمكن أي شخص لديه الرابط من الوصول إليه بعد الآن.</string>
-    <string name="visibility_public">عام</string>
-    <string name="visibility_private">خاص</string>
     <string name="error_failed_to_load_memories">فشل تحميل الذكريات</string>
 
     <!-- Provider API Keys -->
@@ -647,16 +705,27 @@
     <string name="provider_keys_revoke_all_action">إبطال الكل</string>
 
     <!-- Admin: role skill access -->
-    <string name="role_skills_settings_row">الوصول إلى المهارات (المسؤول)</string>
-    <string name="role_skills_title">الوصول إلى المهارات</string>
-    <string name="role_skills_back">رجوع</string>
+    <string name="role_skills_settings_row">أذونات المهارات</string>
+    <string name="role_skills_title">أذونات المهارات</string>
     <string name="role_skills_description">تحكّم في إمكانات المهارات التي يملكها كل دور. تُطبّق التغييرات على جميع المستخدمين ذوي الدور المحدد.</string>
-    <string name="role_skills_role_label">الدور</string>
+    <string name="role_permissions_role_label">الدور</string>
     <string name="role_skills_use">استخدام المهارات</string>
     <string name="role_skills_create">إنشاء المهارات وتعديلها</string>
     <string name="role_skills_share">مشاركة المهارات</string>
     <string name="role_skills_share_public">مشاركة المهارات علنًا</string>
-    <string name="role_skills_save">حفظ</string>
+    <string name="role_memories_settings_row">أذونات الذكريات</string>
+    <string name="role_memories_title">أذونات الذكريات</string>
+    <string name="role_memories_description">تحكّم في إمكانات الذكريات التي يملكها كل دور. تُطبّق التغييرات على جميع المستخدمين ذوي الدور المحدد.</string>
+    <string name="role_memories_use">السماح باستخدام الذكريات</string>
+    <string name="role_memories_create">السماح بإنشاء الذكريات</string>
+    <string name="role_memories_update">السماح بتعديل الذكريات</string>
+    <string name="role_memories_read">السماح بقراءة الذكريات</string>
+    <string name="role_memories_opt_out">السماح للمستخدمين بإيقاف الذكريات</string>
+    <string name="role_permissions_saved">تم الحفظ</string>
+    <string name="role_permissions_load_failed">تعذّر تحميل أذونات هذا الدور.</string>
+    <string name="role_permissions_save_failed">تعذّر حفظ الأذونات. حاول مرة أخرى.</string>
+    <string name="role_permissions_admin_access_warning">قد يؤدي إيقاف وصول المسؤول إلى هذه الميزة إلى مشاكل غير متوقعة إلى أن يعيد التطبيق تحميل أذوناتك. بعد الحفظ، الطريقة الوحيدة للتراجع هي إعداد interface في ملف librechat.yaml، وهو يؤثر على جميع الأدوار.</string>
+    <string name="role_permissions_more_info">مزيد من المعلومات</string>
     <string name="artifact_shortcuts_title">اختصارات الشاشة الرئيسية</string>
     <string name="artifact_shortcuts_empty">لا توجد عناصر تفاعلية مثبتة على الشاشة الرئيسية بعد.</string>
     <string name="artifact_shortcuts_disabled_message">أُزيل اختصار هذا العنصر التفاعلي.</string>
@@ -748,13 +817,14 @@
     <string name="date_time_preview">معاينة</string>
     <string name="data_summary_off">متوقف</string>
     <string name="data_summary_none">لا شيء</string>
+    <string name="data_memories_none">لا شيء</string>
     <plurals name="data_memories_count">
-        <item quantity="zero">المحفوظة: %1$d</item>
-        <item quantity="one">المحفوظة: %1$d</item>
-        <item quantity="two">المحفوظة: %1$d</item>
-        <item quantity="few">المحفوظة: %1$d</item>
-        <item quantity="many">المحفوظة: %1$d</item>
-        <item quantity="other">المحفوظة: %1$d</item>
+        <item quantity="zero">المحفوظة: %1$s</item>
+        <item quantity="one">المحفوظة: %1$s</item>
+        <item quantity="two">المحفوظة: %1$s</item>
+        <item quantity="few">المحفوظة: %1$s</item>
+        <item quantity="many">المحفوظة: %1$s</item>
+        <item quantity="other">المحفوظة: %1$s</item>
     </plurals>
     <plurals name="data_mcp_servers_count">
         <item quantity="zero">الخوادم: %1$d</item>
@@ -818,4 +888,27 @@
     <string name="mcp_editor_load_failed">تعذّر تحميل هذا الخادم.</string>
     <string name="mcp_trust_label">أثق بهذا الخادم</string>
     <string name="mcp_trust_sublabel">يمكنه قراءة ما ترسله إليه والتصرف نيابةً عنك في التطبيق الذي يتصل به. لا تُضف إلا الخوادم التي تثق بها.</string>
+    <string name="memory_error_key_route_shadowed">لا يستطيع هذا الخادم تعديل ذكرى بهذا المفتاح. احذفها وأضفها من جديد بمفتاح آخر.</string>
+    <string name="shared_chats_title">المحادثات المشتركة</string>
+    <string name="shared_chats_summary">روابط المحادثات التي شاركتها</string>
+    <string name="shared_chats_untitled">محادثة بلا عنوان</string>
+    <string name="shared_chats_shared_on">تمت المشاركة · %1$s</string>
+    <string name="shared_chats_options">خيارات %1$s</string>
+    <string name="shared_chats_open_chat">فتح المحادثة</string>
+    <string name="shared_chats_view_shared">عرض النسخة المشتركة</string>
+    <string name="shared_chats_link_copied">تم نسخ الرابط</string>
+    <string name="shared_chats_search">البحث في المحادثات المشتركة</string>
+    <string name="shared_chats_clear_search">مسح البحث</string>
+    <string name="shared_chats_sort_label">ترتيب</string>
+    <string name="shared_chats_sort_newest">الأحدث</string>
+    <string name="shared_chats_sort_oldest">الأقدم</string>
+    <string name="shared_chats_sort_title">العنوان أ–ي</string>
+    <string name="shared_chats_empty">لا توجد محادثات مشتركة بعد</string>
+    <string name="shared_chats_empty_description">افتح محادثة واختر "مشاركة" من قائمتها لإنشاء رابط. ستظهر روابطك هنا.</string>
+    <string name="shared_chats_load_failed">تعذّر تحميل محادثاتك المشتركة</string>
+    <string name="shared_chats_load_failed_description">تحقق من اتصالك وحاول مرة أخرى.</string>
+    <string name="shared_chats_load_more_failed">تعذّر تحميل المزيد</string>
+    <string name="shared_chats_no_match">لا توجد روابط تطابق "%1$s"</string>
+    <string name="shared_chats_refresh_failed">تعذّر تحديث محادثاتك المشتركة</string>
+    <string name="shared_chats_delete_failed">تعذّر حذف الرابط</string>
 </resources>

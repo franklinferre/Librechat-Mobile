@@ -64,6 +64,7 @@ import com.garfiec.librechat.core.data.repository.ToolFavoritesRepository
 import com.garfiec.librechat.core.data.repository.TraceRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
 import com.garfiec.librechat.core.data.search.MessageSearchRepository
+import com.garfiec.librechat.core.data.share.ShareLinkControllerFactory
 import com.garfiec.librechat.core.data.update.AppInstallSource
 import com.garfiec.librechat.core.data.update.AppUpdateRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
@@ -245,6 +246,7 @@ class KoinGraphVerificationTest {
             ToolFavoritesRepository::class,
             TraceRepository::class,
             UserRepository::class,
+            ShareLinkControllerFactory::class,
             PermissionGate::class,
             SessionTask::class,
             AttachmentWarmer::class,

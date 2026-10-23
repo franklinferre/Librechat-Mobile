@@ -19,7 +19,6 @@ enum class ChatNotice(val wire: String) {
     DELETE_FAILED("delete_failed"),
     ARCHIVE_FAILED("archive_failed"),
     DUPLICATE_FAILED("duplicate_failed"),
-    SHARE_LINK_FAILED("share_link_failed"),
     PRESET_SAVE_FAILED("preset_save_failed"),
     PRESET_DELETE_FAILED("preset_delete_failed"),
     PRESET_UPDATE_FAILED("preset_update_failed"),
@@ -45,6 +44,12 @@ enum class ChatNotice(val wire: String) {
 
     /** The server's middleware refused a send with a code this build does not recognize. */
     SEND_REFUSED("send_refused"),
+
+    /** A send or queue left skill chips this chat can't run staged in the composer. */
+    SKILLS_NOT_SENT("skills_not_sent"),
+
+    /** Saving a queued edit removed skill chips this chat can't run from the queued message. */
+    SKILLS_REMOVED_FROM_QUEUED("skills_removed_from_queued"),
 
     /**
      * Arg: whole seconds until the server's message limit lets a send through again. Rendered as a

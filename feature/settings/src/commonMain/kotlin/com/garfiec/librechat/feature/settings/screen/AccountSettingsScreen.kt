@@ -15,7 +15,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,7 +63,6 @@ import com.garfiec.librechat.core.ui.resources.server_headers_unverified_delete
 import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
 import com.garfiec.librechat.feature.settings.screen.sections.BackupCodesDialog
-import com.garfiec.librechat.feature.settings.screen.sections.TwoFactorCodeDialog
 import com.garfiec.librechat.feature.settings.screen.sections.TwoFactorSetupDialog
 import com.garfiec.librechat.feature.settings.viewmodel.AccountSettingsViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.ServerHeadersViewModel
@@ -78,6 +79,7 @@ fun AccountSettingsScreen(
     onNavigateToFavorites: () -> Unit,
     onNavigateToProviderKeys: () -> Unit,
     onNavigateToRoleSkillsAdmin: () -> Unit,
+    onNavigateToRoleMemoriesAdmin: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -101,6 +103,7 @@ fun AccountSettingsScreen(
             onNavigateToFavorites = onNavigateToFavorites,
             onNavigateToProviderKeys = onNavigateToProviderKeys,
             onNavigateToRoleSkillsAdmin = onNavigateToRoleSkillsAdmin,
+            onNavigateToRoleMemoriesAdmin = onNavigateToRoleMemoriesAdmin,
             snackbarHostState = snackbarHostState,
             modifier = Modifier
                 .fillMaxSize()
@@ -120,6 +123,7 @@ fun AccountSettingsContent(
     onNavigateToFavorites: () -> Unit,
     onNavigateToProviderKeys: () -> Unit,
     onNavigateToRoleSkillsAdmin: () -> Unit,
+    onNavigateToRoleMemoriesAdmin: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
@@ -248,7 +252,7 @@ fun AccountSettingsContent(
                         isTwoFactorEnabled = uiState.isTwoFactorEnabled,
                         isLoading = uiState.isTwoFactorLoading,
                         onToggleTwoFactor = viewModel::toggleTwoFactor,
-                        onViewBackupCodes = viewModel::viewBackupCodes,
+                        onRegenerateBackupCodes = viewModel::requestRegenerateBackupCodes,
                     )
                 }
                 row(key = "api_keys_row") {
@@ -275,14 +279,23 @@ fun AccountSettingsContent(
                         onClick = onNavigateToFavorites,
                     )
                 }
-                // Admin-only: role skill access. Fail-CLOSED — shown only for ADMIN.
+                // Admin-only: role skill and memory access. Fail-CLOSED — shown only for ADMIN.
                 if (uiState.isAdmin) {
                     row(key = "role_skills_admin_row") {
                         AccountSettingsRow(
-                            icon = Icons.Default.Star,
+                            // Skills' own icon, as on the Skills page: Star is Favorites, the row above.
+                            icon = Icons.Default.Extension,
                             title = stringResource(Res.string.role_skills_settings_row),
                             subtitle = stringResource(Res.string.role_skills_description),
                             onClick = onNavigateToRoleSkillsAdmin,
+                        )
+                    }
+                    row(key = "role_memories_admin_row") {
+                        AccountSettingsRow(
+                            icon = Icons.Default.Lightbulb,
+                            title = stringResource(Res.string.role_memories_settings_row),
+                            subtitle = stringResource(Res.string.role_memories_description),
+                            onClick = onNavigateToRoleMemoriesAdmin,
                         )
                     }
                 }
@@ -327,14 +340,41 @@ fun AccountSettingsContent(
             )
         }
 
-        // 2FA disable dialog
+        // 2FA disable dialog. Takes a backup code too: losing the authenticator is the usual
+        // reason to turn 2FA off, and the server accepts either.
         if (uiState.showDisableTwoFactorDialog) {
-            TwoFactorCodeDialog(
+            OtpVerificationDialog(
                 title = stringResource(Res.string.dialog_title_disable_2fa),
                 description = stringResource(Res.string.twofa_disable_instructions),
                 isLoading = uiState.isTwoFactorLoading,
-                onConfirm = viewModel::confirmDisableTwoFactor,
+                onVerify = { token, backupCode ->
+                    viewModel.confirmDisableTwoFactor(token = token, backupCode = backupCode)
+                },
                 onDismiss = viewModel::dismissDisableTwoFactorDialog,
+                verifyLabel = stringResource(Res.string.otp_verify),
+                cancelLabel = stringResource(Res.string.otp_cancel),
+                backupCodeLabel = stringResource(Res.string.otp_backup_code_label),
+                useBackupToggleLabel = stringResource(Res.string.otp_use_backup_code),
+                useOtpToggleLabel = stringResource(Res.string.otp_use_otp_code),
+            )
+        }
+
+        // Regenerating invalidates every existing code, so it is confirmed before the code prompt.
+        if (uiState.showRegenerateBackupCodesConfirm) {
+            AdaptiveAlertDialog(
+                onDismissRequest = viewModel::dismissRegenerateBackupCodesConfirm,
+                title = { Text(stringResource(Res.string.dialog_title_regenerate_backup_codes)) },
+                text = { Text(stringResource(Res.string.regenerate_backup_codes_warning)) },
+                confirmButton = {
+                    TextButton(onClick = viewModel::confirmRegenerateBackupCodes) {
+                        Text(stringResource(Res.string.action_regenerate))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::dismissRegenerateBackupCodesConfirm) {
+                        Text(stringResource(Res.string.action_cancel))
+                    }
+                },
             )
         }
 
@@ -461,7 +501,7 @@ fun AccountSettingsContent(
                 description = stringResource(Res.string.otp_desc_regenerate_backup_codes),
                 isLoading = uiState.isTwoFactorLoading,
                 onVerify = { token, backupCode ->
-                    viewModel.viewBackupCodesWithOtp(token = token, backupCode = backupCode)
+                    viewModel.regenerateBackupCodesWithOtp(token = token, backupCode = backupCode)
                 },
                 onDismiss = viewModel::dismissBackupCodesOtpDialog,
                 verifyLabel = stringResource(Res.string.otp_verify),

@@ -26,6 +26,7 @@ import com.garfiec.librechat.core.data.repository.FavoritesRepository
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.data.repository.KeyRepository
 import com.garfiec.librechat.core.data.repository.McpRepository
+import com.garfiec.librechat.core.data.repository.MemoryRepository
 import com.garfiec.librechat.core.data.repository.MessageRepository
 import com.garfiec.librechat.core.data.repository.PresetRepository
 import com.garfiec.librechat.core.data.repository.PromptRepository
@@ -33,8 +34,11 @@ import com.garfiec.librechat.core.data.repository.QueuedTurnRepository
 import com.garfiec.librechat.core.data.repository.ResumePinStore
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.ShareRepository
+import com.garfiec.librechat.core.data.repository.SkillsRepository
 import com.garfiec.librechat.core.data.repository.TraceRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
+import com.garfiec.librechat.core.data.share.ShareLinkController
+import com.garfiec.librechat.core.data.share.ShareLinkControllerFactory
 import com.garfiec.librechat.core.data.util.PermissionGate
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.model.Attachment
@@ -55,6 +59,8 @@ import com.garfiec.librechat.core.ui.media.MediaPreviewState
 import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.components.ParsedMarkdownCache
 import com.garfiec.librechat.feature.chat.components.PausePanelAutoAdvance
+import com.garfiec.librechat.feature.chat.components.parsePickerQuery
+import com.garfiec.librechat.feature.chat.model.ComposerPickerItem
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
@@ -91,6 +97,8 @@ import com.garfiec.librechat.feature.chat.viewmodel.delegate.SendCompletionDeleg
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.SendDispatchDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.SendReadinessDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ShareData
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.SkillPickerDelegate
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.SkillsToggleDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.SteeringDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.StreamingHost
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.StreamingManagerDelegate
@@ -106,6 +114,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -150,10 +159,13 @@ class ChatViewModel(
     private val promptRepository: PromptRepository,
     queuedTurnRepository: QueuedTurnRepository,
     shareRepository: ShareRepository,
+    shareLinkControllerFactory: ShareLinkControllerFactory,
     private val traceRepository: TraceRepository,
     mcpRepository: McpRepository,
+    skillsRepository: SkillsRepository,
     userRepository: UserRepository,
     roleRepository: RoleRepository,
+    memoryRepository: MemoryRepository,
     private val permissionGate: PermissionGate,
     private val connectivityObserver: ConnectivityObserver,
     private val activeAccountProvider: ActiveAccountProvider,
@@ -222,9 +234,20 @@ class ChatViewModel(
     val sendHeldForCompareSetup: Flow<Unit> = _sendHeldForCompareSetup.receiveAsFlow()
     val jumpBranchSwitched: Flow<BranchSwitch> = jumpDelegate.branchSwitched
     private val conversationActionsDelegate =
-        ConversationActionsDelegate(ConversationActionsHandle(stateHandle), conversationRepository, shareRepository)
+        ConversationActionsDelegate(
+            handle = ConversationActionsHandle(stateHandle),
+            conversationRepository = conversationRepository,
+            shareRepository = shareRepository,
+            shareLink = shareLinkControllerFactory.create(viewModelScope),
+        )
     private val presetPromptDelegate =
         PresetPromptDelegate(PresetPromptHandle(stateHandle), presetRepository, promptRepository)
+    private val skillPickerDelegate = SkillPickerDelegate(
+        handle = SkillPickerHandle(stateHandle),
+        skillsRepository = skillsRepository,
+        userRepository = userRepository,
+        configRepository = configRepository,
+    )
     private val favoritesDelegate = FavoritesDelegate(FavoritesHandle(stateHandle), favoritesRepository)
     private val modelDelegate = ModelSelectionDelegate(
         handle = ModelSelectionHandle(stateHandle),
@@ -234,10 +257,12 @@ class ChatViewModel(
         settingsDataStore = settingsDataStore,
         permissionGate = permissionGate,
         connectivityObserver = connectivityObserver,
+        preferLastUsedModel = preferenceStore.observe(AppPreferences.PreferLastUsedModel),
         initialAgentId = initialAgentId,
         initialEndpoint = initialEndpoint,
         initialModel = initialModel,
     )
+    private val skillsToggleDelegate = SkillsToggleDelegate(SkillsToggleHandle(stateHandle), settingsDataStore)
     private val keyStatusDelegate = EndpointKeyStatusDelegate(
         handle = EndpointKeyHandle(stateHandle),
         keyRepository = keyRepository,
@@ -257,6 +282,7 @@ class ChatViewModel(
         selectionHandoff = selectionHandoff,
         reloadConversation = { id -> conversationLoadDelegate.loadConversation(id) },
         newChatDraftKey = newChatDraftKey,
+        carrySkillsToggle = skillsToggleDelegate::carryToCreatedConversation,
     )
 
     // Channel-backed one-shot signal: N queued follow-ups were dropped on drain because they were
@@ -312,7 +338,8 @@ class ChatViewModel(
     // --- Delegate-owned flows exposed to the UI ---
     val attachedFiles: StateFlow<List<AttachedFile>> get() = fileDelegate.attachedFiles
     val pdfPasswordPrompts: StateFlow<List<PdfPasswordPrompt>> get() = fileDelegate.pdfPasswordPrompts
-    val shareLinkUrl: StateFlow<String?> get() = conversationActionsDelegate.shareLinkUrl
+
+    val shareLink: ShareLinkController get() = conversationActionsDelegate.shareLink
 
     private data class TraceGateInputs(
         val conversationId: String?,
@@ -376,7 +403,8 @@ class ChatViewModel(
         baseChatPrefs,
         sttAndRendererPrefs,
         siteIconsState,
-    ) { base, sttRenderer, siteIcons ->
+        settingsDataStore.thinkingOpenByDefault,
+    ) { base, sttRenderer, siteIcons, thinkingOpen ->
         ChatPreferences(
             showImageDescriptions = base.showImageDescriptions,
             dismissKeyboardOnSend = base.dismissKeyboardOnSend,
@@ -388,6 +416,7 @@ class ChatViewModel(
             sttEngine = sttRenderer.sttEngine,
             sttLanguage = sttRenderer.sttLanguage,
             inlineArtifactPrefs = sttRenderer.inlineArtifactPrefs,
+            thinkingOpenByDefault = thinkingOpen,
             siteIcons = siteIcons,
         )
     }.stateIn(
@@ -499,6 +528,7 @@ class ChatViewModel(
         roleRepository = roleRepository,
         fileRepository = fileRepository,
         userRepository = userRepository,
+        memoryRepository = memoryRepository,
     )
 
     private val pendingActionDelegate = PendingActionDelegate(
@@ -570,8 +600,13 @@ class ChatViewModel(
             override fun unsendTurn(optimisticId: String?) {
                 val unsent = optimisticId?.let { id -> _uiState.value.messages.firstOrNull { it.messageId == id } }
                 treeDelegate.unsendOptimisticTurn(optimisticId)
-                unsent?.text?.takeIf { it.isNotBlank() }?.let {
-                    conversationLoadDelegate.restoreUnsentInput(it, unsent.quotes.orEmpty())
+                // A file-only turn has no text but may carry quotes and picked skills to put back.
+                unsent?.let {
+                    conversationLoadDelegate.restoreUnsentInput(
+                        it.text,
+                        it.quotes.orEmpty(),
+                        it.manualSkills.orEmpty(),
+                    )
                 }
             }
         },
@@ -602,6 +637,8 @@ class ChatViewModel(
         buildAddedConvo = comparisonDelegate::buildAddedConvo,
         chatProjectId = initialChatProjectId,
         newChatDraftKey = newChatDraftKey,
+        turnSkillsOn = skillsToggleDelegate::turnOn,
+        loadSkillCatalog = { skillPickerDelegate.ensureLoaded(newTrigger = true) },
     )
 
     private val queueOrchestrationDelegate = QueueOrchestrationDelegate(
@@ -676,6 +713,17 @@ class ChatViewModel(
                     attrs = mapOf("endpoint" to handoff.choice.endpoint, "model" to (handoff.choice.model ?: "null")),
                 ) { "handoff applied for $conversationId" }
                 modelDelegate.applyResolvedConversationModel(handoff.choice.endpoint, handoff.choice.model, handoff.choice.spec)
+                handoff.skillsToggle?.let { skillsToggleDelegate.seed(conversationId, it) }
+                // Chips the first send held back stay staged here, still saying why.
+                if (handoff.stagedManualSkills.isNotEmpty()) {
+                    sendDispatchDelegate.stageHeldBackManualSkills(
+                        handoff.stagedManualSkills,
+                        notice = handoff.skillsNotSentNotice,
+                    )
+                    // The send rechecks the chips against the catalog (active, invocable, the
+                    // agent's scope), and holds them back until there is one.
+                    skillPickerDelegate.ensureLoaded(newTrigger = true)
+                }
             }
             // Seed the optimistic user message the landing VM sent, so it stays visible while the
             // resumed stream runs. The server doesn't persist the request message until the reply
@@ -732,6 +780,9 @@ class ChatViewModel(
 
         // Seed/refresh the context-usage gauge for a loaded or snapshot-less branch (v0.8.7).
         contextProjectionDelegate.start()
+        // The Skills toggle follows the slot this chat maps to (conversation, new chat, temp, spec).
+        skillsToggleDelegate.start()
+        loadSkillCatalogWhenPickerOpens()
         clearCompactNudgeSnoozeWhenBelowThreshold()
 
         // Queued turns are reconciled by polling, so the poll has to be (re)aimed whenever the
@@ -896,6 +947,7 @@ class ChatViewModel(
         // so the chat-side pin stars and Settings → Favorites stay in sync from cold start.
         favoritesDelegate.load()
         chatConfigDelegate.loadUserProfile()
+        chatConfigDelegate.observeMemoriesPreference()
         chatConfigDelegate.loadFlags()
         observeTraceAvailability()
         chatConfigDelegate.loadFileConfig()
@@ -928,13 +980,38 @@ class ChatViewModel(
         treeDelegate.switchBranch(parentMessageId, siblingIndex)
 
     fun onInputChanged(text: String) {
+        val canPickSkills = _uiState.value.canPickSkills
+        val pickerWasOpen = parsePickerQuery(_uiState.value.inputText, canPickSkills) != null
         _uiState.update { it.copy(composer = it.composer.copy(inputText = text)) }
+        // Opening the picker starts the load (loadSkillCatalogWhenPickerOpens); typing on in an
+        // open one only picks up a catalog gone stale, never retries a failed load.
+        if (pickerWasOpen && canPickSkills && parsePickerQuery(text, canPickSkills) != null) {
+            skillPickerDelegate.ensureLoaded(newTrigger = false)
+        }
         // While editing a queued item the composer holds that item, not the persisted draft —
         // don't overwrite the on-disk new-message draft (it's restored on commit/cancel).
         if (_uiState.value.isEditingQueued) return
         val draftKey = _uiState.value.conversationId ?: newChatDraftKey
         viewModelScope.launch {
             draftRepository.saveDraft(draftKey, text)
+        }
+    }
+
+    /**
+     * Starts the skill catalog load whenever the picker is on screen where a skill could be
+     * picked: a leading `/` or `$` and [ChatUiState.canPickSkills]. Driven by the state rather
+     * than by a keystroke, so the picker also loads when its text arrives another way (a restored
+     * draft, a failed send's text put back) or when the gate opens under a trigger already typed
+     * (the role or config arriving late, a switch away from an assistants endpoint).
+     */
+    private fun loadSkillCatalogWhenPickerOpens() {
+        viewModelScope.launch {
+            _uiState
+                // Only the slices the gate reads, so a streaming flush costs a few reference compares.
+                .distinctUntilChangedBy { Triple(it.composer.inputText, it.gates, it.selection) }
+                .map { it.canPickSkills && parsePickerQuery(it.inputText, canPickSkills = true) != null }
+                .distinctUntilChanged()
+                .collect { open -> if (open) skillPickerDelegate.ensureLoaded(newTrigger = true) }
         }
     }
 
@@ -1243,7 +1320,13 @@ class ChatViewModel(
         // admitted, dropped or added a queued turn while the app was away, and there is nothing
         // to hear it from.
         queueOrchestrationDelegate.refreshQueuedTurns()
+        // Skills may have changed on the Skills screen while this chat was behind it.
+        val state = _uiState.value
+        skillPickerDelegate.refreshOnReturn(pickerOpen = parsePickerQuery(state.inputText, state.canPickSkills) != null)
     }
+
+    /** The picker's retry after the skill catalog failed to load. */
+    fun retrySkillCatalog() = skillPickerDelegate.retry()
 
     /**
      * Submits [feedback] for a message, or clears it when null.
@@ -1293,8 +1376,12 @@ class ChatViewModel(
         conversationLoadDelegate.stopObserving()
         // The conversation changes here: nothing learned about the previous one's previews applies.
         attachmentPreviewDelegate.reset()
+        // A share sheet belongs to the conversation that just left this landing.
+        conversationActionsDelegate.shareLink.close()
         // The landing now stands for the next new chat, which opens on the server's spec again.
         modelDelegate.rearmModelSpecDefault()
+        // …and with Skills as the new-chat slot has them, not as a pick on the last one left them.
+        skillsToggleDelegate.resetNewChat()
         // The reset below ends any Compare setup without Cancel or Start, so nothing would release
         // its hold; the queue it held is cleared with it.
         queueOrchestrationDelegate.clearCompareSetupHold()
@@ -1313,10 +1400,11 @@ class ChatViewModel(
                 ),
                 presetPrompts = current.presetPrompts,
                 voice = VoiceState(serverSttEnabled = current.serverSttEnabled),
-                account = AccountConfigState(
-                    userName = current.userName,
-                    userAvatarUrl = current.userAvatarUrl,
-                ),
+                // Server- and account-derived slices carry over: their sources are StateFlows behind
+                // distinctUntilChanged, so a reset here would never be refilled while this landing
+                // lives, and every later new chat would lose (say) the memory toggle.
+                account = current.account,
+                gates = current.gates.copy(traceViewerConversationId = null),
                 conversation = ConversationMetaState(sharedLinksEnabled = current.sharedLinksEnabled),
             )
         }
@@ -1406,7 +1494,8 @@ class ChatViewModel(
         _uiState.update {
             it.copy(
                 composer = it.composer.copy(sendBlockReason = reason ?: it.sendBlockReason),
-                selection = it.selection.copy(showModelSheet = true),
+                // No picker on a server that hides it and offers no specs; the reason still shows.
+                selection = it.selection.copy(showModelSheet = it.modelPickerShown),
             )
         }
     }
@@ -1486,7 +1575,7 @@ class ChatViewModel(
     fun duplicateConversation() = conversationActionsDelegate.duplicateConversation()
     fun onDuplicatedConversationHandled() = conversationActionsDelegate.onDuplicatedConversationHandled()
     fun shareConversation() = conversationActionsDelegate.shareConversation()
-    fun onShareLinkHandled() = conversationActionsDelegate.onShareLinkHandled()
+    fun closeShareSheet() = conversationActionsDelegate.closeShareSheet()
     fun showForkOptions(messageId: String) = conversationActionsDelegate.showForkOptions(messageId)
     fun dismissForkOptions() = conversationActionsDelegate.dismissForkOptions()
     fun forkFromMessage(messageId: String, option: String, splitAtTarget: Boolean = false) =
@@ -1519,6 +1608,12 @@ class ChatViewModel(
     fun addPendingQuote(text: String) = sendDispatchDelegate.addPendingQuote(text)
     fun removePendingQuote(index: Int) = sendDispatchDelegate.removePendingQuote(index)
 
+    // Pending skill chips (picked from the `/` and `$` list). A pick also turns Skills on here.
+    fun addPendingManualSkill(name: String) {
+        if (sendDispatchDelegate.addPendingManualSkill(name)) skillsToggleDelegate.turnOn()
+    }
+    fun removePendingManualSkill(name: String) = sendDispatchDelegate.removePendingManualSkill(name)
+
     // Queue
     fun editQueued(localId: String) = queueOrchestrationDelegate.editQueued(localId)
     fun commitQueuedEdit() = queueOrchestrationDelegate.commitQueuedEdit()
@@ -1533,6 +1628,22 @@ class ChatViewModel(
     fun deletePreset(presetId: String) = presetPromptDelegate.deletePreset(presetId)
     fun editPreset(preset: Preset) = presetPromptDelegate.editPreset(preset)
     fun handleSlashCommand(displayData: PromptMentionDisplayData) = presetPromptDelegate.handleSlashCommand(displayData)
+
+    /**
+     * A row picked from the composer's `/` and `$` list. A prompt runs as a slash command. A
+     * skill becomes a pending chip (which also turns the conversation's Skills on) and the
+     * `/query` or `$query` the composer holds is cleared — the list only opens when the trigger
+     * leads the input, so the whole text is the query.
+     */
+    fun selectPickerItem(item: ComposerPickerItem) {
+        when (item) {
+            is ComposerPickerItem.Prompt -> handleSlashCommand(item.prompt)
+            is ComposerPickerItem.Skill -> {
+                if (parsePickerQuery(_uiState.value.inputText, _uiState.value.canPickSkills) != null) onInputChanged("")
+                addPendingManualSkill(item.skill.name)
+            }
+        }
+    }
 
     /**
      * Picks up text staged in [PromptInsertionHandoff] (the prompts library, an agent's starter).
@@ -1550,6 +1661,7 @@ class ChatViewModel(
     // Favorites (v0.8.5)
     fun toggleAgentFavorite(agentId: String) = favoritesDelegate.toggleAgent(agentId)
     fun toggleModelFavorite(endpoint: String, model: String) = favoritesDelegate.toggleModel(endpoint, model)
+    fun toggleSpecFavorite(name: String) = favoritesDelegate.toggleSpec(name)
 
     // Model selection and comparison
     fun onSpecSelected(spec: ModelSpec) = modelDelegate.onSpecSelected(spec)
@@ -1590,7 +1702,10 @@ class ChatViewModel(
 
     fun setSecondaryModel(endpoint: String, model: String) = comparisonDelegate.setSecondaryModel(endpoint, model)
     fun toggleMcpServer(serverName: String) = modelDelegate.toggleMcpServer(serverName)
-    fun toggleTool(toolName: String) = modelDelegate.toggleTool(toolName)
+    fun toggleTool(toolName: String) {
+        // Per conversation, so it never goes through the global enabled-tools store.
+        if (toolName == ToolConstants.SKILLS) skillsToggleDelegate.toggle() else modelDelegate.toggleTool(toolName)
+    }
     fun updateModelParameters(parameters: ModelParameters) = modelDelegate.updateModelParameters(parameters)
 
     fun branchFromComparison(agentId: String) = comparisonDelegate.branchFromComparison(agentId)

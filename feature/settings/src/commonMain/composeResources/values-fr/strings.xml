@@ -20,23 +20,20 @@
     <string name="action_verifying">Vérification…</string>
 
     <!-- Content descriptions -->
-    <string name="cd_add_memory">Ajouter une mémoire</string>
     <string name="cd_add_server">Ajouter un serveur</string>
     <string name="cd_back">Retour</string>
     <string name="cd_change_avatar">Changer l'avatar</string>
     <string name="cd_choose_image">Choisir une image</string>
     <string name="cd_copy_api_key">Copier la clé API</string>
-    <string name="cd_copy_link">Copier le lien</string>
+    <string name="shared_chats_copy_link">Copier le lien</string>
     <string name="cd_create_api_key">Créer une clé API</string>
     <string name="cd_current_avatar">Avatar actuel</string>
     <string name="cd_delete">Supprimer</string>
     <string name="cd_delete_api_key">Supprimer la clé API</string>
-    <string name="cd_delete_memory">Supprimer la mémoire</string>
     <string name="cd_delete_preset">Supprimer le préréglage</string>
-    <string name="cd_delete_shared_link">Supprimer le lien partagé</string>
-    <string name="cd_edit_memory">Modifier la mémoire</string>
     <string name="memory_redacted_key">Entrée masquée</string>
     <string name="memory_redacted_value">La politique de contenu de ce serveur masque ce qui est stocké ici. Vous pouvez tout de même la supprimer.</string>
+    <string name="memory_redacted_value_no_delete">La politique de contenu de ce serveur masque ce qui est stocké ici.</string>
     <string name="cd_loading_profile">Chargement du profil</string>
     <string name="cd_make_private">Rendre privé</string>
     <string name="cd_make_public">Rendre public</string>
@@ -48,7 +45,6 @@
     <string name="cd_test_tts_voice">Tester la voix TTS sélectionnée</string>
     <string name="cd_toggle_auto_read">Activer/désactiver la lecture automatique des réponses</string>
     <string name="cd_toggle_auto_send_stt">Activer/désactiver l'envoi automatique après la dictée</string>
-    <string name="cd_toggle_memories">Activer/désactiver les mémoires</string>
     <string name="cd_tts_voice_selector">Sélectionner la voix TTS. Actuellement %1$s</string>
     <string name="cd_user_avatar">Avatar de l'utilisateur</string>
     <string name="cd_view_all_tools">Voir tous les outils</string>
@@ -148,7 +144,6 @@
     <string name="title_mcp_servers">Serveurs MCP</string>
     <string name="title_presets">Préréglages</string>
     <string name="title_settings">Paramètres</string>
-    <string name="title_shared_links">Liens partagés</string>
 
     <!-- Tabbed settings tabs -->
     <string name="tab_general">Général</string>
@@ -288,6 +283,10 @@
     <string name="starred_models_off">Désactivé</string>
     <string name="starred_models_grouped">Groupe repliable en haut</string>
     <string name="starred_models_top">En haut, sans regroupement</string>
+    <string name="new_chat_start_title">Démarrer les nouvelles discussions avec</string>
+    <string name="new_chat_start_desc">Lorsque votre serveur choisit un modèle pour les nouvelles discussions, choisissez de l'utiliser ou d'utiliser votre dernier modèle. Ignoré si le serveur masque le sélecteur de modèle. Si le serveur impose l'un de ses propres modèles, votre dernier modèle ne compte que s'il en faisait partie.</string>
+    <string name="new_chat_start_server">Choix du serveur</string>
+    <string name="new_chat_start_last_used">Mon dernier modèle utilisé</string>
     <string name="chat_header_title">En-tête de discussion</string>
     <string name="chat_header_summary_format">%1$s · %2$s</string>
     <string name="chat_header_content_label">Contenu</string>
@@ -309,8 +308,8 @@
     <string name="latex_native_desc">Affiche la source LaTeX brute pour de meilleures performances de défilement</string>
     <string name="auto_scroll">Défilement automatique pendant le streaming</string>
     <string name="auto_scroll_desc">Faire défiler automatiquement vers le nouveau contenu pendant la génération d'une réponse</string>
-    <string name="show_thinking_blocks">Afficher les blocs de réflexion</string>
-    <string name="show_thinking_blocks_desc">Afficher les étapes de raisonnement du modèle lorsqu'elles sont disponibles</string>
+    <string name="thinking_open_by_default">Ouvrir la réflexion par défaut</string>
+    <string name="thinking_open_by_default_desc">Afficher le raisonnement d'une réponse déplié plutôt que replié</string>
     <string name="context_bar_title">Utilisation du contexte</string>
     <string name="context_bar_desc">Où afficher la jauge d'utilisation de la fenêtre de contexte</string>
     <string name="context_bar_hidden">Masquée</string>
@@ -348,7 +347,7 @@
     <string name="two_factor_auth">Authentification à deux facteurs</string>
     <string name="enable_two_factor">Activer l'authentification à deux facteurs</string>
     <string name="disable_two_factor">Désactiver l'authentification à deux facteurs</string>
-    <string name="view_backup_codes">Voir les codes de secours</string>
+    <string name="regenerate_backup_codes">Régénérer les codes de secours</string>
 
     <!-- 2FA setup dialog -->
     <string name="dialog_title_enable_2fa">Activer l'authentification à deux facteurs</string>
@@ -362,7 +361,6 @@
     <string name="action_hide_qr">Masquer le code QR</string>
     <string name="cd_twofa_qr">Code QR pour configurer un autre appareil</string>
     <string name="twofa_disable_instructions">Saisissez le code de votre application d'authentification pour désactiver la 2FA.</string>
-    <string name="hint_verification_code">Code de vérification</string>
 
     <!-- OTP verification dialogs -->
     <string name="otp_title_verify_identity">Vérifier l'identité</string>
@@ -378,6 +376,10 @@
     <!-- Backup codes dialog -->
     <string name="dialog_title_backup_codes">Codes de secours</string>
     <string name="backup_codes_instructions">Conservez ces codes de secours en lieu sûr. Chaque code ne peut être utilisé qu'une seule fois.</string>
+    <string name="dialog_title_regenerate_backup_codes">Régénérer les codes de secours ?</string>
+    <string name="regenerate_backup_codes_warning">Vos codes de secours actuels cesseront de fonctionner. Vous recevrez un nouveau jeu à conserver.</string>
+    <string name="action_regenerate">Régénérer</string>
+    <string name="backup_codes_saved_ack">J'ai enregistré ces codes</string>
 
     <!-- Danger zone -->
     <string name="delete_account">Supprimer le compte</string>
@@ -405,7 +407,6 @@
     <string name="archived_all_count">%1$d conversations archivées</string>
     <string name="archived_conversations">Conversations archivées</string>
     <string name="export_all_data">Exporter toutes les données</string>
-    <string name="shared_links">Liens partagés</string>
     <string name="clear_cache_with_size">Vider le cache (%1$s)</string>
     <string name="clear_cache">Vider le cache</string>
     <string name="revoke_all_api_keys">Révoquer toutes les clés API</string>
@@ -463,19 +464,69 @@
     <string name="tts_preview_voice">Aperçu de la voix</string>
 
     <!-- Memories -->
-    <string name="enable_memories">Activer les mémoires</string>
-    <string name="enable_memories_desc">Permettre à l'IA de mémoriser des informations entre les conversations</string>
-    <string name="no_memories_saved">Aucune mémoire enregistrée pour l'instant</string>
-    <string name="memories_add_hint">Appuyez sur le bouton + pour ajouter une mémoire</string>
     <string name="add_memory">Ajouter une mémoire</string>
     <string name="edit_memory">Modifier la mémoire</string>
     <string name="dialog_title_delete_memory">Supprimer la mémoire</string>
-    <string name="dialog_delete_memory_message">Voulez-vous vraiment supprimer la mémoire "%1$s" ?</string>
+    <string name="dialog_delete_memory_message">Voulez-vous vraiment supprimer la mémoire « %1$s » ?</string>
     <string name="memory_key_label">Clé</string>
     <string name="memory_value_label">Valeur</string>
-    <string name="memory_key_hint">Utilisez uniquement des lettres minuscules et des tirets bas</string>
-    <string name="memory_key_invalid">La clé ne doit contenir que des lettres minuscules et des tirets bas</string>
+    <string name="memory_key_hint">Utilisez uniquement des lettres minuscules a–z et des tirets bas</string>
+    <string name="memory_key_invalid">La clé ne doit contenir que des lettres minuscules a–z et des tirets bas</string>
     <string name="memory_key_exists">Une mémoire avec cette clé existe déjà</string>
+    <string name="memory_key_reserved">Cette clé est réservée. Choisissez-en une autre.</string>
+    <string name="memory_key_too_long">Les clés peuvent contenir au maximum %1$s caractères.</string>
+    <string name="memory_error_forbidden">Vous n'avez pas l'autorisation de modifier les mémoires.</string>
+    <string name="memory_error_toggle_forbidden">Votre rôle ne permet pas d'activer ou de désactiver les mémoires.</string>
+    <string name="memory_error_content_filtered">Bloqué par le filtre de contenu de votre serveur.</string>
+    <string name="memory_error_agent">Les mémoires de cet agent ne peuvent pas être modifiées.</string>
+    <string name="memory_error_network">Impossible de joindre le serveur. Vérifiez votre connexion.</string>
+    <string name="memory_error_save">Impossible d'enregistrer la mémoire.</string>
+    <string name="memory_error_delete">Impossible de supprimer la mémoire.</string>
+    <string name="memory_error_toggle">Impossible de modifier le réglage des mémoires.</string>
+    <string name="memory_error_not_found">Cette mémoire a été supprimée ailleurs.</string>
+    <string name="memory_error_not_found_readd">Cette mémoire a été supprimée ailleurs. Enregistrez pour l'ajouter à nouveau.</string>
+    <!-- Memories index -->
+    <string name="memories_use_title">Utiliser les mémoires enregistrées</string>
+    <string name="memories_use_desc">Les discussions peuvent lire et enregistrer des mémoires</string>
+    <string name="memories_use_load_failed">Impossible de charger ce réglage.</string>
+    <string name="memories_use_loading">Chargement</string>
+    <string name="memories_usage_percent">%1$s %</string>
+    <plurals name="memories_usage_tokens">
+        <item quantity="one">%1$s / %2$s jeton</item>
+        <item quantity="other">%1$s / %2$s jetons</item>
+    </plurals>
+    <plurals name="memories_usage_a11y">
+        <item quantity="one">Utilisation des mémoires : %1$s, %2$s sur %3$s jeton</item>
+        <item quantity="other">Utilisation des mémoires : %1$s, %2$s sur %3$s jetons</item>
+    </plurals>
+    <plurals name="memory_token_count">
+        <item quantity="one">%1$s jeton</item>
+        <item quantity="other">%1$s jetons</item>
+    </plurals>
+    <string name="memory_agent_fallback">Mémoire d'agent</string>
+    <string name="memory_agent_numbered">%1$s (%2$s)</string>
+    <string name="memories_search_hint">Rechercher des mémoires</string>
+    <string name="memories_no_match">Aucune mémoire ne correspond à « %1$s »</string>
+    <string name="memories_personal_empty">Aucune mémoire personnelle pour l'instant</string>
+    <string name="memories_filter_all">Toutes</string>
+    <string name="memories_filter_personal">Personnelles</string>
+    <string name="memories_empty_title">Aucune mémoire pour l'instant</string>
+    <string name="memories_empty_desc">Les discussions enregistrent ici ce qui mérite d'être retenu. Vous pouvez aussi en ajouter une vous-même.</string>
+    <string name="memories_empty_desc_no_create">Les discussions enregistrent ici ce qui mérite d'être retenu.</string>
+    <string name="memories_view_only">Votre rôle permet de consulter les mémoires, mais pas d'en ajouter ni de les modifier.</string>
+    <string name="memories_no_access_title">Pas d'accès aux mémoires</string>
+    <string name="memories_no_access_desc">Votre rôle n'a pas l'autorisation de consulter les mémoires.</string>
+    <string name="memory_action_edit">Modifier</string>
+    <string name="cd_memory_options">Options pour %1$s</string>
+    <!-- Memory sheet -->
+    <string name="view_memory">Voir la mémoire</string>
+    <string name="action_close">Fermer</string>
+    <string name="memory_value_counter">%1$s / %2$s</string>
+    <plurals name="memory_token_share">
+        <item quantity="one">%1$s jeton · %2$s % de votre mémoire</item>
+        <item quantity="other">%1$s jetons · %2$s % de votre mémoire</item>
+    </plurals>
+    <string name="memory_updated_at">Mis à jour : %1$s</string>
 
     <!-- MCP -->
     <string name="add_mcp_server">Ajouter un serveur MCP</string>
@@ -549,19 +600,10 @@
     <string name="dialog_delete_preset_message">Voulez-vous vraiment supprimer "%1$s" ?</string>
 
     <!-- Shared links -->
-    <string name="no_shared_links">Aucun lien partagé</string>
-    <string name="no_shared_links_desc">Partagez une conversation pour la voir ici</string>
     <string name="mcp_oauth_secret_reentry_required">Les points de terminaison OAuth ont changé, le secret enregistré ne s'applique donc plus. Saisissez-le à nouveau.</string>
     <string name="mcp_api_key_reentry_required">Les paramètres de connexion ont changé, la clé API enregistrée ne s'applique donc plus. Saisissez-la à nouveau.</string>
-    <string name="cd_update_shared_link">Mettre à jour le lien partagé</string>
-    <string name="dialog_title_update_shared_link">Mettre à jour le lien partagé</string>
-    <string name="dialog_update_shared_link_message">Ceci republie "%1$s" avec la conversation dans son état actuel. Le lien reste le même : toute personne qui l'a déjà verra le contenu mis à jour.</string>
-    <string name="dialog_update_shared_link_message_new_url">Ceci republie "%1$s" avec la conversation dans son état actuel. Ce serveur génère un nouveau lien : toute personne qui a l'ancien perdra l'accès.</string>
-    <string name="action_update_shared_link">Mettre à jour</string>
     <string name="dialog_title_delete_shared_link">Supprimer le lien partagé</string>
     <string name="dialog_delete_shared_link_message">Ceci supprimera le lien partagé pour "%1$s". Quiconque possède le lien ne pourra plus y accéder.</string>
-    <string name="visibility_public">Public</string>
-    <string name="visibility_private">Privé</string>
     <string name="error_failed_to_load_memories">Échec du chargement des mémoires</string>
 
     <!-- Provider API Keys -->
@@ -623,16 +665,27 @@
     <string name="provider_keys_revoke_all_action">Tout révoquer</string>
 
     <!-- Admin: role skill access -->
-    <string name="role_skills_settings_row">Accès aux compétences (admin)</string>
-    <string name="role_skills_title">Accès aux compétences</string>
-    <string name="role_skills_back">Retour</string>
+    <string name="role_skills_settings_row">Autorisations des compétences</string>
+    <string name="role_skills_title">Autorisations des compétences</string>
     <string name="role_skills_description">Contrôlez les capacités de compétences dont dispose chaque rôle. Les modifications s'appliquent à tous les utilisateurs ayant le rôle sélectionné.</string>
-    <string name="role_skills_role_label">Rôle</string>
+    <string name="role_permissions_role_label">Rôle</string>
     <string name="role_skills_use">Utiliser les compétences</string>
     <string name="role_skills_create">Créer &amp; modifier des compétences</string>
     <string name="role_skills_share">Partager des compétences</string>
     <string name="role_skills_share_public">Partager des compétences publiquement</string>
-    <string name="role_skills_save">Enregistrer</string>
+    <string name="role_memories_settings_row">Autorisations des mémoires</string>
+    <string name="role_memories_title">Autorisations des mémoires</string>
+    <string name="role_memories_description">Contrôlez les capacités de mémoire dont dispose chaque rôle. Les modifications s'appliquent à tous les utilisateurs ayant le rôle sélectionné.</string>
+    <string name="role_memories_use">Autoriser l'utilisation des mémoires</string>
+    <string name="role_memories_create">Autoriser la création de mémoires</string>
+    <string name="role_memories_update">Autoriser la modification des mémoires</string>
+    <string name="role_memories_read">Autoriser la lecture des mémoires</string>
+    <string name="role_memories_opt_out">Autoriser les utilisateurs à désactiver les mémoires</string>
+    <string name="role_permissions_saved">Enregistré</string>
+    <string name="role_permissions_load_failed">Impossible de charger les autorisations de ce rôle.</string>
+    <string name="role_permissions_save_failed">Impossible d'enregistrer les autorisations. Réessayez.</string>
+    <string name="role_permissions_admin_access_warning">Désactiver l'accès administrateur à cette fonctionnalité peut entraîner des problèmes imprévus jusqu'à ce que l'app recharge vos autorisations. Une fois enregistré, le seul moyen de revenir en arrière est le paramètre interface de librechat.yaml, qui affecte tous les rôles.</string>
+    <string name="role_permissions_more_info">Plus d'informations</string>
     <string name="artifact_shortcuts_title">Raccourcis de l'écran d'accueil</string>
     <string name="artifact_shortcuts_empty">Aucun artefact épinglé à l'écran d'accueil pour l'instant.</string>
     <string name="artifact_shortcuts_disabled_message">Ce raccourci d'artefact a été supprimé.</string>
@@ -724,9 +777,10 @@
     <string name="date_time_preview">Aperçu</string>
     <string name="data_summary_off">Désactivé</string>
     <string name="data_summary_none">Aucun</string>
+    <string name="data_memories_none">Aucune</string>
     <plurals name="data_memories_count">
-        <item quantity="one">%1$d enregistrée</item>
-        <item quantity="other">%1$d enregistrées</item>
+        <item quantity="one">%1$s enregistrée</item>
+        <item quantity="other">%1$s enregistrées</item>
     </plurals>
     <plurals name="data_mcp_servers_count">
         <item quantity="one">%1$d serveur</item>
@@ -782,4 +836,27 @@
     <string name="mcp_editor_load_failed">Impossible de charger ce serveur.</string>
     <string name="mcp_trust_label">Je fais confiance à ce serveur</string>
     <string name="mcp_trust_sublabel">Il peut lire ce que vous lui envoyez et agir pour vous dans l’app à laquelle il se connecte. N’ajoutez que des serveurs de confiance.</string>
+    <string name="memory_error_key_route_shadowed">Ce serveur ne peut pas modifier une mémoire avec cette clé. Supprimez-la et ajoutez-la à nouveau sous une autre clé.</string>
+    <string name="shared_chats_title">Discussions partagées</string>
+    <string name="shared_chats_summary">Liens vers les discussions que vous avez partagées</string>
+    <string name="shared_chats_untitled">Discussion sans titre</string>
+    <string name="shared_chats_shared_on">Partagée · %1$s</string>
+    <string name="shared_chats_options">Options pour %1$s</string>
+    <string name="shared_chats_open_chat">Ouvrir la discussion</string>
+    <string name="shared_chats_view_shared">Voir la version partagée</string>
+    <string name="shared_chats_link_copied">Lien copié</string>
+    <string name="shared_chats_search">Rechercher dans les discussions partagées</string>
+    <string name="shared_chats_clear_search">Effacer la recherche</string>
+    <string name="shared_chats_sort_label">Trier</string>
+    <string name="shared_chats_sort_newest">Plus récentes</string>
+    <string name="shared_chats_sort_oldest">Plus anciennes</string>
+    <string name="shared_chats_sort_title">Titre A–Z</string>
+    <string name="shared_chats_empty">Aucune discussion partagée</string>
+    <string name="shared_chats_empty_description">Ouvrez une discussion et choisissez Partager dans son menu pour créer un lien. Vos liens s'affichent ici.</string>
+    <string name="shared_chats_load_failed">Impossible de charger vos discussions partagées</string>
+    <string name="shared_chats_load_failed_description">Vérifiez votre connexion et réessayez.</string>
+    <string name="shared_chats_load_more_failed">Impossible d'en charger plus</string>
+    <string name="shared_chats_no_match">Aucun lien ne correspond à « %1$s »</string>
+    <string name="shared_chats_refresh_failed">Impossible d'actualiser vos discussions partagées</string>
+    <string name="shared_chats_delete_failed">Impossible de supprimer le lien</string>
 </resources>

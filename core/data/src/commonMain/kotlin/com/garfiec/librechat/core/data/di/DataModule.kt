@@ -89,6 +89,7 @@ import com.garfiec.librechat.core.data.repository.SearchRepository
 import com.garfiec.librechat.core.data.repository.SearchRepositoryImpl
 import com.garfiec.librechat.core.data.repository.ServerRepository
 import com.garfiec.librechat.core.data.repository.ServerRepositoryImpl
+import com.garfiec.librechat.core.data.repository.ShareChangeSignal
 import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.ShareRepositoryImpl
 import com.garfiec.librechat.core.data.repository.SkillsRepository
@@ -114,6 +115,7 @@ import com.garfiec.librechat.core.data.search.SearchIndexBackfillSessionTask
 import com.garfiec.librechat.core.data.search.SearchIndexMaintenance
 import com.garfiec.librechat.core.data.search.SearchIndexState
 import com.garfiec.librechat.core.data.search.SearchIndexWindow
+import com.garfiec.librechat.core.data.share.ShareLinkControllerFactory
 import com.garfiec.librechat.core.data.update.UpdateCheckCoordinator
 import com.garfiec.librechat.core.data.update.UpdateCheckStore
 import com.garfiec.librechat.core.data.util.AccountLabelBackfillSessionTask
@@ -129,6 +131,7 @@ import com.garfiec.librechat.core.network.client.ServerHeadersProvider
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
 import org.koin.dsl.module
@@ -485,6 +488,7 @@ val dataModule = module {
             json = get(),
             dispatcher = get(KoinQualifiers.Default),
             searchIndexMaintenance = get(),
+            shareChanges = get(),
         )
     }
 
@@ -531,7 +535,15 @@ val dataModule = module {
     singleOf(::KeyRepositoryImpl) bind KeyRepository::class
     singleOf(::ApiKeyRepositoryImpl) bind ApiKeyRepository::class
     singleOf(::McpRepositoryImpl) bind McpRepository::class
-    singleOf(::MemoryRepositoryImpl) bind MemoryRepository::class
+    single<MemoryRepository> {
+        MemoryRepositoryImpl(
+            memoriesApi = get(),
+            userApi = get(),
+            configRepository = get(),
+            activeAccountProvider = get(),
+            applicationScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
+        )
+    }
     singleOf(::PermissionsRepositoryImpl) bind PermissionsRepository::class
     singleOf(::EndpointTokenRepositoryImpl) bind EndpointTokenRepository::class
     singleOf(::PresetRepositoryImpl) bind PresetRepository::class
@@ -540,7 +552,9 @@ val dataModule = module {
     singleOf(::PromptRepositoryImpl) bind PromptRepository::class
     singleOf(::QueuedTurnRepositoryImpl) bind QueuedTurnRepository::class
     singleOf(::ScheduleRepositoryImpl) bind ScheduleRepository::class
+    singleOf(::ShareChangeSignal)
     singleOf(::ShareRepositoryImpl) bind ShareRepository::class
+    factoryOf(::ShareLinkControllerFactory)
     singleOf(::SkillsRepositoryImpl) bind SkillsRepository::class
     singleOf(::SubagentRepositoryImpl) bind SubagentRepository::class
     singleOf(::BackgroundTaskRepositoryImpl) bind BackgroundTaskRepository::class

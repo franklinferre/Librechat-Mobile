@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -94,6 +95,45 @@ fun StreamingToolCallCard(
             answer = toolCall.output.orEmpty(),
             modifier = modifier,
             failed = failed,
+        )
+        return
+    }
+
+    // A memory write draws the card the reload draws as soon as its output or a memory attachment
+    // arrives (web renders MemoryCall live and persisted alike), so a refused write is red at once
+    // rather than a generic green check until the message finalizes. Before then, the generic
+    // running card: empty output is not a failure.
+    val memoryArtifacts = remember(toolCall.name, toolCall.output, toolCall.id, streamingAttachments) {
+        streamingMemoryArtifacts(toolCall, streamingAttachments)
+    }
+    if (memoryArtifacts.isNotEmpty()) {
+        val onManage = LocalOpenMemories.current
+        Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            memoryArtifacts.forEachIndexed { index, artifact ->
+                MemoryArtifactCard(
+                    artifact = artifact,
+                    onManage = onManage,
+                    stateKey = memoryCardStateKey(toolCall.id, index),
+                    live = true,
+                )
+            }
+        }
+        return
+    }
+
+    // A model-invoked skill streams like any tool call; a manual pick's card only comes with the
+    // final message (see PendingSkillCallRow), or with a resync after the run.
+    if (isSkillToolCall(toolCall.name)) {
+        val skillName = remember(toolCall.input) { parseSkillName(toolCall.input) }
+        val intent = remember(toolCall.input) { parseToolIntent(toolCall.input) }
+        SkillCallCard(
+            skillName = skillName,
+            verdict = toolCallVerdict(toolCall.closedStatus, toolCall.isComplete),
+            intent = intent,
+            durationMs = toolCall.durationMs,
+            output = toolCall.output,
+            stateKey = toolCall.id,
+            modifier = modifier,
         )
         return
     }

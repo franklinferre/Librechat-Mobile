@@ -10,6 +10,7 @@
     <string name="action_insert">Вставить</string>
     <string name="action_open">Открыть</string>
     <string name="action_share">Поделиться</string>
+    <string name="action_share_link_active">Поделиться · Ссылка активна</string>
     <string name="action_search">Поиск</string>
     <string name="action_archive">В архив</string>
     <string name="action_duplicate">Дублировать</string>
@@ -42,10 +43,7 @@
     <string name="compare_empty_ready">Нажмите «Начать», затем отправьте сообщение. Обе модели ответят рядом.</string>
     <string name="compare_browse_all">Все модели</string>
     <string name="compare_pick_second_model">Выберите вторую модель</string>
-    <string name="compare_also_asking">Также спрашиваем</string>
     <string name="cd_change_compared_models">Изменить сравниваемые модели</string>
-    <string name="cd_change_first_model">Изменить первую модель, %1$s</string>
-    <string name="cd_change_second_model">Изменить вторую модель, %1$s</string>
     <string name="compare_lane_a">A</string>
     <string name="compare_lane_b">B</string>
     <string name="how_can_i_help">Чем я могу помочь вам сегодня?</string>
@@ -303,18 +301,33 @@
     <string name="cd_mcp_resource">Ресурс MCP: %1$s</string>
 
     <!-- Memory artifact -->
-    <string name="cd_memory_artifact">Артефакт памяти: %1$s</string>
-    <string name="memory_artifact_untitled">Без названия</string>
     <string name="label_memory">Память</string>
-    <string name="cd_memory_artifacts">Обновления памяти: %1$d</string>
+    <string name="memory_manage">Управление</string>
+    <string name="cd_memory_manage">Управление памятью</string>
+    <plurals name="cd_memory_artifacts_summary">
+        <item quantity="one">%1$s, %2$s изменение</item>
+        <item quantity="few">%1$s, %2$s изменения</item>
+        <item quantity="many">%1$s, %2$s изменений</item>
+        <item quantity="other">%1$s, %2$s изменения</item>
+    </plurals>
     <string name="memory_updated">Сохранённая память обновлена</string>
     <string name="memory_error">Ошибка памяти</string>
-    <string name="memory_updated_items">Обновлённые воспоминания</string>
-    <string name="memory_deleted_items">Удалённые воспоминания</string>
-    <string name="memory_deleted">Воспоминание удалено</string>
+    <string name="memory_updated_items">Обновлённые записи памяти</string>
+    <string name="memory_deleted_items">Удалённые записи памяти</string>
+    <string name="memory_deleted">Запись памяти удалена</string>
     <string name="memory_storage_full">Хранилище памяти заполнено</string>
-    <string name="memory_already_exceeded">Хранилище памяти уже заполнено — превышение на %1$d токенов. Удалите существующие воспоминания, прежде чем добавлять новые.</string>
-    <string name="memory_would_exceed">Невозможно сохранить — лимит будет превышен на %1$d токенов. Удалите существующие воспоминания, чтобы освободить место.</string>
+    <plurals name="memory_already_exceeded">
+        <item quantity="one">Хранилище памяти уже заполнено — превышение на %1$s токен. Удалите существующие записи памяти, прежде чем добавлять новые.</item>
+        <item quantity="few">Хранилище памяти уже заполнено — превышение на %1$s токена. Удалите существующие записи памяти, прежде чем добавлять новые.</item>
+        <item quantity="many">Хранилище памяти уже заполнено — превышение на %1$s токенов. Удалите существующие записи памяти, прежде чем добавлять новые.</item>
+        <item quantity="other">Хранилище памяти уже заполнено — превышение на %1$s токена. Удалите существующие записи памяти, прежде чем добавлять новые.</item>
+    </plurals>
+    <plurals name="memory_would_exceed">
+        <item quantity="one">Невозможно сохранить — лимит будет превышен на %1$s токен. Удалите существующие записи памяти, чтобы освободить место.</item>
+        <item quantity="few">Невозможно сохранить — лимит будет превышен на %1$s токена. Удалите существующие записи памяти, чтобы освободить место.</item>
+        <item quantity="many">Невозможно сохранить — лимит будет превышен на %1$s токенов. Удалите существующие записи памяти, чтобы освободить место.</item>
+        <item quantity="other">Невозможно сохранить — лимит будет превышен на %1$s токена. Удалите существующие записи памяти, чтобы освободить место.</item>
+    </plurals>
     <string name="files_searched">Выполнен поиск по вашим файлам</string>
     <string name="cd_file_search_source">Источник поиска по файлам: %1$s</string>
     <string name="file_search_relevance">%1$d%%</string>
@@ -573,6 +586,21 @@
     <string name="cd_collapse_ask_user_question">Свернуть подробности вопроса</string>
     <string name="tool_memory">Память</string>
     <string name="tool_memory_desc">Разрешить ассистенту запоминать подробности из этого чата</string>
+    <string name="tool_skills">Навыки</string>
+    <string name="tool_skills_desc">Разрешить ассистенту использовать ваши навыки в этом чате</string>
+    <string name="cd_skills_enabled">Навыки включены</string>
+    <string name="picker_type_prompt">Промпт</string>
+    <string name="picker_type_skill">Навык</string>
+    <string name="picker_no_matches">Нет совпадений</string>
+    <string name="picker_loading_skills">Загрузка навыков…</string>
+    <string name="picker_skills_failed">Не удалось загрузить навыки</string>
+    <string name="cd_pending_skills">Навыки для следующего сообщения</string>
+    <string name="cd_remove_skill">Убрать навык %1$s</string>
+    <string name="cd_skill_always_applied">Всегда применяемый навык: %1$s</string>
+    <string name="cd_skill_used">Использован навык: %1$s</string>
+    <string name="skill_call_running">Выполняется %1$s</string>
+    <string name="skill_call_finished">Выполнен %1$s</string>
+    <string name="skill_call_fallback_name">навык</string>
     <string name="cd_steer_message">Скорректировать этот ответ</string>
     <string name="cd_cancel_steer">Отменить корректировку</string>
     <string name="cd_during_run_options">Выберите действие при отправке сейчас</string>
@@ -659,7 +687,6 @@
     <string name="notice_delete_failed">Не удалось удалить беседу</string>
     <string name="notice_archive_failed">Не удалось архивировать беседу</string>
     <string name="notice_duplicate_failed">Не удалось создать копию беседы</string>
-    <string name="notice_share_link_failed">Не удалось создать ссылку для общего доступа</string>
     <string name="notice_preset_save_failed">Не удалось сохранить пресет</string>
     <string name="notice_preset_delete_failed">Не удалось удалить пресет</string>
     <string name="notice_preset_update_failed">Не удалось обновить пресет</string>
@@ -673,6 +700,8 @@
     <string name="notice_speech_permission_denied">Нет разрешения на распознавание речи</string>
     <string name="notice_speech_unavailable">Распознавание речи недоступно. Проверьте «Настройки» &gt; «Конфиденциальность» &gt; «Распознавание речи».</string>
     <string name="notice_send_refused">Сервер отклонил это сообщение.</string>
+    <string name="notice_skills_not_sent">Некоторые навыки нельзя использовать в этом чате, и они не были отправлены.</string>
+    <string name="notice_skills_removed_from_queued">Некоторые навыки нельзя использовать в этом чате, и они были удалены из сообщения в очереди.</string>
     <plurals name="notice_message_limit_retry_minutes">
         <item quantity="one">Вы достигли лимита сообщений на этом сервере. Попробуйте снова через %1$d минуту.</item>
         <item quantity="few">Вы достигли лимита сообщений на этом сервере. Попробуйте снова через %1$d минуты.</item>
@@ -766,7 +795,6 @@
     <string name="sibling_position">Ответ %1$d из %2$d</string>
     <string name="cd_assistant_responding">Ассистент отвечает: %1$s</string>
     <string name="tool_call_fallback">Вызов инструмента</string>
-    <string name="share_link_copied">Ссылка скопирована в буфер обмена</string>
     <string name="prompt_filter_title">Фильтр и сортировка</string>
     <string name="prompt_sort_recent">Недавние</string>
     <string name="prompt_sort_popular">Популярные</string>
@@ -788,4 +816,27 @@
     <string name="prompt_preview_placeholder">Введите значения переменных, чтобы увидеть предпросмотр</string>
     <string name="cd_sync_scroll_on">Панели прокручиваются вместе. Отвязать</string>
     <string name="cd_sync_scroll_off">Панели прокручиваются по отдельности. Связать</string>
+    <!-- Shared chat viewer -->
+    <string name="shared_chat_title_fallback">Общий чат</string>
+    <string name="shared_chat_subtitle">Общий чат · %1$s</string>
+    <string name="shared_chat_continue">Продолжить этот чат</string>
+    <string name="shared_chat_open_in_browser">Открыть в браузере</string>
+    <string name="shared_chat_langfuse">Открыть сеанс в Langfuse</string>
+    <string name="shared_chat_link_updated">Ссылка обновлена. Показана последняя версия.</string>
+    <string name="shared_chat_continue_rate_limited">Слишком много запросов на продолжение чатов. Повторите попытку позже.</string>
+    <string name="shared_chat_continue_failed">Не удалось продолжить этот чат</string>
+    <string name="shared_chat_continue_unsupported">Этот сервер не поддерживает продолжение общих чатов</string>
+    <string name="shared_chat_refresh_failed">Не удалось обновить этот общий чат</string>
+    <string name="shared_chat_continue_blocked">Ваш сервер запретил копирование этого чата</string>
+    <string name="shared_chat_continue_blocked_reason">Ваш сервер запретил копирование этого чата: %1$s</string>
+    <string name="shared_chat_not_found">Общая ссылка не найдена</string>
+    <string name="shared_chat_not_found_description">Возможно, её удалили или ссылка неверна.</string>
+    <string name="shared_chat_no_access">Вы не можете открыть этот общий чат</string>
+    <string name="shared_chat_no_access_description">Доступ к нему не открыт для этого аккаунта.</string>
+    <string name="shared_chat_rate_limited">Слишком много запросов к общим ссылкам</string>
+    <string name="shared_chat_rate_limited_description">Повторите попытку через минуту.</string>
+    <string name="shared_chat_blocked">Ваш сервер заблокировал этот общий чат</string>
+    <string name="shared_chat_load_failed">Не удалось загрузить этот общий чат</string>
+    <string name="shared_chat_user">Пользователь</string>
+    <string name="shared_chat_file_failed">Не удалось открыть этот файл</string>
 </resources>

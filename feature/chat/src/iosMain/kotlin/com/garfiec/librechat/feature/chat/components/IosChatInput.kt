@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,7 +31,9 @@ import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.ui.components.AdaptiveSnackbarHost
+import com.garfiec.librechat.feature.chat.model.ComposerPickerItem
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
+import com.garfiec.librechat.feature.chat.model.PickerSkill
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.cd_attach_file
@@ -66,6 +69,8 @@ fun IosChatInput(
     onCancelSteer: (steerId: String) -> Unit = {},
     pendingQuotes: List<String> = emptyList(),
     onRemoveQuote: (index: Int) -> Unit = {},
+    pendingManualSkills: List<String> = emptyList(),
+    onRemoveManualSkill: (name: String) -> Unit = {},
     onSetDuringRunAction: (DuringRunAction) -> Unit = {},
     queuedPausedCount: Int = 0,
     queueHeldForRefusal: Boolean = false,
@@ -109,7 +114,12 @@ fun IosChatInput(
     compactSuggested: Boolean = false,
     contextBarPlacement: ContextBarPlacement = ContextBarPlacement.OPTIONS_SHEET,
     promptSuggestions: List<PromptMentionDisplayData> = emptyList(),
-    onSlashCommandSelect: (PromptMentionDisplayData) -> Unit = {},
+    skillSuggestions: List<PickerSkill> = emptyList(),
+    isLoadingSkills: Boolean = false,
+    skillsLoadFailed: Boolean = false,
+    canPickSkills: Boolean = false,
+    onRetrySkills: () -> Unit = {},
+    onPickerSelect: (ComposerPickerItem) -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -132,10 +142,10 @@ fun IosChatInput(
         duringRunSendTarget = duringRunSendTarget,
         pendingSteers = pendingSteers,
         pendingQuotes = pendingQuotes,
+        pendingManualSkills = pendingManualSkills,
         isEditingQueued = isEditingQueued,
         isAwaitingUploadSend = isAwaitingUploadSend,
         arePicksUnsettled = arePicksUnsettled,
-        comparison = comparison,
         comparisonHint = comparisonHint,
         contextGauge = contextGauge,
         contextUsageEnabled = contextUsageEnabled,
@@ -143,19 +153,25 @@ fun IosChatInput(
         onSnoozeCompact = onSnoozeCompact,
         contextBarPlacement = contextBarPlacement,
         promptSuggestions = promptSuggestions,
+        skillSuggestions = skillSuggestions,
+        isLoadingSkills = isLoadingSkills,
+        skillsLoadFailed = skillsLoadFailed,
+        canPickSkills = canPickSkills,
     )
 
     CommonChatInputCore(
         state = state,
         onSend = onSend,
         onStop = onStop,
-        onSelectPrompt = onSlashCommandSelect,
+        onSelectPickerItem = onPickerSelect,
         onToggleTool = onToggleTool,
         onQueue = onQueue,
         onDuringRunSend = onDuringRunSend,
         onSteer = onSteer,
         onCancelSteer = onCancelSteer,
         onRemoveQuote = onRemoveQuote,
+        onRemoveManualSkill = onRemoveManualSkill,
+        onRetrySkills = onRetrySkills,
         onSetDuringRunAction = onSetDuringRunAction,
         queuedPausedCount = queuedPausedCount,
         queueHeldForRefusal = queueHeldForRefusal,
@@ -220,6 +236,9 @@ fun IosChatInput(
             Box(
                 modifier = Modifier.weight(1f),
             ) {
+                val compactComparison = comparison?.takeIf { it.compact }
+                val comparisonCollapsed = compactComparison?.collapsedFor(inputText) == true
+                val comparisonCollapse by animateComposerComparisonCollapse(comparisonCollapsed)
                 // The composer draws its own field (ChatInputDefaults), glass included; not the adaptive one.
                 OutlinedTextField(
                     value = inputText,
@@ -234,9 +253,10 @@ fun IosChatInput(
                             comparisonHint = comparisonHint,
                         )
                     },
-                    leadingIcon = (comparison as? ComposerComparison.BothModels)?.let { both ->
-                        { ComposerComparisonBadges(both) }
+                    leadingIcon = comparison?.takeUnless { it.compact }?.let { comparison ->
+                        { ComposerComparisonBadges(comparison) }
                     },
+                    prefix = compactComparison?.let { { ComposerComparisonReserve { comparisonCollapse } } },
                     textStyle = MaterialTheme.typography.bodyLarge,
                     shape = ChatInputDefaults.shape,
                     colors = ChatInputDefaults.textFieldColors(),
@@ -248,6 +268,15 @@ fun IosChatInput(
                         Spacer(modifier = Modifier.width(36.dp))
                     },
                 )
+
+                if (compactComparison != null) {
+                    ComposerComparisonMorph(
+                        comparison = compactComparison,
+                        collapsed = comparisonCollapsed,
+                        collapse = { comparisonCollapse },
+                        modifier = Modifier.align(Alignment.TopStart),
+                    )
+                }
 
                 // Mic button overlaid at trailing edge of the text field
                 IconButton(

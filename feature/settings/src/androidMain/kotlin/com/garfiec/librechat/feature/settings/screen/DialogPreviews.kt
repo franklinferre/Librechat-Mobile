@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.model.ApiKey
 import com.garfiec.librechat.core.model.ui.UiStyle
 import com.garfiec.librechat.core.ui.components.AdaptiveAlertDialog
+import com.garfiec.librechat.core.ui.components.OtpVerificationDialog
 import com.garfiec.librechat.core.ui.preview.DialogPreviewHost
 import com.garfiec.librechat.core.ui.preview.PreviewNarrowScreens
 import com.garfiec.librechat.feature.settings.resources.Res
@@ -18,7 +19,6 @@ import com.garfiec.librechat.feature.settings.resources.server_headers_discard_t
 import com.garfiec.librechat.feature.settings.resources.server_headers_keep_editing
 import com.garfiec.librechat.feature.settings.resources.twofa_disable_instructions
 import com.garfiec.librechat.feature.settings.screen.sections.BackupCodesDialog
-import com.garfiec.librechat.feature.settings.screen.sections.TwoFactorCodeDialog
 import org.jetbrains.compose.resources.stringResource
 
 @PreviewNarrowScreens
@@ -32,10 +32,6 @@ private fun DisableTwoFactorGlassKeyboardPreview() = DisableTwoFactorHost(UiStyl
 @PreviewNarrowScreens
 @Composable
 private fun BackupCodesGlassPreview() = BackupCodesHost(UiStyle.LIQUID_GLASS)
-
-@PreviewNarrowScreens
-@Composable
-private fun MemoryEditGlassKeyboardPreview() = MemoryEditHost(UiStyle.LIQUID_GLASS, height = 400.dp)
 
 @PreviewNarrowScreens
 @Composable
@@ -67,11 +63,10 @@ private fun ServerHeadersDiscardHost(style: UiStyle, height: Dp = 640.dp) = Dial
 
 @Composable
 private fun DisableTwoFactorHost(style: UiStyle, height: Dp = 640.dp) = DialogPreviewHost(style, height = height) {
-    TwoFactorCodeDialog(
+    OtpVerificationDialog(
         title = stringResource(Res.string.dialog_title_disable_2fa),
         description = stringResource(Res.string.twofa_disable_instructions),
-        isLoading = false,
-        onConfirm = {},
+        onVerify = { _, _ -> },
         onDismiss = {},
     )
 }
@@ -79,11 +74,6 @@ private fun DisableTwoFactorHost(style: UiStyle, height: Dp = 640.dp) = DialogPr
 @Composable
 private fun BackupCodesHost(style: UiStyle, height: Dp = 640.dp) = DialogPreviewHost(style, height = height) {
     BackupCodesDialog(backupCodes = List(10) { "${1000 + it * 1111}-${9000 - it * 777}" }, onDismiss = {})
-}
-
-@Composable
-private fun MemoryEditHost(style: UiStyle, height: Dp = 640.dp) = DialogPreviewHost(style, height = height) {
-    MemoryEditDialog(memories = emptyList(), enforceKeyPattern = true, editingMemory = null, onDismiss = {}, onSave = { _, _ -> })
 }
 
 @Composable

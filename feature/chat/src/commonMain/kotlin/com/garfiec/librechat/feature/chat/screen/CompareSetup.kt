@@ -195,6 +195,7 @@ internal fun CompareSetupPicker(
         selectedEndpoint = if (editingA) aEndpoint else pickEndpoint,
         selectedModel = if (editingA) aModel else pickModel,
         onModelSelect = { endpoint, model -> pick.set(endpoint, model) },
+        modelSelect = uiState.modelSelectEnabled,
         modelSpecs = uiState.modelSpecs,
         selectedSpec = if (editingA) labels.primarySpec else pick.spec,
         onSpecSelect = pick::setSpec,
@@ -204,8 +205,10 @@ internal fun CompareSetupPicker(
         serverUrl = uiState.serverUrl,
         favoriteAgentIds = uiState.favoriteAgentIds,
         favoriteModelKeys = uiState.favoriteModelKeys,
+        favoriteSpecNames = uiState.favoriteSpecNames,
         onToggleAgentFavorite = actions.onToggleAgentFavorite,
         onToggleModelFavorite = actions.onToggleModelFavorite,
+        onToggleSpecFavorite = actions.onToggleSpecFavorite,
         starredDisplay = uiState.starredModelsDisplay,
         endpointKeyStates = uiState.endpointKeyStates,
         showTitle = false,
@@ -233,6 +236,7 @@ internal data class CompareSetupActions(
     val onStart: (second: ComparisonPick, primary: ComparisonPick?) -> Unit,
     val onToggleAgentFavorite: (agentId: String) -> Unit,
     val onToggleModelFavorite: (endpoint: String, model: String) -> Unit,
+    val onToggleSpecFavorite: (name: String) -> Unit,
 )
 
 internal fun ChatViewModel.compareSetupActions(): CompareSetupActions = CompareSetupActions(
@@ -240,6 +244,7 @@ internal fun ChatViewModel.compareSetupActions(): CompareSetupActions = CompareS
     onStart = { second, primary -> startComparison(second.endpoint, second.model, second.spec, primary) },
     onToggleAgentFavorite = ::toggleAgentFavorite,
     onToggleModelFavorite = ::toggleModelFavorite,
+    onToggleSpecFavorite = ::toggleSpecFavorite,
 )
 
 /**

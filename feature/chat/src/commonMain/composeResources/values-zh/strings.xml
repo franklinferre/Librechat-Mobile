@@ -10,6 +10,7 @@
     <string name="action_insert">插入</string>
     <string name="action_open">打开</string>
     <string name="action_share">分享</string>
+    <string name="action_share_link_active">分享 · 链接有效</string>
     <string name="action_search">搜索</string>
     <string name="action_archive">归档</string>
     <string name="action_duplicate">复制副本</string>
@@ -42,10 +43,7 @@
     <string name="compare_empty_ready">点按“开始”，然后发送消息。两个模型会并排回答。</string>
     <string name="compare_browse_all">浏览所有模型</string>
     <string name="compare_pick_second_model">选择第二个模型</string>
-    <string name="compare_also_asking">同时询问</string>
     <string name="cd_change_compared_models">更换对比的模型</string>
-    <string name="cd_change_first_model">更换第一个模型，%1$s</string>
-    <string name="cd_change_second_model">更换第二个模型，%1$s</string>
     <string name="compare_lane_a">A</string>
     <string name="compare_lane_b">B</string>
     <string name="how_can_i_help">今天我能帮你做些什么？</string>
@@ -303,18 +301,24 @@
     <string name="cd_mcp_resource">MCP 资源：%1$s</string>
 
     <!-- Memory artifact -->
-    <string name="cd_memory_artifact">记忆 artifact：%1$s</string>
-    <string name="memory_artifact_untitled">无标题</string>
     <string name="label_memory">记忆</string>
-    <string name="cd_memory_artifacts">记忆更新：%1$d</string>
+    <string name="memory_manage">管理</string>
+    <string name="cd_memory_manage">管理记忆</string>
+    <plurals name="cd_memory_artifacts_summary">
+        <item quantity="other">%1$s，%2$s 项更改</item>
+    </plurals>
     <string name="memory_updated">已更新保存的记忆</string>
     <string name="memory_error">记忆错误</string>
     <string name="memory_updated_items">已更新的记忆</string>
     <string name="memory_deleted_items">已删除的记忆</string>
     <string name="memory_deleted">记忆已删除</string>
     <string name="memory_storage_full">记忆存储已满</string>
-    <string name="memory_already_exceeded">记忆存储已满——已超出 %1$d 个 token。请先删除现有记忆再添加新记忆。</string>
-    <string name="memory_would_exceed">无法保存——将超出限制 %1$d 个 token。请删除现有记忆以腾出空间。</string>
+    <plurals name="memory_already_exceeded">
+        <item quantity="other">记忆存储已满——已超出 %1$s 个令牌。请先删除现有记忆再添加新记忆。</item>
+    </plurals>
+    <plurals name="memory_would_exceed">
+        <item quantity="other">无法保存——将超出限制 %1$s 个令牌。请删除现有记忆以腾出空间。</item>
+    </plurals>
     <string name="files_searched">已搜索你的文件</string>
     <string name="cd_file_search_source">文件搜索来源：%1$s</string>
     <string name="file_search_relevance">%1$d%%</string>
@@ -573,6 +577,21 @@
     <string name="cd_collapse_ask_user_question">收起问题详情</string>
     <string name="tool_memory">记忆</string>
     <string name="tool_memory_desc">让助手记住此对话中的细节</string>
+    <string name="tool_skills">技能</string>
+    <string name="tool_skills_desc">允许助手在此对话中使用你的技能</string>
+    <string name="cd_skills_enabled">已启用技能</string>
+    <string name="picker_type_prompt">提示词</string>
+    <string name="picker_type_skill">技能</string>
+    <string name="picker_no_matches">没有匹配项</string>
+    <string name="picker_loading_skills">正在加载技能…</string>
+    <string name="picker_skills_failed">无法加载技能</string>
+    <string name="cd_pending_skills">下一条消息使用的技能</string>
+    <string name="cd_remove_skill">移除技能 %1$s</string>
+    <string name="cd_skill_always_applied">始终应用的技能：%1$s</string>
+    <string name="cd_skill_used">已使用的技能：%1$s</string>
+    <string name="skill_call_running">正在运行 %1$s</string>
+    <string name="skill_call_finished">已运行 %1$s</string>
+    <string name="skill_call_fallback_name">技能</string>
     <string name="cd_steer_message">引导此回复</string>
     <string name="cd_cancel_steer">取消引导</string>
     <string name="cd_during_run_options">选择现在发送的方式</string>
@@ -659,7 +678,6 @@
     <string name="notice_delete_failed">无法删除对话</string>
     <string name="notice_archive_failed">无法归档对话</string>
     <string name="notice_duplicate_failed">无法复制对话</string>
-    <string name="notice_share_link_failed">无法创建分享链接</string>
     <string name="notice_preset_save_failed">无法保存预设</string>
     <string name="notice_preset_delete_failed">无法删除预设</string>
     <string name="notice_preset_update_failed">无法更新预设</string>
@@ -673,6 +691,8 @@
     <string name="notice_speech_permission_denied">语音识别权限被拒绝</string>
     <string name="notice_speech_unavailable">语音识别不可用。请检查“设置”&gt;“隐私”&gt;“语音识别”。</string>
     <string name="notice_send_refused">服务器拒绝了此消息。</string>
+    <string name="notice_skills_not_sent">部分技能无法在此聊天中使用，未被发送。</string>
+    <string name="notice_skills_removed_from_queued">部分技能无法在此聊天中使用，已从排队的消息中移除。</string>
     <plurals name="notice_message_limit_retry_minutes">
         <item quantity="other">你已达到此服务器的消息上限。请在 %1$d 分钟后重试。</item>
     </plurals>
@@ -742,7 +762,6 @@
     <string name="sibling_position">第 %1$d 个回复，共 %2$d 个</string>
     <string name="cd_assistant_responding">助手正在回复：%1$s</string>
     <string name="tool_call_fallback">工具调用</string>
-    <string name="share_link_copied">分享链接已复制到剪贴板</string>
     <string name="prompt_filter_title">筛选和排序</string>
     <string name="prompt_sort_recent">最近</string>
     <string name="prompt_sort_popular">热门</string>
@@ -764,4 +783,27 @@
     <string name="prompt_preview_placeholder">输入变量值以查看预览</string>
     <string name="cd_sync_scroll_on">窗格同步滚动。取消关联</string>
     <string name="cd_sync_scroll_off">窗格各自滚动。关联</string>
+    <!-- Shared chat viewer -->
+    <string name="shared_chat_title_fallback">共享的聊天</string>
+    <string name="shared_chat_subtitle">共享的聊天 · %1$s</string>
+    <string name="shared_chat_continue">继续此聊天</string>
+    <string name="shared_chat_open_in_browser">在浏览器中打开</string>
+    <string name="shared_chat_langfuse">在 Langfuse 中查看会话</string>
+    <string name="shared_chat_link_updated">此链接已更新，现在显示的是最新版本。</string>
+    <string name="shared_chat_continue_rate_limited">继续聊天的请求过多，请稍后再试。</string>
+    <string name="shared_chat_continue_failed">无法继续此聊天</string>
+    <string name="shared_chat_continue_unsupported">此服务器不支持继续共享的聊天</string>
+    <string name="shared_chat_refresh_failed">无法刷新此共享的聊天</string>
+    <string name="shared_chat_continue_blocked">你的服务器阻止了复制此聊天</string>
+    <string name="shared_chat_continue_blocked_reason">你的服务器阻止了复制此聊天：%1$s</string>
+    <string name="shared_chat_not_found">未找到共享链接</string>
+    <string name="shared_chat_not_found_description">它可能已被删除，或链接有误。</string>
+    <string name="shared_chat_no_access">你无法打开此共享聊天</string>
+    <string name="shared_chat_no_access_description">它未与此账号共享。</string>
+    <string name="shared_chat_rate_limited">共享链接请求过多</string>
+    <string name="shared_chat_rate_limited_description">请稍后再试。</string>
+    <string name="shared_chat_blocked">你的服务器屏蔽了此共享聊天</string>
+    <string name="shared_chat_load_failed">无法加载此共享聊天</string>
+    <string name="shared_chat_user">用户</string>
+    <string name="shared_chat_file_failed">无法打开此文件</string>
 </resources>

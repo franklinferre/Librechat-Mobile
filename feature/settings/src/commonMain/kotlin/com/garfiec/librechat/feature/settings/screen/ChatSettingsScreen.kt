@@ -144,7 +144,7 @@ fun ChatSettingsContent(
                     ChatSettingsSection(
                         fontSize = uiState.chatFontSize,
                         autoScrollEnabled = uiState.autoScrollEnabled,
-                        showThinkingBlocks = uiState.showThinkingBlocks,
+                        thinkingOpenByDefault = uiState.thinkingOpenByDefault,
                         contextUsageSummary = contextUsageSummary(contextUsage.placement, contextUsage.preset, contextUsage.advanced),
                         onOpenContextUsage = onNavigateToContextUsage,
                         duringRunAction = uiState.duringRunAction,
@@ -156,10 +156,11 @@ fun ChatSettingsContent(
                         onOpenChatLayout = onNavigateToChatLayout,
                         latexRenderer = uiState.latexRenderer,
                         starredModelsDisplay = uiState.starredModelsDisplay,
+                        preferLastUsedModel = uiState.preferLastUsedModel,
                         chatHeaderContent = uiState.chatHeaderContent,
                         chatHeaderAlignment = uiState.chatHeaderAlignment,
                         onAutoScrollChange = viewModel::setAutoScrollEnabled,
-                        onShowThinkingChange = viewModel::setShowThinkingBlocks,
+                        onThinkingOpenByDefaultChange = viewModel::setThinkingOpenByDefault,
                         onShowImageDescriptionsChange = viewModel::setShowImageDescriptions,
                         onShowSiteIconsChange = viewModel::setShowSiteIcons,
                         onDismissKeyboardOnSendChange = viewModel::setDismissKeyboardOnSend,
@@ -321,6 +322,18 @@ fun ChatSettingsContent(
                 onSave = saveAndClose(viewModel::setStarredModelsDisplay),
                 onDismiss = dismissDialog,
                 optionLabel = { starredModelsDisplayLabel(it) },
+            )
+        }
+
+        if (openDialog == ChatSettingDialog.NEW_CHAT_START) {
+            RadioSelectionDialog(
+                title = stringResource(Res.string.new_chat_start_title),
+                description = stringResource(Res.string.new_chat_start_desc),
+                options = listOf(false, true),
+                selected = uiState.preferLastUsedModel,
+                onSave = saveAndClose(viewModel::setPreferLastUsedModel),
+                onDismiss = dismissDialog,
+                optionLabel = { newChatStartLabel(it) },
             )
         }
 

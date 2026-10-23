@@ -10,6 +10,7 @@
     <string name="action_insert">挿入</string>
     <string name="action_open">開く</string>
     <string name="action_share">共有</string>
+    <string name="action_share_link_active">共有 · リンク有効</string>
     <string name="action_search">検索</string>
     <string name="action_archive">アーカイブ</string>
     <string name="action_duplicate">複製</string>
@@ -42,10 +43,7 @@
     <string name="compare_empty_ready">「開始」をタップしてからメッセージを送信してください。両方のモデルが並べて回答します。</string>
     <string name="compare_browse_all">すべてのモデルを見る</string>
     <string name="compare_pick_second_model">2つ目のモデルを選択</string>
-    <string name="compare_also_asking">同時に質問</string>
     <string name="cd_change_compared_models">比較中のモデルを変更</string>
-    <string name="cd_change_first_model">1つ目のモデルを変更、%1$s</string>
-    <string name="cd_change_second_model">2つ目のモデルを変更、%1$s</string>
     <string name="compare_lane_a">A</string>
     <string name="compare_lane_b">B</string>
     <string name="how_can_i_help">今日は何をお手伝いしましょうか？</string>
@@ -303,18 +301,24 @@
     <string name="cd_mcp_resource">MCPリソース: %1$s</string>
 
     <!-- Memory artifact -->
-    <string name="cd_memory_artifact">メモリアーティファクト: %1$s</string>
-    <string name="memory_artifact_untitled">無題</string>
     <string name="label_memory">メモリ</string>
-    <string name="cd_memory_artifacts">メモリの更新: %1$d</string>
+    <string name="memory_manage">管理</string>
+    <string name="cd_memory_manage">メモリを管理</string>
+    <plurals name="cd_memory_artifacts_summary">
+        <item quantity="other">%1$s、%2$s 件の変更</item>
+    </plurals>
     <string name="memory_updated">保存されたメモリを更新しました</string>
     <string name="memory_error">メモリエラー</string>
     <string name="memory_updated_items">更新されたメモリ</string>
     <string name="memory_deleted_items">削除されたメモリ</string>
     <string name="memory_deleted">メモリを削除しました</string>
     <string name="memory_storage_full">メモリの保存容量が上限に達しました</string>
-    <string name="memory_already_exceeded">メモリの保存容量はすでに上限を %1$d トークン超えています。新しいメモリを追加する前に既存のメモリを削除してください。</string>
-    <string name="memory_would_exceed">保存できません — 上限を %1$d トークン超えます。既存のメモリを削除して空きを作ってください。</string>
+    <plurals name="memory_already_exceeded">
+        <item quantity="other">メモリの保存容量はすでに上限を %1$s トークン超えています。新しいメモリを追加する前に既存のメモリを削除してください。</item>
+    </plurals>
+    <plurals name="memory_would_exceed">
+        <item quantity="other">保存できません — 上限を %1$s トークン超えます。既存のメモリを削除して空きを作ってください。</item>
+    </plurals>
     <string name="files_searched">ファイルを検索しました</string>
     <string name="cd_file_search_source">ファイル検索のソース: %1$s</string>
     <string name="file_search_relevance">%1$d%%</string>
@@ -573,6 +577,21 @@
     <string name="cd_collapse_ask_user_question">質問の詳細を折りたたむ</string>
     <string name="tool_memory">メモリ</string>
     <string name="tool_memory_desc">このチャットの詳細をアシスタントが記憶できるようにする</string>
+    <string name="tool_skills">スキル</string>
+    <string name="tool_skills_desc">このチャットでアシスタントがあなたのスキルを使えるようにする</string>
+    <string name="cd_skills_enabled">スキルが有効</string>
+    <string name="picker_type_prompt">プロンプト</string>
+    <string name="picker_type_skill">スキル</string>
+    <string name="picker_no_matches">一致するものはありません</string>
+    <string name="picker_loading_skills">スキルを読み込み中…</string>
+    <string name="picker_skills_failed">スキルを読み込めませんでした</string>
+    <string name="cd_pending_skills">次のメッセージで使うスキル</string>
+    <string name="cd_remove_skill">スキル %1$s を削除</string>
+    <string name="cd_skill_always_applied">常に適用されるスキル: %1$s</string>
+    <string name="cd_skill_used">使用したスキル: %1$s</string>
+    <string name="skill_call_running">%1$s を実行中</string>
+    <string name="skill_call_finished">%1$s を実行しました</string>
+    <string name="skill_call_fallback_name">スキル</string>
     <string name="cd_steer_message">この応答を軌道修正</string>
     <string name="cd_cancel_steer">軌道修正をキャンセル</string>
     <string name="cd_during_run_options">送信時の動作を選択</string>
@@ -659,7 +678,6 @@
     <string name="notice_delete_failed">会話を削除できませんでした</string>
     <string name="notice_archive_failed">会話をアーカイブできませんでした</string>
     <string name="notice_duplicate_failed">会話を複製できませんでした</string>
-    <string name="notice_share_link_failed">共有リンクを作成できませんでした</string>
     <string name="notice_preset_save_failed">プリセットを保存できませんでした</string>
     <string name="notice_preset_delete_failed">プリセットを削除できませんでした</string>
     <string name="notice_preset_update_failed">プリセットを更新できませんでした</string>
@@ -673,6 +691,8 @@
     <string name="notice_speech_permission_denied">音声認識へのアクセスが許可されていません</string>
     <string name="notice_speech_unavailable">音声認識を利用できません。設定 &gt; プライバシー &gt; 音声認識 を確認してください。</string>
     <string name="notice_send_refused">サーバーがこのメッセージを拒否しました。</string>
+    <string name="notice_skills_not_sent">このチャットでは使用できないスキルがあるため、送信されませんでした。</string>
+    <string name="notice_skills_removed_from_queued">このチャットでは使用できないスキルがあるため、キュー内のメッセージから削除しました。</string>
     <plurals name="notice_message_limit_retry_minutes">
         <item quantity="other">このサーバーのメッセージ上限に達しました。%1$d分後にもう一度お試しください。</item>
     </plurals>
@@ -742,7 +762,6 @@
     <string name="sibling_position">回答 %1$d / %2$d</string>
     <string name="cd_assistant_responding">アシスタントが応答中：%1$s</string>
     <string name="tool_call_fallback">ツール呼び出し</string>
-    <string name="share_link_copied">共有リンクをクリップボードにコピーしました</string>
     <string name="prompt_filter_title">絞り込みと並べ替え</string>
     <string name="prompt_sort_recent">新しい順</string>
     <string name="prompt_sort_popular">人気順</string>
@@ -764,4 +783,27 @@
     <string name="prompt_preview_placeholder">変数の値を入力するとプレビューが表示されます</string>
     <string name="cd_sync_scroll_on">ペインは連動してスクロールします。連動を解除</string>
     <string name="cd_sync_scroll_off">ペインは個別にスクロールします。連動させる</string>
+    <!-- Shared chat viewer -->
+    <string name="shared_chat_title_fallback">共有チャット</string>
+    <string name="shared_chat_subtitle">共有チャット · %1$s</string>
+    <string name="shared_chat_continue">このチャットを続ける</string>
+    <string name="shared_chat_open_in_browser">ブラウザで開く</string>
+    <string name="shared_chat_langfuse">Langfuse でセッションを表示</string>
+    <string name="shared_chat_link_updated">このリンクは更新されました。最新版を表示しています。</string>
+    <string name="shared_chat_continue_rate_limited">チャットを続けるリクエストが多すぎます。しばらくしてからもう一度お試しください。</string>
+    <string name="shared_chat_continue_failed">このチャットを続けられませんでした</string>
+    <string name="shared_chat_continue_unsupported">このサーバーでは共有チャットを続けられません</string>
+    <string name="shared_chat_refresh_failed">この共有チャットを更新できませんでした</string>
+    <string name="shared_chat_continue_blocked">サーバーがこのチャットのコピーをブロックしました</string>
+    <string name="shared_chat_continue_blocked_reason">サーバーがこのチャットのコピーをブロックしました: %1$s</string>
+    <string name="shared_chat_not_found">共有リンクが見つかりません</string>
+    <string name="shared_chat_not_found_description">削除されたか、リンクが間違っている可能性があります。</string>
+    <string name="shared_chat_no_access">この共有チャットを開けません</string>
+    <string name="shared_chat_no_access_description">このアカウントには共有されていません。</string>
+    <string name="shared_chat_rate_limited">共有リンクへのリクエストが多すぎます</string>
+    <string name="shared_chat_rate_limited_description">少し待ってからもう一度お試しください。</string>
+    <string name="shared_chat_blocked">サーバーがこの共有チャットをブロックしました</string>
+    <string name="shared_chat_load_failed">この共有チャットを読み込めませんでした</string>
+    <string name="shared_chat_user">ユーザー</string>
+    <string name="shared_chat_file_failed">このファイルを開けませんでした</string>
 </resources>

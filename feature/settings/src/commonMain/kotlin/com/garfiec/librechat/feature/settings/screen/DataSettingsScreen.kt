@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.garfiec.librechat.core.common.extensions.formatLocalizedNumber
 import com.garfiec.librechat.core.ui.components.AdaptiveAlertDialog
 import com.garfiec.librechat.core.ui.components.AdaptiveDivider
 import com.garfiec.librechat.core.ui.components.AdaptiveGroupedPage
@@ -44,6 +45,7 @@ import com.garfiec.librechat.core.ui.components.topbar.AdaptiveTopBarSpec
 import com.garfiec.librechat.core.ui.components.topbar.BarIcons
 import com.garfiec.librechat.core.ui.components.topbar.BarNavigation
 import com.garfiec.librechat.core.ui.components.topbar.BarTitle
+import com.garfiec.librechat.core.ui.datetime.LocalDateTimeFormat
 import com.garfiec.librechat.core.ui.platform.TextFileSaver
 import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
@@ -211,9 +213,17 @@ fun DataSettingsContent(
                         onClearLogs = viewModel::clearLogs,
                     )
                 }
+                // A summary row without a count: the list pages and never says how many links there are.
+                row(key = "shared_chats_row") {
+                    SelectorRow(
+                        title = stringResource(Res.string.shared_chats_title),
+                        value = stringResource(Res.string.shared_chats_summary),
+                        onClick = onNavigateToSharedLinks,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
                 row(key = "data_extra_actions") {
                     DataExtraActions(
-                        onSharedLinksClick = onNavigateToSharedLinks,
                         onArtifactShortcutsClick = onNavigateToArtifactShortcuts,
                         onClearCacheClick = { showClearCacheDialog = true },
                         isCacheClearing = uiState.isCacheClearing,
@@ -239,7 +249,8 @@ fun DataSettingsContent(
             }
 
             // Memories and MCP servers each live on their own page; the tab shows a summary row.
-            // A row is hidden when the role denies its USE permission.
+            // MCP's is hidden without its USE permission; Memories' unless the role may reach the
+            // page at all (USE, plus READ or OPT_OUT).
             if (uiState.serverMemoriesEnabled) {
                 item(key = "memories_header") {
                     AdaptiveSectionHeader(stringResource(Res.string.section_memories))
@@ -331,7 +342,6 @@ fun DataSettingsContent(
 
 @Composable
 internal fun DataExtraActions(
-    onSharedLinksClick: () -> Unit,
     onArtifactShortcutsClick: () -> Unit,
     onClearCacheClick: () -> Unit,
     isCacheClearing: Boolean,
@@ -346,25 +356,6 @@ internal fun DataExtraActions(
                 .padding(horizontal = 16.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Shared Links
-            AdaptiveOutlinedButton(
-                onClick = onSharedLinksClick,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(Res.string.shared_links), modifier = Modifier.weight(1f))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-            }
-
             // Home-screen artifact shortcuts
             AdaptiveOutlinedButton(
                 onClick = onArtifactShortcutsClick,
@@ -420,11 +411,19 @@ internal fun DataExtraActions(
 }
 
 @Composable
-private fun memoriesSummary(enabled: Boolean, count: Int?): String = when {
-    !enabled -> stringResource(Res.string.data_summary_off)
-    count == null -> ""
-    count == 0 -> stringResource(Res.string.data_summary_none)
-    else -> pluralStringResource(Res.plurals.data_memories_count, count, count)
+private fun memoriesSummary(enabled: Boolean?, count: Int?): String {
+    val localeTag = LocalDateTimeFormat.current.localeTag
+    return when {
+        enabled == false -> stringResource(Res.string.data_summary_off)
+        // A count only once the opt-out is known to be on: an opted-out user's count isn't "on".
+        enabled == null || count == null -> ""
+        count == 0 -> stringResource(Res.string.data_memories_none)
+        else -> pluralStringResource(
+            Res.plurals.data_memories_count,
+            count,
+            remember(count, localeTag) { formatLocalizedNumber(count.toDouble(), localeTag) },
+        )
+    }
 }
 
 @Composable

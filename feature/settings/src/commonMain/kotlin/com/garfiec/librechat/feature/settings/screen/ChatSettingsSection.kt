@@ -37,7 +37,7 @@ import org.jetbrains.compose.resources.stringResource
 internal fun ChatSettingsSection(
     fontSize: ChatFontSize,
     autoScrollEnabled: Boolean,
-    showThinkingBlocks: Boolean,
+    thinkingOpenByDefault: Boolean,
     contextUsageSummary: String,
     duringRunAction: DuringRunAction,
     uploadRoutingMode: UploadRoutingMode,
@@ -47,10 +47,11 @@ internal fun ChatSettingsSection(
     chatLayoutSummary: String,
     latexRenderer: LatexRenderer,
     starredModelsDisplay: StarredModelsDisplay,
+    preferLastUsedModel: Boolean,
     chatHeaderContent: ChatHeaderContent,
     chatHeaderAlignment: ChatHeaderAlignment,
     onAutoScrollChange: (Boolean) -> Unit,
-    onShowThinkingChange: (Boolean) -> Unit,
+    onThinkingOpenByDefaultChange: (Boolean) -> Unit,
     onShowImageDescriptionsChange: (Boolean) -> Unit,
     onShowSiteIconsChange: (Boolean) -> Unit,
     onDismissKeyboardOnSendChange: (Boolean) -> Unit,
@@ -99,10 +100,10 @@ internal fun ChatSettingsSection(
                 )
 
                 ToggleRow(
-                    title = stringResource(Res.string.show_thinking_blocks),
-                    description = stringResource(Res.string.show_thinking_blocks_desc),
-                    checked = showThinkingBlocks,
-                    onChange = onShowThinkingChange,
+                    title = stringResource(Res.string.thinking_open_by_default),
+                    description = stringResource(Res.string.thinking_open_by_default_desc),
+                    checked = thinkingOpenByDefault,
+                    onChange = onThinkingOpenByDefaultChange,
                 )
 
                 ToggleRow(
@@ -162,6 +163,12 @@ internal fun ChatSettingsSection(
                     title = stringResource(Res.string.starred_models_title),
                     value = starredModelsDisplayLabel(starredModelsDisplay),
                     onClick = { onOpenDialog(ChatSettingDialog.STARRED_MODELS) },
+                )
+
+                SelectorRow(
+                    title = stringResource(Res.string.new_chat_start_title),
+                    value = newChatStartLabel(preferLastUsedModel),
+                    onClick = { onOpenDialog(ChatSettingDialog.NEW_CHAT_START) },
                 )
             }
         }

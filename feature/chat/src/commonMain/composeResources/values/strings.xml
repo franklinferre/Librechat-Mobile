@@ -10,6 +10,7 @@
     <string name="action_insert">Insert</string>
     <string name="action_open">Open</string>
     <string name="action_share">Share</string>
+    <string name="action_share_link_active">Share · Link active</string>
     <string name="action_search">Search</string>
     <string name="action_archive">Archive</string>
     <string name="action_duplicate">Duplicate</string>
@@ -42,10 +43,7 @@
     <string name="compare_empty_ready">Tap Start, then send a message. Both models answer side by side.</string>
     <string name="compare_browse_all">Browse all models</string>
     <string name="compare_pick_second_model">Pick the second model</string>
-    <string name="compare_also_asking">Also asking</string>
     <string name="cd_change_compared_models">Change compared models</string>
-    <string name="cd_change_first_model">Change first model, %1$s</string>
-    <string name="cd_change_second_model">Change second model, %1$s</string>
     <string name="compare_lane_a">A</string>
     <string name="compare_lane_b">B</string>
     <string name="how_can_i_help">How can I help you today?</string>
@@ -307,18 +305,27 @@
     <string name="cd_mcp_resource">MCP resource: %1$s</string>
 
     <!-- Memory artifact -->
-    <string name="cd_memory_artifact">Memory artifact: %1$s</string>
-    <string name="memory_artifact_untitled">Untitled</string>
     <string name="label_memory">Memory</string>
-    <string name="cd_memory_artifacts">Memory updates: %1$d</string>
+    <string name="memory_manage">Manage</string>
+    <string name="cd_memory_manage">Manage memories</string>
+    <plurals name="cd_memory_artifacts_summary">
+        <item quantity="one">%1$s, %2$s change</item>
+        <item quantity="other">%1$s, %2$s changes</item>
+    </plurals>
     <string name="memory_updated">Updated saved memory</string>
-    <string name="memory_error">Memory Error</string>
-    <string name="memory_updated_items">Updated Memories</string>
-    <string name="memory_deleted_items">Deleted Memories</string>
+    <string name="memory_error">Memory error</string>
+    <string name="memory_updated_items">Updated memories</string>
+    <string name="memory_deleted_items">Deleted memories</string>
     <string name="memory_deleted">Memory deleted</string>
-    <string name="memory_storage_full">Memory Storage Full</string>
-    <string name="memory_already_exceeded">Memory storage already full — exceeded by %1$d tokens. Delete existing memories before adding new ones.</string>
-    <string name="memory_would_exceed">Cannot save — would exceed limit by %1$d tokens. Delete existing memories to make space.</string>
+    <string name="memory_storage_full">Memory storage full</string>
+    <plurals name="memory_already_exceeded">
+        <item quantity="one">Memory storage already full — exceeded by %1$s token. Delete existing memories before adding new ones.</item>
+        <item quantity="other">Memory storage already full — exceeded by %1$s tokens. Delete existing memories before adding new ones.</item>
+    </plurals>
+    <plurals name="memory_would_exceed">
+        <item quantity="one">Cannot save — would exceed limit by %1$s token. Delete existing memories to make space.</item>
+        <item quantity="other">Cannot save — would exceed limit by %1$s tokens. Delete existing memories to make space.</item>
+    </plurals>
 
     <!-- File search sources -->
     <string name="files_searched">Searched your files</string>
@@ -597,6 +604,21 @@
     <string name="cd_collapse_ask_user_question">Collapse question details</string>
     <string name="tool_memory">Memory</string>
     <string name="tool_memory_desc">Let the assistant remember details from this chat</string>
+    <string name="tool_skills">Skills</string>
+    <string name="tool_skills_desc">Let the assistant use your skills in this chat</string>
+    <string name="cd_skills_enabled">Skills enabled</string>
+    <string name="picker_type_prompt">Prompt</string>
+    <string name="picker_type_skill">Skill</string>
+    <string name="picker_no_matches">No matches</string>
+    <string name="picker_loading_skills">Loading skills…</string>
+    <string name="picker_skills_failed">Couldn't load skills</string>
+    <string name="cd_pending_skills">Skills for the next message</string>
+    <string name="cd_remove_skill">Remove skill %1$s</string>
+    <string name="cd_skill_always_applied">Always-applied skill: %1$s</string>
+    <string name="cd_skill_used">Skill used: %1$s</string>
+    <string name="skill_call_running">Running %1$s</string>
+    <string name="skill_call_finished">Ran %1$s</string>
+    <string name="skill_call_fallback_name">skill</string>
 
     <!-- Mid-run steering (v0.8.8): send into the reply that is still being written -->
     <string name="cd_steer_message">Steer this reply</string>
@@ -684,7 +706,6 @@
     <string name="notice_delete_failed">Failed to delete conversation</string>
     <string name="notice_archive_failed">Failed to archive conversation</string>
     <string name="notice_duplicate_failed">Failed to duplicate conversation</string>
-    <string name="notice_share_link_failed">Failed to create share link</string>
     <string name="notice_preset_save_failed">Could not save preset</string>
     <string name="notice_preset_delete_failed">Could not delete preset</string>
     <string name="notice_preset_update_failed">Could not update preset</string>
@@ -698,6 +719,8 @@
     <string name="notice_speech_permission_denied">Speech recognition permission denied</string>
     <string name="notice_speech_unavailable">Speech recognition not available. Check Settings &gt; Privacy &gt; Speech Recognition.</string>
     <string name="notice_send_refused">The server refused this message.</string>
+    <string name="notice_skills_not_sent">Some skills can't be used in this chat and weren't sent.</string>
+    <string name="notice_skills_removed_from_queued">Some skills can't be used in this chat and were removed from the queued message.</string>
     <plurals name="notice_message_limit_retry_minutes">
         <item quantity="one">You've reached this server's message limit. Try again in %1$d minute.</item>
         <item quantity="other">You've reached this server's message limit. Try again in %1$d minutes.</item>
@@ -794,7 +817,6 @@
     <string name="sibling_position">Response %1$d of %2$d</string>
     <string name="cd_assistant_responding">Assistant is responding: %1$s</string>
     <string name="tool_call_fallback">Tool Call</string>
-    <string name="share_link_copied">Share link copied to clipboard</string>
     <string name="prompt_filter_title">Filter &amp; Sort</string>
     <string name="prompt_sort_recent">Recent</string>
     <string name="prompt_sort_popular">Popular</string>
@@ -816,4 +838,27 @@
     <string name="prompt_preview_placeholder">Enter variable values to see preview</string>
     <string name="cd_sync_scroll_on">Panes scroll together. Unlink</string>
     <string name="cd_sync_scroll_off">Panes scroll separately. Link</string>
+    <!-- Shared chat viewer -->
+    <string name="shared_chat_title_fallback">Shared chat</string>
+    <string name="shared_chat_subtitle">Shared chat · %1$s</string>
+    <string name="shared_chat_continue">Continue this chat</string>
+    <string name="shared_chat_open_in_browser">Open in browser</string>
+    <string name="shared_chat_langfuse">View session in Langfuse</string>
+    <string name="shared_chat_link_updated">This link was updated. The latest version is now showing.</string>
+    <string name="shared_chat_continue_rate_limited">Too many requests to continue chats. Try again later.</string>
+    <string name="shared_chat_continue_failed">Couldn’t continue this chat</string>
+    <string name="shared_chat_continue_unsupported">This server can’t continue shared chats</string>
+    <string name="shared_chat_refresh_failed">Couldn’t refresh this shared chat</string>
+    <string name="shared_chat_continue_blocked">Your server blocked copying this chat</string>
+    <string name="shared_chat_continue_blocked_reason">Your server blocked copying this chat: %1$s</string>
+    <string name="shared_chat_not_found">Shared link not found</string>
+    <string name="shared_chat_not_found_description">It may have been deleted, or the link may be wrong.</string>
+    <string name="shared_chat_no_access">You can’t open this shared chat</string>
+    <string name="shared_chat_no_access_description">It isn’t shared with this account.</string>
+    <string name="shared_chat_rate_limited">Too many shared link requests</string>
+    <string name="shared_chat_rate_limited_description">Try again in a moment.</string>
+    <string name="shared_chat_blocked">Your server blocked this shared chat</string>
+    <string name="shared_chat_load_failed">Couldn’t load this shared chat</string>
+    <string name="shared_chat_user">User</string>
+    <string name="shared_chat_file_failed">Couldn’t open this file</string>
 </resources>

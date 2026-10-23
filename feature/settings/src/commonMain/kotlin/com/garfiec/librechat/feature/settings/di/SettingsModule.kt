@@ -18,6 +18,7 @@ import com.garfiec.librechat.feature.settings.viewmodel.PrefetchActivityViewMode
 import com.garfiec.librechat.feature.settings.viewmodel.PrefetchSettingsViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.PresetManagerViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.ReleaseNotesViewModel
+import com.garfiec.librechat.feature.settings.viewmodel.RoleMemoriesAdminViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.RoleSkillsAdminViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.ServerHeadersViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.SharedLinksViewModel
@@ -60,7 +61,6 @@ val settingsModule = module {
             diagnosticLogRepository = get(),
             mcpRepository = get(),
             memoryRepository = get(),
-            userRepository = get(),
             roleRepository = get(),
             permissionGate = get(),
             configRepository = get(),
@@ -96,6 +96,7 @@ val settingsModule = module {
     }
     viewModelOf(::PrefetchSettingsViewModel)
     viewModelOf(::ProviderKeysViewModel)
+    viewModelOf(::RoleMemoriesAdminViewModel)
     viewModelOf(::RoleSkillsAdminViewModel)
     viewModelOf(::ServerHeadersViewModel)
     viewModelOf(::SharedLinksViewModel)

@@ -10,6 +10,7 @@
     <string name="action_insert">Einfügen</string>
     <string name="action_open">Öffnen</string>
     <string name="action_share">Teilen</string>
+    <string name="action_share_link_active">Teilen · Link aktiv</string>
     <string name="action_search">Suchen</string>
     <string name="action_archive">Archivieren</string>
     <string name="action_duplicate">Duplizieren</string>
@@ -42,10 +43,7 @@
     <string name="compare_empty_ready">Tippe auf „Starten“ und sende dann eine Nachricht. Beide Modelle antworten nebeneinander.</string>
     <string name="compare_browse_all">Alle Modelle durchsuchen</string>
     <string name="compare_pick_second_model">Zweites Modell wählen</string>
-    <string name="compare_also_asking">Fragt auch</string>
     <string name="cd_change_compared_models">Verglichene Modelle ändern</string>
-    <string name="cd_change_first_model">Erstes Modell ändern, %1$s</string>
-    <string name="cd_change_second_model">Zweites Modell ändern, %1$s</string>
     <string name="compare_lane_a">A</string>
     <string name="compare_lane_b">B</string>
     <string name="how_can_i_help">Wie kann ich dir heute helfen?</string>
@@ -303,18 +301,27 @@
     <string name="cd_mcp_resource">MCP-Ressource: %1$s</string>
 
     <!-- Memory artifact -->
-    <string name="cd_memory_artifact">Erinnerungsartefakt: %1$s</string>
-    <string name="memory_artifact_untitled">Ohne Titel</string>
     <string name="label_memory">Erinnerung</string>
-    <string name="cd_memory_artifacts">Aktualisierte Erinnerungen: %1$d</string>
+    <string name="memory_manage">Verwalten</string>
+    <string name="cd_memory_manage">Erinnerungen verwalten</string>
+    <plurals name="cd_memory_artifacts_summary">
+        <item quantity="one">%1$s, %2$s Änderung</item>
+        <item quantity="other">%1$s, %2$s Änderungen</item>
+    </plurals>
     <string name="memory_updated">Gespeicherte Erinnerung aktualisiert</string>
     <string name="memory_error">Erinnerungsfehler</string>
     <string name="memory_updated_items">Aktualisierte Erinnerungen</string>
     <string name="memory_deleted_items">Gelöschte Erinnerungen</string>
     <string name="memory_deleted">Erinnerung gelöscht</string>
     <string name="memory_storage_full">Erinnerungsspeicher voll</string>
-    <string name="memory_already_exceeded">Erinnerungsspeicher bereits voll – um %1$d Tokens überschritten. Lösche vorhandene Erinnerungen, bevor du neue hinzufügst.</string>
-    <string name="memory_would_exceed">Speichern nicht möglich – Limit würde um %1$d Tokens überschritten. Lösche vorhandene Erinnerungen, um Platz zu schaffen.</string>
+    <plurals name="memory_already_exceeded">
+        <item quantity="one">Erinnerungsspeicher bereits voll – um %1$s Token überschritten. Lösche vorhandene Erinnerungen, bevor du neue hinzufügst.</item>
+        <item quantity="other">Erinnerungsspeicher bereits voll – um %1$s Tokens überschritten. Lösche vorhandene Erinnerungen, bevor du neue hinzufügst.</item>
+    </plurals>
+    <plurals name="memory_would_exceed">
+        <item quantity="one">Speichern nicht möglich – Limit würde um %1$s Token überschritten. Lösche vorhandene Erinnerungen, um Platz zu schaffen.</item>
+        <item quantity="other">Speichern nicht möglich – Limit würde um %1$s Tokens überschritten. Lösche vorhandene Erinnerungen, um Platz zu schaffen.</item>
+    </plurals>
     <string name="files_searched">Deine Dateien durchsucht</string>
     <string name="cd_file_search_source">Quelle der Dateisuche: %1$s</string>
     <string name="file_search_relevance">%1$d %%</string>
@@ -573,6 +580,21 @@
     <string name="cd_collapse_ask_user_question">Fragendetails einklappen</string>
     <string name="tool_memory">Erinnerung</string>
     <string name="tool_memory_desc">Den Assistenten Details aus diesem Chat merken lassen</string>
+    <string name="tool_skills">Skills</string>
+    <string name="tool_skills_desc">Den Assistenten in diesem Chat deine Skills nutzen lassen</string>
+    <string name="cd_skills_enabled">Skills aktiviert</string>
+    <string name="picker_type_prompt">Prompt</string>
+    <string name="picker_type_skill">Skill</string>
+    <string name="picker_no_matches">Keine Treffer</string>
+    <string name="picker_loading_skills">Skills werden geladen…</string>
+    <string name="picker_skills_failed">Skills konnten nicht geladen werden</string>
+    <string name="cd_pending_skills">Skills für die nächste Nachricht</string>
+    <string name="cd_remove_skill">Skill %1$s entfernen</string>
+    <string name="cd_skill_always_applied">Immer angewendeter Skill: %1$s</string>
+    <string name="cd_skill_used">Verwendeter Skill: %1$s</string>
+    <string name="skill_call_running">%1$s wird ausgeführt</string>
+    <string name="skill_call_finished">%1$s ausgeführt</string>
+    <string name="skill_call_fallback_name">Skill</string>
     <string name="cd_steer_message">Diese Antwort lenken</string>
     <string name="cd_cancel_steer">Lenken abbrechen</string>
     <string name="cd_during_run_options">Festlegen, was Senden jetzt bewirkt</string>
@@ -659,7 +681,6 @@
     <string name="notice_delete_failed">Unterhaltung konnte nicht gelöscht werden</string>
     <string name="notice_archive_failed">Unterhaltung konnte nicht archiviert werden</string>
     <string name="notice_duplicate_failed">Unterhaltung konnte nicht dupliziert werden</string>
-    <string name="notice_share_link_failed">Freigabelink konnte nicht erstellt werden</string>
     <string name="notice_preset_save_failed">Voreinstellung konnte nicht gespeichert werden</string>
     <string name="notice_preset_delete_failed">Voreinstellung konnte nicht gelöscht werden</string>
     <string name="notice_preset_update_failed">Voreinstellung konnte nicht aktualisiert werden</string>
@@ -673,6 +694,8 @@
     <string name="notice_speech_permission_denied">Berechtigung für die Spracherkennung verweigert</string>
     <string name="notice_speech_unavailable">Spracherkennung nicht verfügbar. Prüfe Einstellungen &gt; Datenschutz &gt; Spracherkennung.</string>
     <string name="notice_send_refused">Der Server hat diese Nachricht abgelehnt.</string>
+    <string name="notice_skills_not_sent">Einige Skills können in diesem Chat nicht verwendet werden und wurden nicht gesendet.</string>
+    <string name="notice_skills_removed_from_queued">Einige Skills können in diesem Chat nicht verwendet werden und wurden aus der eingereihten Nachricht entfernt.</string>
     <plurals name="notice_message_limit_retry_minutes">
         <item quantity="one">Du hast das Nachrichtenlimit dieses Servers erreicht. Versuche es in %1$d Minute erneut.</item>
         <item quantity="other">Du hast das Nachrichtenlimit dieses Servers erreicht. Versuche es in %1$d Minuten erneut.</item>
@@ -750,7 +773,6 @@
     <string name="sibling_position">Antwort %1$d von %2$d</string>
     <string name="cd_assistant_responding">Assistent antwortet: %1$s</string>
     <string name="tool_call_fallback">Tool-Aufruf</string>
-    <string name="share_link_copied">Freigabelink in die Zwischenablage kopiert</string>
     <string name="prompt_filter_title">Filtern &amp; sortieren</string>
     <string name="prompt_sort_recent">Neueste</string>
     <string name="prompt_sort_popular">Beliebt</string>
@@ -772,4 +794,27 @@
     <string name="prompt_preview_placeholder">Variablenwerte eingeben, um die Vorschau zu sehen</string>
     <string name="cd_sync_scroll_on">Bereiche scrollen gemeinsam. Trennen</string>
     <string name="cd_sync_scroll_off">Bereiche scrollen getrennt. Verknüpfen</string>
+    <!-- Shared chat viewer -->
+    <string name="shared_chat_title_fallback">Geteilter Chat</string>
+    <string name="shared_chat_subtitle">Geteilter Chat · %1$s</string>
+    <string name="shared_chat_continue">Diesen Chat fortsetzen</string>
+    <string name="shared_chat_open_in_browser">Im Browser öffnen</string>
+    <string name="shared_chat_langfuse">Sitzung in Langfuse ansehen</string>
+    <string name="shared_chat_link_updated">Dieser Link wurde aktualisiert. Jetzt wird die neueste Version angezeigt.</string>
+    <string name="shared_chat_continue_rate_limited">Zu viele Anfragen zum Fortsetzen von Chats. Versuche es später erneut.</string>
+    <string name="shared_chat_continue_failed">Dieser Chat konnte nicht fortgesetzt werden</string>
+    <string name="shared_chat_continue_unsupported">Dieser Server kann geteilte Chats nicht fortsetzen</string>
+    <string name="shared_chat_refresh_failed">Dieser geteilte Chat konnte nicht aktualisiert werden</string>
+    <string name="shared_chat_continue_blocked">Dein Server hat das Kopieren dieses Chats blockiert</string>
+    <string name="shared_chat_continue_blocked_reason">Dein Server hat das Kopieren dieses Chats blockiert: %1$s</string>
+    <string name="shared_chat_not_found">Geteilter Link nicht gefunden</string>
+    <string name="shared_chat_not_found_description">Er wurde möglicherweise gelöscht, oder der Link ist falsch.</string>
+    <string name="shared_chat_no_access">Du kannst diesen geteilten Chat nicht öffnen</string>
+    <string name="shared_chat_no_access_description">Er ist nicht mit diesem Konto geteilt.</string>
+    <string name="shared_chat_rate_limited">Zu viele Anfragen für geteilte Links</string>
+    <string name="shared_chat_rate_limited_description">Versuche es gleich noch einmal.</string>
+    <string name="shared_chat_blocked">Dein Server hat diesen geteilten Chat blockiert</string>
+    <string name="shared_chat_load_failed">Dieser geteilte Chat konnte nicht geladen werden</string>
+    <string name="shared_chat_user">Nutzer</string>
+    <string name="shared_chat_file_failed">Diese Datei konnte nicht geöffnet werden</string>
 </resources>

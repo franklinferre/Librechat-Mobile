@@ -25,7 +25,7 @@ class CompareQuickPickTest {
         query: String = "",
         favoriteModelKeys: Set<String> = emptySet(),
         favoriteAgentIds: Set<String> = emptySet(),
-    ) = compareQuickPicks(query, models, configs, agents, favoriteModelKeys, favoriteAgentIds, agentCaption = "Agent")
+    ) = compareQuickPicks(query, models, configs, agents, favoriteModelKeys, favoriteAgentIds, agentCaption = "Agent", modelSelect = true)
 
     @Test
     fun `starred come first, agents then models, in pin order`() {
@@ -78,7 +78,7 @@ class CompareQuickPickTest {
             agents = agents,
             favoriteModelKeys = emptySet(),
             favoriteAgentIds = emptySet(),
-            agentCaption = "Agent",
+            agentCaption = "Agent", modelSelect = true,
         )
 
         assertThat(result.map { it.model }).containsExactly("agent_1")
@@ -101,7 +101,7 @@ class CompareQuickPickTest {
             agents = weakAgents,
             favoriteModelKeys = emptySet(),
             favoriteAgentIds = emptySet(),
-            agentCaption = "Agent",
+            agentCaption = "Agent", modelSelect = true,
         )
 
         assertThat(result.map { it.model }).contains("gpt-5-mini")
@@ -117,7 +117,7 @@ class CompareQuickPickTest {
             agents = agents,
             favoriteModelKeys = setOf("anthropic::claude-opus-4-5", "openAI::gpt-5"),
             favoriteAgentIds = emptySet(),
-            agentCaption = "Agent",
+            agentCaption = "Agent", modelSelect = true,
             endpointKeyStates = mapOf("anthropic" to KeyState.Unset),
         )
 
@@ -139,7 +139,7 @@ class CompareQuickPickTest {
     fun `spec rows lead the list and carry their name`() {
         val specs = ModelSpecs(list = listOf(fast))
         val result = compareQuickPicks(
-            "", models, configs, agents, emptySet(), emptySet(), agentCaption = "Agent",
+            "", models, configs, agents, emptySet(), emptySet(), agentCaption = "Agent", modelSelect = true,
             specs = specs.list, modelSpecs = specs,
         )
 
@@ -152,8 +152,46 @@ class CompareQuickPickTest {
     fun `under enforce only spec rows are offered`() {
         val specs = ModelSpecs(list = listOf(fast), enforce = true)
         val result = compareQuickPicks(
-            "", models, configs, agents, setOf("openAI::gpt-5"), setOf("agent_1"), agentCaption = "Agent",
+            "", models, configs, agents, setOf("openAI::gpt-5"), setOf("agent_1"), agentCaption = "Agent", modelSelect = true,
             specs = specs.list, modelSpecs = specs,
+        )
+
+        assertThat(result.map { it.spec }).containsExactly("fast")
+    }
+
+    @Test
+    fun `a pinned spec row is starred`() {
+        val slow = ModelSpec(name = "slow", label = "Slow", preset = Preset(endpoint = "openAI", model = "gpt-5"))
+        val specs = ModelSpecs(list = listOf(fast, slow))
+        val result = compareQuickPicks(
+            "", models, configs, agents, emptySet(), emptySet(), agentCaption = "Agent", modelSelect = true,
+            favoriteSpecNames = setOf("slow"),
+            specs = specs.list, modelSpecs = specs,
+        )
+
+        assertThat(result.filter { it.spec != null }.associate { it.spec to it.starred })
+            .containsExactly("fast", false, "slow", true)
+    }
+
+    @Test
+    fun `pinned specs lead the spec rows in pin order`() {
+        val specList = (1..8).map { ModelSpec(name = "s$it", label = "S$it", preset = Preset(endpoint = "openAI", model = "gpt-5")) }
+        val specs = ModelSpecs(list = specList, enforce = true)
+        val result = compareQuickPicks(
+            "", models, configs, agents, emptySet(), emptySet(), agentCaption = "Agent", modelSelect = true,
+            favoriteSpecNames = linkedSetOf("s8", "s7"),
+            specs = specs.list, modelSpecs = specs,
+        )
+
+        assertThat(result.map { it.spec }).containsExactly("s8", "s7", "s1", "s2", "s3", "s4").inOrder()
+    }
+
+    @Test
+    fun `with model select off only spec rows are offered`() {
+        val specs = ModelSpecs(list = listOf(fast))
+        val result = compareQuickPicks(
+            "", models, configs, agents, setOf("openAI::gpt-5"), setOf("agent_1"), agentCaption = "Agent",
+            modelSelect = false, specs = specs.list, modelSpecs = specs,
         )
 
         assertThat(result.map { it.spec }).containsExactly("fast")
