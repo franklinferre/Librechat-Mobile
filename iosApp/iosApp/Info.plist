@@ -22,7 +22,7 @@
 		<string>zh-Hans</string>
 	</array>
 	<key>CFBundleDisplayName</key>
-	<string>Lideri Chat</string>
+	<string>LID.IA</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -32,7 +32,7 @@
 	<!-- Literal, not $(PRODUCT_NAME) — that resolves to the Xcode target name "iosApp".
 	     Renaming the target instead would break release.yml's -scheme/-archivePath. -->
 	<key>CFBundleName</key>
-	<string>Lideri Chat</string>
+	<string>LID.IA</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<!-- Overwritten at build time by the "Stamp Version from version.properties"
@@ -104,13 +104,13 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Lideri Chat needs microphone access for voice input to transcribe speech to text.</string>
+	<string>LID.IA needs microphone access for voice input to transcribe speech to text.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Lideri Chat uses speech recognition to convert your voice into text messages.</string>
+	<string>LID.IA uses speech recognition to convert your voice into text messages.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Lideri Chat needs camera access to take photos for sharing in conversations.</string>
+	<string>LID.IA needs camera access to take photos for sharing in conversations.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Lideri Chat needs photo library access to share images in conversations.</string>
+	<string>LID.IA needs photo library access to share images in conversations.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Lideri Chat</string>
+    <string name="app_name">LID.IA</string>
 
     <!-- Connectivity -->
     <string name="no_connection">No internet connection</string>

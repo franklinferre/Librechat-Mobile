@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the Lideri Chat app icons and the iOS launch logo from the brand kit.
+"""Generate the LID.IA app icons and the iOS launch logo from the brand kit.
 
     python3 design/lideri/generate-icons.py        # run from the repo root
 

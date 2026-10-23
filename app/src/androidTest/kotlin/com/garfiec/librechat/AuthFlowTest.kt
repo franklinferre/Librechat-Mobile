@@ -85,7 +85,7 @@ class AuthFlowTest {
         }
         // Either the connect is still running or it failed fast and offers a retry.
         composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule.onAllNodesWithText("Connecting to Lideri Chat…").fetchSemanticsNodes().isNotEmpty() ||
+            composeTestRule.onAllNodesWithText("Connecting to LID.IA…").fetchSemanticsNodes().isNotEmpty() ||
                 composeTestRule.onAllNodesWithText("Retry").fetchSemanticsNodes().isNotEmpty()
         }
         composeTestRule.onAllNodesWithText("Server URL").assertCountEquals(0)

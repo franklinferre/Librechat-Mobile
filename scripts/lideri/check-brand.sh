@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Static brand check for the Lideri Chat white-label: reads source files only, needs no build.
+# Static brand check for the LID.IA white-label: reads source files only, needs no build.
 # Exits 0 and prints "marca OK" when every item holds; otherwise exits 1 listing each failure.
 set -euo pipefail
 
@@ -37,8 +37,8 @@ total=$(count "$PBXPROJ" '^[[:space:]]*SWITCHBOARD_CHANNEL = ')
 [[ "$total" -eq 3 ]] || fail "iOS has $total SWITCHBOARD_CHANNEL entries, expected 3 ($PBXPROJ)"
 
 # iOS display name: the <string> right after the CFBundleDisplayName key.
-if [[ -f "$PLIST" ]] && grep -A1 '<key>CFBundleDisplayName</key>' "$PLIST" | grep -qF '<string>Lideri Chat</string>'; then :; else
-  fail "CFBundleDisplayName is not Lideri Chat ($PLIST)"
+if [[ -f "$PLIST" ]] && grep -A1 '<key>CFBundleDisplayName</key>' "$PLIST" | grep -qF '<string>LID.IA</string>'; then :; else
+  fail "CFBundleDisplayName is not LID.IA ($PLIST)"
 fi
 
 # Locked server and deep-link scheme in Brand.
