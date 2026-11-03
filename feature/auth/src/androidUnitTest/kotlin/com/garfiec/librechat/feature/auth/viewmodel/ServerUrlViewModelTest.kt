@@ -696,7 +696,7 @@ class ServerUrlViewModelTest {
         advanceUntilIdle()
         assertThat(vm.uiState.value.isLocked).isTrue()
         assertThat(vm.uiState.value.isValidated).isTrue()
-        coVerify(exactly = 1) { serverDataStore.setServerUrl("https://chat.lideri.cloud") }
+        coVerify(exactly = 1) { accountSwitcher.prepareForSignIn("https://chat.lideri.cloud") }
     }
 
     @Test
