@@ -28,6 +28,8 @@
     <string name="pdf_password_incorrect">Contraseña incorrecta. Inténtalo de nuevo.</string>
     <string name="pdf_password_show">Mostrar contraseña</string>
     <string name="pdf_password_hide">Ocultar contraseña</string>
+    <string name="cd_show_secret">Mostrar</string>
+    <string name="cd_hide_secret">Ocultar</string>
     <string name="pdf_password_confirm">Descifrar y subir</string>
     <string name="pdf_password_cancel">Cancelar</string>
     <string name="param_thinking_between_tools_description">Activa el razonamiento adaptativo controlado por el parámetro Esfuerzo. Este modelo no puede desactivar el razonamiento por completo: al desactivarlo se usa su nivel más bajo, que omite el razonamiento extendido y conserva solo breves notas entre llamadas a herramientas. Con esta opción desactivada, el esfuerzo se limita a Alto.</string>
@@ -154,6 +156,8 @@
     <string name="param_label_prompt_caching">Caché de prompts</string>
     <string name="param_label_reasoning_effort">Esfuerzo de razonamiento</string>
     <string name="param_label_reasoning_summary">Resumen del razonamiento</string>
+    <string name="param_label_reasoning_mode">Modo de razonamiento</string>
+    <string name="param_label_reasoning_context">Contexto del razonamiento</string>
     <string name="param_label_reasoning_visibility">Visibilidad del razonamiento</string>
     <string name="param_label_region">Región</string>
     <string name="param_label_resend_files">Reenviar archivos</string>
@@ -179,6 +183,10 @@
     <string name="param_option_auto">Automático</string>
     <string name="param_option_concise">Conciso</string>
     <string name="param_option_detailed">Detallado</string>
+    <string name="param_option_standard">Estándar</string>
+    <string name="param_option_pro">Pro</string>
+    <string name="param_option_current_turn">Turno actual</string>
+    <string name="param_option_all_turns">Todos los turnos</string>
     <string name="param_option_summarized">Resumido</string>
     <string name="param_option_omitted">Omitido</string>
     <string name="param_option_updates">Actualizaciones</string>
@@ -205,6 +213,8 @@
     <string name="param_desc_frequency_penalty">Penaliza los tokens según su frecuencia en el texto.</string>
     <string name="param_desc_url_context">Permite al modelo obtener las URL (y YouTube) que menciones y basarse en ellas.</string>
     <string name="param_desc_reasoning_summary">Cómo se muestra el resumen del razonamiento en la respuesta.</string>
+    <string name="param_desc_reasoning_mode">Solo Responses API: elige el modo de razonamiento. Pro activa el razonamiento ampliado en los modelos compatibles.</string>
+    <string name="param_desc_reasoning_context">Solo Responses API: cuánto razonamiento anterior reutiliza el modelo.</string>
     <string name="param_desc_prompt_cache_duration">Cuánto dura la caché de prompts (Anthropic). Se aplica con la caché de prompts activada.</string>
     <string name="param_desc_thinking_level">Controla cuánto razona el modelo.</string>
     <string name="param_desc_reasoning_effort">Controla cuánto razonamiento realiza el modelo.</string>
@@ -293,4 +303,34 @@
     <string name="acl_error_owner_protected">El acceso del propietario no se puede cambiar.</string>
     <string name="acl_error_generic">No se pudo actualizar el acceso. Inténtalo de nuevo.</string>
     <string name="acl_error_load">No se pudo cargar quién tiene acceso.</string>
+    <string name="bookmarks">Marcadores</string>
+    <string name="bookmark_new">Nuevo marcador</string>
+    <string name="bookmark_edit">Editar marcador</string>
+    <string name="bookmark_name">Nombre</string>
+    <string name="bookmark_description">Descripción</string>
+    <string name="bookmark_description_hint">Opcional</string>
+    <string name="bookmark_add_to_chat">Añadir a este chat</string>
+    <string name="bookmark_create">Crear</string>
+    <string name="bookmark_save">Guardar</string>
+    <string name="bookmark_saving">Guardando…</string>
+    <string name="bookmark_cancel">Cancelar</string>
+    <string name="bookmark_error_blank">Escribe un nombre</string>
+    <string name="bookmark_error_duplicate">Ya tienes un marcador con este nombre</string>
+    <string name="bookmark_error_reserved">“Saved” está reservado para favoritos. Elige otro nombre.</string>
+    <string name="bookmark_char_counter">%1$d/%2$d</string>
+    <string name="bookmarks_none_yet">Aún no hay marcadores</string>
+    <string name="bookmarks_no_match">Ningún marcador coincide con “%1$s”</string>
+    <string name="search_bookmarks">Buscar marcadores</string>
+    <string name="cd_bookmarked">Añadido</string>
+    <string name="cd_not_bookmarked">No añadido</string>
+    <plurals name="bookmark_chat_count">
+        <item quantity="one">%1$d chat</item>
+        <item quantity="many">%1$d chats</item>
+        <item quantity="other">%1$d chats</item>
+    </plurals>
+    <plurals name="bookmark_error_too_long">
+        <item quantity="one">Máximo %1$d carácter</item>
+        <item quantity="many">Máximo %1$d caracteres</item>
+        <item quantity="other">Máximo %1$d caracteres</item>
+    </plurals>
 </resources>

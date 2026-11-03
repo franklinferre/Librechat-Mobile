@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.model.Agent
@@ -50,7 +51,10 @@ import com.garfiec.librechat.core.ui.components.clearFocusOnTap
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.cd_back
+import com.garfiec.librechat.feature.chat.resources.param_set_by_spec
 import com.garfiec.librechat.feature.chat.resources.tool_model_parameters
+import com.garfiec.librechat.feature.chat.util.WebSearchKind
+import com.garfiec.librechat.feature.chat.util.WebSearchRoute
 import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
 import com.garfiec.librechat.feature.chat.viewmodel.ContextGaugeDetails
 import org.jetbrains.compose.resources.stringResource
@@ -78,6 +82,7 @@ data class ChatToolsPageParams(
     val comparisonModels: ComparisonModelLabels? = null,
     val isCodeInterpreterAvailable: Boolean = true,
     val webSearchEnabled: Boolean = true,
+    val webSearchKind: WebSearchKind = WebSearchKind(WebSearchRoute.LIBRECHAT, null),
     val urlContextEnabled: Boolean = false,
     val runCodeEnabled: Boolean = true,
     val fileSearchEnabled: Boolean = true,
@@ -149,6 +154,8 @@ data class ModelParametersPageParams(
     /** Resolved `/api/config.endpointsDropParamsMap` entry; see [ModelParameterContent]. */
     val dropParams: List<String> = emptyList(),
     val onSaveAsPreset: () -> Unit = {},
+    /** The server sets the parameters (an enforced spec): the page shows them read-only. */
+    val setBySpec: Boolean = false,
 )
 
 /**
@@ -170,7 +177,7 @@ fun ChatOptionsBottomSheet(
 ) {
     // Held here, not in ChatToolsSheetContent: AnimatedContent drops the Options page from
     // composition on a sub-page, so state remembered there would reset. Saveable to survive the
-    // host teardown the page survives (the "Set API Key" round trip, config change).
+    // host teardown the page survives (the "Add key" round trip, config change).
     var mcpExpanded by rememberSaveable { mutableStateOf(false) }
     val optionsScrollState = rememberScrollState()
     // Or the Options page — the common path — would open at half height.
@@ -253,6 +260,7 @@ fun ChatOptionsBottomSheet(
                         onDismiss = dismiss,
                         isCodeInterpreterAvailable = tools.isCodeInterpreterAvailable,
                         webSearchEnabled = tools.webSearchEnabled,
+                        webSearchKind = tools.webSearchKind,
                         urlContextEnabled = tools.urlContextEnabled,
                         runCodeEnabled = tools.runCodeEnabled,
                         fileSearchEnabled = tools.fileSearchEnabled,
@@ -326,8 +334,15 @@ fun ChatOptionsBottomSheet(
                             selectedModel = parameters.selectedModel,
                             dropParams = parameters.dropParams,
                             onSaveAsPreset = parameters.onSaveAsPreset,
+                            readOnlyNote = if (parameters.setBySpec) {
+                                stringResource(Res.string.param_set_by_spec)
+                            } else {
+                                null
+                            },
                             // The back row above replaces the content's own title.
                             showHeader = false,
+                            // The tools' web-search control is the one switch for both searches.
+                            hiddenKeys = setOf(ToolConstants.WEB_SEARCH),
                             modifier = Modifier
                                 .padding(horizontal = 24.dp)
                                 .navigationBarsPadding()

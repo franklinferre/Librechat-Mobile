@@ -20,7 +20,17 @@
     <string name="new_chat">新しいチャット</string>
     <string name="load_preset">プリセットを読み込む</string>
     <string name="save_as_preset">プリセットとして保存</string>
-    <string name="save_and_submit">保存して送信</string>
+    <string name="saving">保存中…</string>
+    <string name="rerun">再実行</string>
+    <string name="update_and_rerun">更新して再実行</string>
+    <string name="edit_part_response">回答</string>
+    <string name="edit_part_thoughts">思考</string>
+    <string name="edit_status_part_empty">メッセージの一部を空にはできません。</string>
+    <string name="edit_status_save_before_rerun">再実行する前に変更を保存してください。</string>
+    <string name="edit_status_unsaved_changes">未保存の変更があります。</string>
+    <string name="edit_status_rerun_discards_changes">再実行すると この回答が再生成され、変更は破棄されます。</string>
+    <string name="edit_status_rerun_needs_user_turn">再実行には再送するユーザーメッセージが必要です。</string>
+    <string name="notice_message_save_failed">編集を保存できませんでした。</string>
     <string name="preset_name_label">プリセット名</string>
     <string name="code">コード</string>
     <string name="preview">プレビュー</string>
@@ -79,6 +89,9 @@
     <string name="cd_more_options">その他のオプション</string>
     <string name="cd_scroll_to_bottom">一番下までスクロール</string>
     <string name="cd_select_model">モデルを選択</string>
+    <string name="cd_starter_send">送信</string>
+    <string name="cd_starter_edit">送信前に編集</string>
+    <string name="starters_try_asking">質問の例</string>
     <string name="cd_librechat">LID.IA</string>
     <string name="cd_comparison_enabled">比較が有効</string>
 
@@ -215,8 +228,15 @@
     <string name="tool_model">モデル</string>
     <string name="tool_model_parameters">モデルパラメータ</string>
     <string name="tool_model_parameters_desc">温度やトークンなどを調整</string>
+    <string name="param_set_by_spec">このモデルの設定はサーバーが決めているため、ここでは変更できません。</string>
+    <string name="tool_set_by_spec">このモデルではサーバーが有効にしています</string>
     <string name="tool_web_search">ウェブ検索</string>
     <string name="tool_web_search_desc">ウェブで情報を検索</string>
+    <string name="web_search_librechat">LibreChat 検索</string>
+    <string name="web_search_checking">LibreChat 検索を確認中…</string>
+    <string name="web_search_built_in">%1$s の組み込み検索</string>
+    <string name="web_search_built_in_plain">組み込み検索</string>
+    <string name="web_search_set_by_spec">%1$s(このモデルではサーバーが有効にしています)</string>
     <string name="web_searched">ウェブを検索しました</string>
     <string name="tool_url_context">URL コンテキスト</string>
     <string name="tool_url_context_desc">参照した URL や YouTube 動画をモデルが読めるようにする</string>
@@ -269,8 +289,11 @@
     <string name="audio_decode_failed">音声のデコードに失敗しました</string>
 
     <!-- Citation -->
-    <string name="citation_number">引用 %1$d</string>
-    <string name="cd_open_citation_url">引用URLを開く</string>
+    <string name="citation_sources_title">出典</string>
+    <string name="cd_citation">出典: %1$s</string>
+    <plurals name="cd_citation_more">
+        <item quantity="other">出典: %1$s ほか%2$d件</item>
+    </plurals>
 
     <!-- Fork options -->
     <string name="fork_conversation">会話をフォーク</string>
@@ -351,8 +374,12 @@
     <string name="cd_unpin_favorite">お気に入りのピンを外す</string>
     <string name="cd_collapse_section">%1$s を折りたたむ</string>
     <string name="cd_expand_section">%1$s を展開</string>
-    <string name="set_api_key_action">APIキーを設定</string>
-    <string name="cd_set_api_key">%1$s のAPIキーを設定</string>
+    <string name="set_api_key_action">キーを追加</string>
+    <string name="cd_set_api_key">%1$s のキーを追加</string>
+    <!-- Under an endpoint or spec name in the model picker when its key is missing. -->
+    <string name="model_selector_needs_key">キーが必要です</string>
+    <!-- Same place, in the minute before the server deletes an expired key. -->
+    <string name="model_selector_key_expired">キーの期限切れ</string>
 
     <!-- Preset picker -->
     <string name="select_preset">プリセットを選択</string>
@@ -464,21 +491,31 @@
     <string name="dialog_title_fill_variables">変数を入力</string>
 
     <!-- Comparison mode -->
-    <string name="continue_with_response">この応答で続ける</string>
+    <string name="keep_this_answer">この回答を残す</string>
+    <string name="reply_stopped">停止しました</string>
+    <string name="action_continue_reply">続ける</string>
+    <string name="action_keep_and_continue">残して続ける</string>
 
     <!-- Provider Keys chat-time errors. -->
     <string name="provider_keys_chat_error_no_key">キーが見つかりません。キーを入力してもう一度お試しください。</string>
-    <!-- {0} = endpoint name, {1} = expiredAt (server-locale string, NOT ISO) -->
+    <!-- {0} = endpoint name, {1} = expiry date and time, already formatted in the user's locale -->
     <string name="provider_keys_chat_error_expired">%1$s に提供されたキーは %2$s に期限切れになりました。新しいキーを入力してもう一度お試しください。</string>
     <string name="provider_keys_chat_error_invalid">無効なキーが提供されました。有効なキーを入力してもう一度お試しください。</string>
-    <!-- Snackbar action label that deep-links to Settings → Provider Keys -->
-    <string name="provider_keys_chat_error_cta">キー設定を開く</string>
+    <string name="provider_keys_chat_error_no_key_for">%1$s のキーが見つかりません。キーを入力してもう一度お試しください。</string>
+    <string name="provider_keys_chat_error_invalid_for">%1$s に無効なキーが提供されました。有効なキーを入力してもう一度お試しください。</string>
+    <string name="provider_keys_chat_error_expired_no_label">提供されたキーは %1$s に期限切れになりました。新しいキーを入力してもう一度お試しください。</string>
+    <string name="provider_keys_chat_error_no_base_url">ベースURLが見つかりません。ベースURLを入力してもう一度お試しください。</string>
+    <string name="provider_keys_chat_error_no_base_url_for">%1$s のベースURLが見つかりません。ベースURLを入力してもう一度お試しください。</string>
+    <string name="provider_keys_chat_error_invalid_base_url">入力されたベースURLは制限されたアドレスを対象としています。有効な外部URLを使用してもう一度お試しください。</string>
+    <string name="provider_keys_chat_error_invalid_base_url_for">%1$s に入力されたベースURLは制限されたアドレスを対象としています。有効な外部URLを使用してもう一度お試しください。</string>
     <string name="queued_messages_dropped_account_switch">アカウントの切り替えにより、キュー内のメッセージは破棄されました</string>
 
     <!-- Send block reasons (shown in error snackbar when send can't proceed) -->
     <string name="send_block_select_agent">メッセージを送信する前にエージェントを選択してください。</string>
     <string name="send_block_select_model">メッセージを送信する前にモデルを選択してください。</string>
+    <string name="send_block_select_second_model">送信する前に、リストからモデルBを選択してください。</string>
     <string name="send_block_agents_unavailable">このサーバーではエージェントを利用できません。別のモデルを選択してください。</string>
+    <string name="send_block_api_key_required">メッセージを送信するには、%1$s の API キーを追加してください。</string>
     <string name="send_block_agent_not_available">選択したエージェントはこのサーバーで利用できません。別のエージェントを選択してください。</string>
     <string name="send_block_model_not_available">選択したモデルはこのサーバーで利用できません。別のモデルを選択してください。</string>
     <string name="send_block_model_load_failed">選択したモデルをまだ読み込めませんでした。もう一度お試しいただくか、別のモデルを選択してください。</string>
@@ -673,7 +710,8 @@
     <string name="compact_confirm_not_now">後で</string>
     <string name="compact_confirm_action">圧縮</string>
     <string name="cd_temporary_chat">一時チャット</string>
-    <string name="temporary_chat_banner">一時チャット：この会話は履歴に保存されません</string>
+    <string name="temporary_chat_title">一時チャット</string>
+    <string name="temporary_chat_subtitle">この会話は履歴に保存されません</string>
     <string name="notice_rename_failed">会話の名前を変更できませんでした</string>
     <string name="notice_delete_failed">会話を削除できませんでした</string>
     <string name="notice_archive_failed">会話をアーカイブできませんでした</string>
@@ -684,6 +722,9 @@
     <string name="notice_continue_response_failed">選択した応答で続行できませんでした</string>
     <string name="notice_favorites_limit">お気に入りは最大%1$d件までピン留めできます。</string>
     <string name="notice_favorites_update_failed">お気に入りを更新できませんでした。</string>
+    <string name="notice_bookmark_update_failed">ブックマークを更新できませんでした。もう一度お試しください。</string>
+    <string name="notice_bookmark_create_failed">ブックマークを作成できませんでした。もう一度お試しください。</string>
+    <string name="notice_bookmarks_load_failed">このチャットのブックマークを読み込めませんでした</string>
     <string name="notice_upload_failed">%1$s をアップロードできませんでした: %2$s</string>
     <string name="notice_upload_failed_unknown">%1$s をアップロードできませんでした: 不明なエラー</string>
     <string name="notice_upload_unreadable">%1$s をアップロードできませんでした: ファイルを読み取れませんでした</string>
@@ -749,6 +790,17 @@
     <string name="stt_speak_now">お話しください…</string>
     <string name="stt_recognition_unavailable">このデバイスでは音声認識を使用できません</string>
     <string name="artifact_preview_failed">プレビューを読み込めませんでした</string>
+    <string name="artifact_library_title">%1$s を読み込みますか？</string>
+    <string name="artifact_library_unmaintained">このアーティファクトは、メンテナンスが終了したライブラリ %1$s を使用しています。</string>
+    <string name="artifact_library_deprecated">このアーティファクトは、作者が非推奨としたライブラリ %1$s を使用しています。</string>
+    <string name="artifact_library_vulnerable">このアーティファクトは、既知のセキュリティ勧告があるライブラリ %1$s を使用しています。</string>
+    <string name="artifact_library_sandbox">サンドボックス内で実行され、ファイルやアカウントにはアクセスできません。他のアーティファクトと同様に、ウェブから画像を読み込むことはできます。</string>
+    <string name="artifact_library_remember">%1$s について記憶する</string>
+    <string name="artifact_library_load">読み込む</string>
+    <string name="artifact_library_skip">読み込まない</string>
+    <string name="artifact_library_declined">読み込まれていません: %1$s</string>
+    <string name="artifact_library_allowed">読み込み済み: %1$s</string>
+    <string name="artifact_library_change">変更</string>
     <string name="cd_mcp_server_enabled">MCP サーバー %1$s 有効</string>
     <string name="cd_code_block">コードブロック</string>
     <string name="cd_code_block_language">%1$s のコードブロック</string>
@@ -756,7 +808,7 @@
     <string name="cd_attached_image">添付画像</string>
     <string name="model_selector_search">モデルを検索…</string>
     <string name="model_selector_my_agents">マイエージェント</string>
-    <string name="model_selector_spec_only_note">このサーバーでは上に表示されたオプションのみ使用できます。</string>
+    <string name="model_selector_spec_only_top_note">送信できるのはサーバーのモデルスペックのみです。グレー表示のモデルは参考用です。</string>
     <string name="agent_handoff_to">エージェント %1$s</string>
     <string name="agent_handoff_run">実行：%1$s</string>
     <string name="sibling_position">回答 %1$d / %2$d</string>
@@ -806,4 +858,36 @@
     <string name="shared_chat_load_failed">この共有チャットを読み込めませんでした</string>
     <string name="shared_chat_user">ユーザー</string>
     <string name="shared_chat_file_failed">このファイルを開けませんでした</string>
+
+    <!-- Web and file search sources -->
+    <string name="web_searching">ウェブ検索</string>
+    <string name="web_searching_again">もう一度ウェブを検索します</string>
+    <string name="web_search_processing">処理結果</string>
+    <string name="web_search_reading">読み取り結果</string>
+    <string name="web_search_details">検索の詳細</string>
+    <string name="web_search_query">クエリ</string>
+    <string name="web_search_images">画像の結果</string>
+    <string name="web_search_shopping">ショッピングの結果</string>
+    <string name="web_search_places">場所</string>
+    <string name="files_searching">ファイルの検索</string>
+    <string name="searching_web_and_files">ウェブとファイルを検索中</string>
+    <string name="searched_web_and_files">ウェブとファイルを検索しました</string>
+    <string name="search_cancelled">キャンセル</string>
+    <string name="sources_tab_all">全て</string>
+    <string name="sources_tab_news">ニュース</string>
+    <string name="sources_tab_images">画像</string>
+    <string name="sources_tab_files">ファイル</string>
+    <string name="sources_agent_files">エージェント・ファイル</string>
+    <string name="sources_agent_file">ソース・ドキュメント</string>
+    <string name="web_search_load_images">画像を読み込む</string>
+    <string name="cd_open_cited_file">%1$s を開く</string>
+    <plurals name="web_search_sources">
+        <item quantity="other">%1$d ソース</item>
+    </plurals>
+    <plurals name="sources_more">
+        <item quantity="other">+%1$d ソース</item>
+    </plurals>
+    <plurals name="files_more">
+        <item quantity="other">+%1$d ファイル</item>
+    </plurals>
 </resources>

@@ -296,6 +296,12 @@
     <string name="new_chat_start_desc">When your server picks a model for new chats, choose whether to use it or the model you used last. Ignored when the server hides the model picker. If the server requires one of its own models, your last model counts only if it was one of those.</string>
     <string name="new_chat_start_server">Server's choice</string>
     <string name="new_chat_start_last_used">My last-used model</string>
+    <string name="web_search_first_title">Web search</string>
+    <string name="web_search_first_desc">Which search a chat's web search switch runs when both could. If your choice can't run in a chat, the other one is used. A model spec's own search wins, and Compare uses LibreChat search when it can, so both models search.</string>
+    <string name="web_search_first_librechat">LibreChat search first</string>
+    <string name="web_search_first_librechat_desc">Your server's search, with sources. Uses the model's built-in search when the server has none set up.</string>
+    <string name="web_search_first_built_in">Built-in search first</string>
+    <string name="web_search_first_built_in_desc">The model provider's own search (OpenAI, Claude, Gemini, OpenRouter). Uses LibreChat search for other models.</string>
     <string name="chat_header_title">Chat header</string>
     <string name="chat_header_summary_format">%1$s · %2$s</string>
     <string name="chat_header_content_label">Content</string>
@@ -340,6 +346,16 @@
     <string name="artifact_mode_fullscreen_desc">Opens as a full-screen page with more room.</string>
     <string name="artifact_inline_title">Render inline</string>
     <string name="artifact_inline_enabled_count">%1$d of %2$d enabled</string>
+    <string name="artifact_libraries_title">Flagged libraries</string>
+    <string name="artifact_libraries_desc">Artifacts can use a few libraries that are no longer maintained or have known problems. Choose whether each one loads, or have each artifact ask. They run sandboxed, with no access to your files or account.</string>
+    <string name="artifact_libraries_none_set">Ask each time</string>
+    <string name="artifact_libraries_some_set">%1$d of %2$d set</string>
+    <string name="artifact_libraries_ask">Ask</string>
+    <string name="artifact_libraries_allow">Load</string>
+    <string name="artifact_libraries_decline">Don't load</string>
+    <string name="artifact_libraries_unmaintained">No longer maintained</string>
+    <string name="artifact_libraries_deprecated">Deprecated by its authors</string>
+    <string name="artifact_libraries_vulnerable">Has a known security advisory</string>
     <string name="artifacts_section_desc">Render artifacts directly in the chat instead of behind a tap-to-open card. Tap an inline artifact to open the fullscreen view.</string>
     <string name="inline_artifact_mermaid">Mermaid diagrams</string>
     <string name="inline_artifact_mermaid_desc">Render Mermaid flowcharts and diagrams inline</string>
@@ -618,11 +634,8 @@
     <!-- Provider API Keys -->
     <string name="provider_keys_title">Provider API Keys</string>
     <string name="provider_keys_subtitle">Set your own keys for endpoints that require them</string>
-    <string name="provider_keys_dialog_title">Set API Key for %1$s</string>
-    <string name="provider_keys_status_set_expires">Expires in %1$s</string>
-    <string name="provider_keys_status_set_never">Your key will never expire</string>
     <string name="provider_keys_status_unset">Not set</string>
-    <string name="provider_keys_status_expired">Expired</string>
+    <string name="provider_keys_status_unknown">Couldn't check</string>
     <string name="provider_keys_status_loading">Checking key status…</string>
     <string name="provider_keys_field_api_key_label">Key</string>
     <string name="provider_keys_field_base_url_label">Base URL</string>
@@ -643,35 +656,63 @@
     <string name="provider_keys_field_google_imported">Successfully Imported Service Account JSON Key</string>
     <string name="provider_keys_field_google_paste_label">Or paste service account JSON</string>
     <string name="provider_keys_field_google_paste_only_hint">Paste the service-account JSON below.</string>
-    <string name="provider_keys_field_google_service_key_or_gemini">Google Service Key or Gemini API Key</string>
 
     <string name="provider_keys_field_bedrock_access_key_id">Access Key ID</string>
     <string name="provider_keys_field_bedrock_secret_access_key">Secret Access Key</string>
     <string name="provider_keys_field_bedrock_session_token">Session Token</string>
     <string name="provider_keys_field_bedrock_session_token_optional_suffix">(Optional)</string>
+    <string name="provider_keys_field_bedrock_bearer_token">Bearer Token</string>
+    <string name="provider_keys_field_bedrock_bearer_token_placeholder">Bedrock API key</string>
+    <string name="provider_keys_field_required">Required</string>
+    <string name="provider_keys_bedrock_or_access_keys">Or use access keys instead</string>
+    <string name="provider_keys_field_google_either_required">Add a service key or a Gemini API key</string>
 
-    <string name="provider_keys_required_fields">The following fields are required: %1$s</string>
     <string name="provider_keys_revoke">Revoke</string>
     <string name="provider_keys_revoke_failed">Failed to revoke API key. Please try again.</string>
     <string name="provider_keys_revoke_success">API key revoked successfully</string>
-    <string name="provider_keys_revoke_all">Revoke Keys</string>
     <string name="provider_keys_revoke_all_confirm">Are you sure you want to revoke all keys?</string>
     <string name="provider_keys_revoke_all_failed">Failed to revoke all keys</string>
     <string name="provider_keys_save_failed">Failed to save API key. Please try again.</string>
     <string name="provider_keys_save_success">API key saved successfully</string>
 
-    <string name="provider_keys_expiry_label">Expires</string>
-    <string name="provider_keys_expiry_30m">in 30 minutes</string>
-    <string name="provider_keys_expiry_2h">in 2 hours</string>
-    <string name="provider_keys_expiry_12h">in 12 hours</string>
-    <string name="provider_keys_expiry_1d">in 1 day</string>
-    <string name="provider_keys_expiry_7d">in 7 days</string>
-    <string name="provider_keys_expiry_30d">in 30 days</string>
-    <string name="provider_keys_expiry_never">never</string>
+    <string name="provider_keys_expiry_label">New key expires</string>
+    <string name="provider_keys_expiry_30m">30 min</string>
+    <string name="provider_keys_expiry_2h">2 h</string>
+    <string name="provider_keys_expiry_12h">12 h</string>
+    <string name="provider_keys_expiry_1d">1 day</string>
+    <string name="provider_keys_expiry_7d">7 days</string>
+    <string name="provider_keys_expiry_30d">30 days</string>
+    <string name="provider_keys_expiry_never">Never</string>
 
     <string name="provider_keys_empty_title">No endpoints require user-provided keys</string>
     <string name="provider_keys_empty_desc">Endpoints that need your own API key will appear here.</string>
-    <string name="provider_keys_revoke_all_action">Revoke All</string>
+    <string name="provider_keys_load_failed_title">Couldn't load your providers</string>
+    <string name="provider_keys_load_failed_desc">Check your connection and try again.</string>
+    <string name="provider_keys_status_never_expires">Never expires</string>
+    <string name="provider_keys_status_expires_at">Expires %1$s</string>
+    <string name="provider_keys_status_expires_at_time">Expires at %1$s</string>
+    <string name="provider_keys_retry_check_cd">Check %1$s again</string>
+    <string name="provider_keys_status_unset_needs">Not set · %1$s</string>
+    <string name="provider_keys_needs_azure">key, instance, deployment, version</string>
+    <string name="provider_keys_needs_key_and_url">key, base URL</string>
+    <string name="provider_keys_needs_base_url">base URL</string>
+    <string name="provider_keys_needs_google">service key or Gemini key</string>
+    <string name="provider_keys_needs_access_keys">access keys</string>
+    <string name="provider_keys_needs_bearer_or_access_keys">bearer token or access keys</string>
+    <string name="provider_keys_summary_note">Keys are stored on your server and deleted when they expire.</string>
+    <string name="provider_keys_revoke_all_button">Revoke all keys</string>
+    <plurals name="provider_keys_status_expires_in_minutes">
+        <item quantity="one">Expires in %1$d min</item>
+        <item quantity="other">Expires in %1$d min</item>
+    </plurals>
+    <plurals name="provider_keys_summary">
+        <item quantity="one">%1$d of %2$d key set.</item>
+        <item quantity="other">%1$d of %2$d keys set.</item>
+    </plurals>
+    <plurals name="provider_keys_row_summary">
+        <item quantity="one">%1$d of %2$d set</item>
+        <item quantity="other">%1$d of %2$d set</item>
+    </plurals>
 
     <!-- Admin: role skill access -->
     <string name="role_skills_settings_row">Skill permissions</string>
@@ -831,7 +872,6 @@
     <string name="mcp_empty_title">Give your chats tools</string>
     <string name="mcp_empty_body">An MCP server lets models search, read and act in another app, such as GitHub or your calendar. Add one with its URL.</string>
     <string name="mcp_empty_body_no_create">An MCP server lets models search, read and act in another app, such as GitHub or your calendar. Ask an admin to add one.</string>
-    <string name="cd_server_options">Options for %1$s</string>
     <string name="mcp_tools_title">Tools</string>
     <string name="mcp_tools_filter_hint">Filter tools</string>
     <string name="mcp_tools_no_match">No tools match</string>

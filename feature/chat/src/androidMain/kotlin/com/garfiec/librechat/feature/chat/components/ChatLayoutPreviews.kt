@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.model.ui.UiStyle
 import com.garfiec.librechat.core.model.usage.ContextDetailPreset
@@ -31,6 +32,63 @@ import com.garfiec.librechat.feature.chat.viewmodel.ContextGaugeDetails
 @PreviewNarrowScreens
 @Composable
 private fun LandingPreview() = PreviewSurface(UiStyle.MATERIAL) { LandingHost() }
+
+@PreviewNarrowScreens
+@Composable
+private fun TemporaryLandingPreview() = PreviewSurface(UiStyle.MATERIAL) { LandingHost(isTemporaryChat = true) }
+
+/** A spec with `showOnLanding`: its label titles the chat and its description replaces the subtitle. */
+@PreviewNarrowScreens
+@Composable
+private fun SpecLandingPreview() = PreviewSurface(UiStyle.MATERIAL) {
+    LandingHost(
+        title = "Research Assistant",
+        description = "Finds and summarises sources, with citations. Ask it about a paper, a person or a field.",
+        agentName = null,
+        caption = null,
+    )
+}
+
+/** An agent spec: the agent names the chat, the spec's label stays as the model caption. */
+@PreviewNarrowScreens
+@Composable
+private fun AgentSpecLandingGlassPreview() = PreviewSurface(UiStyle.LIQUID_GLASS) {
+    LandingHost(title = "Travel Planner", description = "Plans trips end to end.", agentName = null, caption = "Helper Spec")
+}
+
+/**
+ * A spec's landing with the keyboard up and starters docked: too short for the full hero, so the
+ * icon goes and the description is cut to two lines.
+ */
+@PreviewNarrowScreens
+@Composable
+private fun CompactSpecLandingPreview() = PreviewSurface(UiStyle.MATERIAL) {
+    Box(Modifier.height(PreviewKeyboardUpHeight)) {
+        LandingHost(
+            title = "Research Assistant",
+            description = "Finds and summarises sources, with citations. Ask it about a paper, a person or a field, " +
+                "and it reads what it finds before it answers, so the summary says where each claim came from.",
+            agentName = null,
+            caption = null,
+            heroIcon = LandingHeroIcon(endpointName = "anthropic", iconUrl = null),
+            bottomPadding = PreviewStartersHeight,
+        )
+    }
+}
+
+/** A temporary chat on a spec with its own icon: temporary chat's glyph leads, not the spec's. */
+@PreviewNarrowScreens
+@Composable
+private fun TemporarySpecLandingPreview() = PreviewSurface(UiStyle.MATERIAL) {
+    LandingHost(
+        isTemporaryChat = true,
+        title = "Research Assistant",
+        description = "Finds and summarises sources, with citations.",
+        agentName = null,
+        caption = null,
+        heroIcon = LandingHeroIcon(endpointName = "anthropic", iconUrl = null),
+    )
+}
 
 @PreviewNarrowScreens
 @Composable
@@ -73,8 +131,25 @@ private fun ChatBodyHost(body: @Composable ColumnScope.(Modifier) -> Unit) {
 }
 
 @Composable
-private fun LandingHost() = ChatBodyHost { modifier ->
-    LandingContent(selectedModel = "gpt-5", selectedAgentName = "Travel Planner", modifier = modifier)
+private fun LandingHost(
+    isTemporaryChat: Boolean = false,
+    title: String? = null,
+    description: String? = null,
+    agentName: String? = "Travel Planner",
+    caption: String? = "gpt-5",
+    heroIcon: LandingHeroIcon? = null,
+    bottomPadding: Dp = 120.dp,
+) = ChatBodyHost { modifier ->
+    LandingContent(
+        selectedModel = caption,
+        selectedAgentName = agentName,
+        heroIcon = heroIcon,
+        isTemporaryChat = isTemporaryChat,
+        title = title,
+        description = description,
+        bottomPadding = bottomPadding,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -120,3 +195,9 @@ private fun PromptFilterSheetHost() {
 
 private val PreviewTopBarHeight = 80.dp
 private val PreviewComposerHeight = 72.dp
+
+/** What is left of a phone's height above the keyboard. */
+private val PreviewKeyboardUpHeight = 480.dp
+
+/** The composer plus two starter rows docked on it. */
+private val PreviewStartersHeight = 200.dp

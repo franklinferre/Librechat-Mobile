@@ -70,6 +70,9 @@ import com.garfiec.librechat.core.data.datastore.DateTimePrefsStore
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.ui.components.AdaptiveAlertDialog
 import com.garfiec.librechat.core.ui.components.BannerDisplay
+import com.garfiec.librechat.core.ui.components.DrawerGestureLock
+import com.garfiec.librechat.core.ui.components.LocalDrawerGestureLock
+import com.garfiec.librechat.core.ui.components.LocalServerUrl
 import com.garfiec.librechat.core.ui.components.share.LocalExternalUriHandler
 import com.garfiec.librechat.core.ui.components.share.LocalOpenSharedChat
 import com.garfiec.librechat.core.ui.components.topbar.CoversNativeBars
@@ -81,7 +84,6 @@ import com.garfiec.librechat.core.ui.glass.glassBackdropSource
 import com.garfiec.librechat.core.ui.glass.rememberGlassBackdrop
 import com.garfiec.librechat.core.ui.glass.rememberGlassStyle
 import com.garfiec.librechat.core.ui.theme.AppLocale
-import com.garfiec.librechat.feature.agents.navigation.AgentMarketplace
 import com.garfiec.librechat.feature.agents.navigation.agentsEntries
 import com.garfiec.librechat.feature.auth.navigation.AddAccountServerUrl
 import com.garfiec.librechat.feature.auth.navigation.ServerUrl
@@ -93,18 +95,18 @@ import com.garfiec.librechat.feature.chat.navigation.NewChat
 import com.garfiec.librechat.feature.chat.navigation.chatEntries
 import com.garfiec.librechat.feature.chat.navigation.handoffKey
 import com.garfiec.librechat.feature.chat.navigation.isPlainLanding
+import com.garfiec.librechat.feature.chat.viewmodel.ChatNoticeHandoff
 import com.garfiec.librechat.feature.chat.viewmodel.PromptInsertionHandoff
 import com.garfiec.librechat.feature.chat.viewmodel.ServerFileSelectionHandoff
 import com.garfiec.librechat.feature.conversations.drawer.DrawerViewModel
 import com.garfiec.librechat.feature.conversations.navigation.ArchivedConversations
+import com.garfiec.librechat.feature.conversations.navigation.BookmarkChats
 import com.garfiec.librechat.feature.conversations.navigation.ProjectChats
 import com.garfiec.librechat.feature.conversations.navigation.Projects
 import com.garfiec.librechat.feature.conversations.navigation.conversationsEntries
-import com.garfiec.librechat.feature.files.navigation.Files
 import com.garfiec.librechat.feature.files.navigation.FilesPicker
 import com.garfiec.librechat.feature.files.navigation.filePickerEntries
 import com.garfiec.librechat.feature.files.navigation.filesEntries
-import com.garfiec.librechat.feature.schedules.navigation.SchedulesList
 import com.garfiec.librechat.feature.schedules.navigation.schedulesEntries
 import com.garfiec.librechat.feature.settings.navigation.Memories
 import com.garfiec.librechat.feature.settings.navigation.SettingsTabbed
@@ -112,7 +114,6 @@ import com.garfiec.librechat.feature.settings.navigation.WhatsNew
 import com.garfiec.librechat.feature.settings.navigation.mcpServersEntry
 import com.garfiec.librechat.feature.settings.navigation.memoriesEntry
 import com.garfiec.librechat.feature.settings.navigation.settingsEntries
-import com.garfiec.librechat.feature.skills.navigation.SkillsList
 import com.garfiec.librechat.feature.skills.navigation.skillsEntries
 import com.garfiec.librechat.shared.resources.Res
 import com.garfiec.librechat.shared.resources.dismiss
@@ -225,7 +226,7 @@ fun LibreChatNavHost(
     LaunchedEffect(pendingModelShortcut, isLoggedIn) {
         val ref = pendingModelShortcut ?: return@LaunchedEffect
         if (!isLoggedIn) return@LaunchedEffect
-        navigator.navigateToTopLevel(NewChat(endpoint = ref.endpoint, model = ref.model))
+        navigator.navigateToTopLevel(NewChat(endpoint = ref.endpoint, model = ref.model, spec = ref.spec))
         modelShortcutBus.consume()
     }
 
@@ -351,8 +352,10 @@ fun LibreChatNavHost(
     // The locale wrapper must sit BELOW the back stack: changing language recreates the rendered
     // UI so every stringResource re-resolves, while the back stack created above survives the swap
     // and the user stays on their current screen.
+    val serverUrl by navHostViewModel.serverUrl.collectAsStateWithLifecycle()
     AppLocale(tag = appLocaleTag) {
         CompositionLocalProvider(
+            LocalServerUrl provides serverUrl,
             LocalUriHandler provides sharedLinkUriHandler,
             LocalExternalUriHandler provides platformUriHandler,
             LocalOpenSharedChat provides openSharedChat,
@@ -519,6 +522,7 @@ fun PhoneLayout(
     navHostViewModel: NavHostViewModel = koinViewModel(),
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val drawerGestureLock = remember { DrawerGestureLock() }
     val scope = rememberCoroutineScope()
     val serverLock = koinInject<ServerLock>()
     val isLoggedIn by navHostViewModel.isLoggedIn.collectAsStateWithLifecycle()
@@ -551,7 +555,8 @@ fun PhoneLayout(
         // not just "not in the auth flow" — a logged-out deep link (e.g. an artifact viewer atop the
         // auth base) leaves a non-auth route on top, and without this its edge-swipe would open the
         // drawer over a session-less state.
-        gesturesEnabled = isLoggedIn && !navigator.isInAuthFlow,
+        // A full-screen viewer with gestures of its own (the PDF viewer) turns it off while shown.
+        gesturesEnabled = isLoggedIn && !navigator.isInAuthFlow && !drawerGestureLock.isLocked,
         // Liquid Glass shows the screen through the panel, so it dims it only lightly.
         scrimColor = if (glass != null) GlassDrawerScrim else DrawerDefaults.scrimColor,
         drawerContent = {
@@ -589,21 +594,9 @@ fun PhoneLayout(
                             scope.launch { drawerState.close() }
                             navigator.navigate(SettingsTabbed)
                         },
-                        onAgentsClick = {
+                        onWorkspaceClick = { destination ->
                             scope.launch { drawerState.close() }
-                            navigator.navigate(AgentMarketplace)
-                        },
-                        onFilesClick = {
-                            scope.launch { drawerState.close() }
-                            navigator.navigate(Files)
-                        },
-                        onSkillsClick = {
-                            scope.launch { drawerState.close() }
-                            navigator.navigate(SkillsList)
-                        },
-                        onSchedulesClick = {
-                            scope.launch { drawerState.close() }
-                            navigator.navigate(SchedulesList)
+                            navigator.navigate(destination.route())
                         },
                         onOpenProjectsIndex = {
                             scope.launch { drawerState.close() }
@@ -666,7 +659,9 @@ fun PhoneLayout(
                     onDismiss = navHostViewModel::dismissBanner,
                 )
             }
-            navDisplay({ scope.launch { drawerState.open() } }, Modifier.fillMaxSize())
+            CompositionLocalProvider(LocalDrawerGestureLock provides drawerGestureLock) {
+                navDisplay({ scope.launch { drawerState.open() } }, Modifier.fillMaxSize())
+            }
         }
     }
     // The drawer is drawn in the Compose canvas, under any native glass bar; hide those bars from
@@ -759,6 +754,7 @@ fun MainNavDisplay(
     drawerViewModel: DrawerViewModel = koinViewModel(),
     serverFileSelectionHandoff: ServerFileSelectionHandoff = koinInject(),
     promptInsertionHandoff: PromptInsertionHandoff = koinInject(),
+    chatNoticeHandoff: ChatNoticeHandoff = koinInject(),
 ) {
     NavDisplay(
         backStack = navigator.backStack,
@@ -803,7 +799,8 @@ fun MainNavDisplay(
                 },
                 onOpenDrawer = onMenuClick,
                 onNavigateToProviderKeys = { endpointName ->
-                    navigator.navigateToProviderKeys(endpointName)
+                    // From chat: a save there returns to the chat.
+                    navigator.navigateToProviderKeys(endpointName, returnAfterSave = true)
                 },
                 onAttachFromServer = {
                     // Tag the picker with the launching conversation (null on the new-chat
@@ -820,13 +817,13 @@ fun MainNavDisplay(
             )
             conversationsEntries(
                 onConversationClick = { navigator.navigateToChat(it) },
-                onNavigateToArchive = { navigator.navigate(ArchivedConversations) },
                 onNavigateToProject = { projectId, projectName ->
                     navigator.navigate(ProjectChats(projectId, projectName))
                 },
                 onNewChatInProject = { projectId, projectName ->
                     navigator.navigateToNewChatInProject(projectId, projectName)
                 },
+                onNavigateToBookmark = { tag -> navigator.navigate(BookmarkChats(tag)) },
                 onBack = { navigator.goBack() },
                 onRemove = { navigator.remove(it) },
                 onOpenMessage = { conversationId, messageId, query, inReasoning ->
@@ -883,6 +880,10 @@ fun MainNavDisplay(
                 onLogout = { navHostViewModel.logout() },
                 onNavigateToArchive = { navigator.navigate(ArchivedConversations) },
                 onOpenConversation = { navigator.navigateToChat(it) },
+                onProviderKeyReturn = { message ->
+                    chatNoticeHandoff.put(message)
+                    navigator.goBack()
+                },
             )
             memoriesEntry(
                 onBack = { navigator.goBack() },

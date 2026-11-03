@@ -10,7 +10,9 @@ import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.identity.currentAccountId
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
 import com.garfiec.librechat.core.common.result.Result
+import com.garfiec.librechat.core.data.bookmarks.BookmarkPickerController
 import com.garfiec.librechat.core.data.datastore.AppPreferences
+import com.garfiec.librechat.core.data.datastore.ConversationWebSearchStore
 import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.PreferenceStore
@@ -35,8 +37,10 @@ import com.garfiec.librechat.core.data.repository.ResumePinStore
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.SkillsRepository
+import com.garfiec.librechat.core.data.repository.TagRepository
 import com.garfiec.librechat.core.data.repository.TraceRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
+import com.garfiec.librechat.core.data.repository.WebSearchReadinessRepository
 import com.garfiec.librechat.core.data.share.ShareLinkController
 import com.garfiec.librechat.core.data.share.ShareLinkControllerFactory
 import com.garfiec.librechat.core.data.util.PermissionGate
@@ -47,6 +51,7 @@ import com.garfiec.librechat.core.model.MinimalFeedback
 import com.garfiec.librechat.core.model.Preset
 import com.garfiec.librechat.core.model.config.ModelSpec
 import com.garfiec.librechat.core.model.config.isTraceViewerEnabled
+import com.garfiec.librechat.core.model.content.stripCitations
 import com.garfiec.librechat.core.model.error.UserKeyError
 import com.garfiec.librechat.core.model.media.resolveAvatarUrl
 import com.garfiec.librechat.core.model.permissions.Permission
@@ -64,15 +69,20 @@ import com.garfiec.librechat.feature.chat.model.ComposerPickerItem
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
+import com.garfiec.librechat.feature.chat.util.ReplyAvatarMemo
 import com.garfiec.librechat.feature.chat.util.ToolDecisionDraft
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.util.extractBranchMedia
+import com.garfiec.librechat.feature.chat.util.isAddedAgentId
 import com.garfiec.librechat.feature.chat.util.newChatDraftKey
+import com.garfiec.librechat.feature.chat.util.parametersFor
+import com.garfiec.librechat.feature.chat.util.reopenedParameters
 import com.garfiec.librechat.feature.chat.util.restore
 import com.garfiec.librechat.feature.chat.util.serializeMessageForClipboard
 import com.garfiec.librechat.feature.chat.util.withAttachmentSources
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.AttachmentPreviewDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.BranchSwitch
+import com.garfiec.librechat.feature.chat.viewmodel.delegate.ChatBookmarksDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ChatConfigDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ComparisonModeDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.ContextProjectionDelegate
@@ -123,6 +133,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlin.time.Clock
 
 // debt — LargeClass: 1484-line file
 @Suppress("TooManyFunctions", "LongParameterList", "LargeClass")
@@ -133,6 +144,8 @@ class ChatViewModel(
      *  model shortcut / quick action. Null for normal new chats. Mutually exclusive with an agent. */
     initialEndpoint: String? = null,
     initialModel: String? = null,
+    /** The spec that model shortcut was recorded from, if any. */
+    initialSpec: String? = null,
     /** True when this Chat(id) entry is a temporary chat. Rides on the Chat route so it
      *  survives process death: a restored entry re-initializes temp-aware and never persists the
      *  server-hidden conversation to Room. SECURITY: temp-chat data-at-rest guard — see init. */
@@ -160,12 +173,15 @@ class ChatViewModel(
     queuedTurnRepository: QueuedTurnRepository,
     shareRepository: ShareRepository,
     shareLinkControllerFactory: ShareLinkControllerFactory,
+    tagRepository: TagRepository,
     private val traceRepository: TraceRepository,
     mcpRepository: McpRepository,
     skillsRepository: SkillsRepository,
     userRepository: UserRepository,
     roleRepository: RoleRepository,
     memoryRepository: MemoryRepository,
+    webSearchReadiness: WebSearchReadinessRepository,
+    private val conversationWebSearchStore: ConversationWebSearchStore,
     private val permissionGate: PermissionGate,
     private val connectivityObserver: ConnectivityObserver,
     private val activeAccountProvider: ActiveAccountProvider,
@@ -179,6 +195,8 @@ class ChatViewModel(
     private val promptInsertionHandoff: PromptInsertionHandoff,
     private val siteIconPromptSession: SiteIconPromptSession,
     private val preferenceStore: PreferenceStore,
+    /** The wall clock key expiries are held against; a test moves it to stand in for a sleep. */
+    clock: Clock = Clock.System,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -203,7 +221,9 @@ class ChatViewModel(
 
     // --- Platform delegates (created via factory so they get a narrowed handle over stateHandle) ---
     private val fileDelegate = platformDelegateFactory.createFileHandler(ErrorOnlyHandle(stateHandle))
-    private val ttsDelegate = platformDelegateFactory.createTts(TtsHandle(stateHandle), ::getMessageText)
+
+    // Spoken without citation markers: "turn zero search zero" is not part of the reply.
+    private val ttsDelegate = platformDelegateFactory.createTts(TtsHandle(stateHandle)) { stripCitations(getMessageText(it)) }
     private val voiceDelegate = platformDelegateFactory.createVoiceInput(VoiceHandle(stateHandle), ::sendMessage)
     private val shareConsumer = platformDelegateFactory.createShareConsumer()
 
@@ -215,7 +235,8 @@ class ChatViewModel(
     private val comparisonDelegate: ComparisonModeDelegate = ComparisonModeDelegate(
         handle = ComparisonHandle(stateHandle),
         messageRepository = messageRepository,
-        reloadConversation = { id -> conversationLoadDelegate.loadConversation(id) },
+        reloadConversation = { id, onSettled -> conversationLoadDelegate.loadConversation(id, onSettled = onSettled) },
+        currentModelSpecs = { configRepository.startupConfig.value?.modelSpecs },
     )
     private val contextProjectionDelegate = ContextProjectionDelegate(
         ContextProjectionHandle(stateHandle),
@@ -240,6 +261,7 @@ class ChatViewModel(
             shareRepository = shareRepository,
             shareLink = shareLinkControllerFactory.create(viewModelScope),
         )
+    private val bookmarksDelegate = ChatBookmarksDelegate(BookmarksHandle(stateHandle), tagRepository)
     private val presetPromptDelegate =
         PresetPromptDelegate(PresetPromptHandle(stateHandle), presetRepository, promptRepository)
     private val skillPickerDelegate = SkillPickerDelegate(
@@ -261,11 +283,13 @@ class ChatViewModel(
         initialAgentId = initialAgentId,
         initialEndpoint = initialEndpoint,
         initialModel = initialModel,
+        initialSpec = initialSpec,
     )
     private val skillsToggleDelegate = SkillsToggleDelegate(SkillsToggleHandle(stateHandle), settingsDataStore)
     private val keyStatusDelegate = EndpointKeyStatusDelegate(
         handle = EndpointKeyHandle(stateHandle),
         keyRepository = keyRepository,
+        clock = clock,
     )
     private val subagentTraceDelegate = SubagentTraceDelegate(SubagentHandle(stateHandle), json)
     private val attachmentPreviewDelegate =
@@ -282,7 +306,10 @@ class ChatViewModel(
         selectionHandoff = selectionHandoff,
         reloadConversation = { id -> conversationLoadDelegate.loadConversation(id) },
         newChatDraftKey = newChatDraftKey,
-        carrySkillsToggle = skillsToggleDelegate::carryToCreatedConversation,
+        carrySkillsToggle = { conversationId, isTemporary ->
+            skillsToggleDelegate.carryToCreatedConversation(conversationId, isTemporary)
+            if (!isTemporary) rememberWebSearch(conversationId)
+        },
     )
 
     // Channel-backed one-shot signal: N queued follow-ups were dropped on drain because they were
@@ -340,6 +367,9 @@ class ChatViewModel(
     val pdfPasswordPrompts: StateFlow<List<PdfPasswordPrompt>> get() = fileDelegate.pdfPasswordPrompts
 
     val shareLink: ShareLinkController get() = conversationActionsDelegate.shareLink
+
+    /** The ⋮ menu's bookmark checklist on the open chat. */
+    val bookmarkPicker: BookmarkPickerController get() = bookmarksDelegate.picker
 
     private data class TraceGateInputs(
         val conversationId: String?,
@@ -460,6 +490,8 @@ class ChatViewModel(
         )
     }
 
+    private val replyAvatarMemo = ReplyAvatarMemo()
+
     val uiState: StateFlow<ChatUiState> = combine(
         _uiState,
         serverDataStore.currentUrlFlow,
@@ -480,6 +512,8 @@ class ChatViewModel(
                 compactNudgeThreshold = displayPrefs.context.compactNudgeThreshold,
                 compactNudgeSnoozes = displayPrefs.context.compactNudgeSnoozes,
                 duringRunAction = displayPrefs.duringRunAction,
+                // Mirrored into the backing state by its own collector, which the send reads.
+                webSearchFirst = state.prefs.webSearchFirst,
             ),
             // The user record carries a RELATIVE `/images/…` avatar, which Coil has no fetcher for.
             // Resolved here rather than in `loadUserProfile` because the base URL arrives on its own
@@ -488,6 +522,17 @@ class ChatViewModel(
             account = state.account.copy(
                 userAvatarUrl = resolveAvatarUrl(state.account.userAvatarUrl, url),
             ),
+            // Reply avatars, resolved here for the same reason: the URL and the endpoint configs
+            // (a custom endpoint's served providerId) each arrive on their own flow.
+            content = state.content.copy(
+                displayMessages = replyAvatarMemo.resolve(
+                    state.content.displayMessages,
+                    state.selectedEndpoint,
+                    url,
+                    state.endpointConfigs,
+                ),
+            ),
+            avatars = state.replyAvatars(url),
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ChatUiState())
 
@@ -503,6 +548,20 @@ class ChatViewModel(
         draftRepository = draftRepository,
         defaultDispatcher = defaultDispatcher,
         applyConversationModel = modelDelegate::applyConversationModel,
+        // A handed-off new chat already holds what its first turn was sent with.
+        wantsStoredParameters = { !isHandedOffNewChat },
+        rememberedWebSearch = conversationWebSearchStore::get,
+        restoreParameters = { conversation, remembered ->
+            // The switch as this device last left it in this chat wins over the server's `web_search`,
+            // which holds only the built-in search. Not under a spec (see rememberWebSearch). Written
+            // with the parameters, so the load's "did the user change it meanwhile" check sees it.
+            val restored = _uiState.value.selection.reopenedParameters(conversation)
+            val switch = remembered.takeIf { _uiState.value.selectedSpec == null }
+            modelDelegate.updateModelParameters(
+                switch?.let { restored.copy(webSearch = it) } ?: restored,
+                restoring = true,
+            )
+        },
         onModelLoadSettled = {
             modelDelegate.conversationModelLoaded = true
             modelDelegate.refilterModels(isNewConversation)
@@ -511,6 +570,7 @@ class ChatViewModel(
         onMessagesSettled = attachmentPreviewDelegate::onMessagesSettled,
         currentModelSpecs = { configRepository.startupConfig.value?.modelSpecs },
         currentAccountId = { activeAccountProvider.currentAccountId()?.value },
+        watchSelection = modelDelegate.selectionWatches::watch,
     )
 
     private val uploadIntakeDelegate = UploadIntakeDelegate(
@@ -529,6 +589,7 @@ class ChatViewModel(
         fileRepository = fileRepository,
         userRepository = userRepository,
         memoryRepository = memoryRepository,
+        webSearchReadiness = webSearchReadiness,
     )
 
     private val pendingActionDelegate = PendingActionDelegate(
@@ -660,8 +721,9 @@ class ChatViewModel(
         treeDelegate = treeDelegate,
         streamingManager = streamingManager,
         requestBuilder = requestBuilder,
-        getMessageText = ::getMessageText,
         runWhenSendReady = sendReadinessDelegate::runWhenSendReady,
+        onComparisonSendStart = comparisonDelegate::onSendStart,
+        buildAddedConvo = comparisonDelegate::buildAddedConvo,
     )
 
     /** True when this ViewModel was opened for a brand-new chat (no conversationId from navigation). */
@@ -696,6 +758,8 @@ class ChatViewModel(
                     // land on an empty ACTIVE chat rather than a LOADING spinner that never resolves.
                     content = it.content.copy(
                         screenState = if (initialIsTemporary) ChatScreenState.ACTIVE else ChatScreenState.LOADING,
+                        // Settled by resumeActiveStreamIfNeeded below, which learns of a paused run.
+                        runStatusSettled = false,
                     ),
                 )
             }
@@ -713,6 +777,12 @@ class ChatViewModel(
                     attrs = mapOf("endpoint" to handoff.choice.endpoint, "model" to (handoff.choice.model ?: "null")),
                 ) { "handoff applied for $conversationId" }
                 modelDelegate.applyResolvedConversationModel(handoff.choice.endpoint, handoff.choice.model, handoff.choice.spec)
+                handoff.modelParameters?.let { modelDelegate.updateModelParameters(it, restoring = true) }
+                handoff.specTools?.let { tools ->
+                    _uiState.update {
+                        if (it.selectedSpec != tools.spec) it else it.copy(selection = it.selection.copy(specTools = tools))
+                    }
+                }
                 handoff.skillsToggle?.let { skillsToggleDelegate.seed(conversationId, it) }
                 // Chips the first send held back stay staged here, still saying why.
                 if (handoff.stagedManualSkills.isNotEmpty()) {
@@ -813,12 +883,20 @@ class ChatViewModel(
                 _uiState.update { it.copy(selection = it.selection.copy(endpointConfigs = configs)) }
                 modelDelegate.refilterModels(isNewConversation)
                 keyStatusDelegate.recomputeFor(configs)
-                // If code interpreter is no longer available, remove it from enabled tools
+                // If code interpreter is no longer available, remove it from enabled tools and
+                // from what was added on top of a spec
                 val agentsCapabilities = configs[EndpointConstants.AGENTS]?.capabilities ?: emptyList()
                 if (agentsCapabilities.isNotEmpty() && ToolConstants.EXECUTE_CODE !in agentsCapabilities) {
                     _uiState.update {
-                        if (ToolConstants.CODE_INTERPRETER in it.enabledTools) {
-                            it.copy(selection = it.selection.copy(enabledTools = it.enabledTools - ToolConstants.CODE_INTERPRETER))
+                        val specTools = it.selection.specTools
+                        val code = ToolConstants.CODE_INTERPRETER
+                        if (code in it.enabledTools || (specTools != null && code in specTools.added)) {
+                            it.copy(
+                                selection = it.selection.copy(
+                                    enabledTools = it.enabledTools - code,
+                                    specTools = specTools?.copy(added = specTools.added - code),
+                                ),
+                            )
                         } else {
                             it
                         }
@@ -890,6 +968,12 @@ class ChatViewModel(
                 _uiState.update { it.copy(prefs = it.prefs.copy(duringRunAction = action)) }
             }
         }
+        // Decides which web search a send runs, so it too lives on the backing state.
+        viewModelScope.launch {
+            preferenceStore.observe(AppPreferences.WebSearchFirst).collect { first ->
+                _uiState.update { it.copy(prefs = it.prefs.copy(webSearchFirst = first)) }
+            }
+        }
 
         viewModelScope.launch {
             // refilterModels publishes the filtered availableModels into state; no
@@ -949,6 +1033,8 @@ class ChatViewModel(
         chatConfigDelegate.loadUserProfile()
         chatConfigDelegate.observeMemoriesPreference()
         chatConfigDelegate.loadFlags()
+        chatConfigDelegate.loadWebSearchReadiness()
+        rememberWebSearchChanges()
         observeTraceAvailability()
         chatConfigDelegate.loadFileConfig()
         voiceDelegate.loadSpeechConfig()
@@ -1182,11 +1268,6 @@ class ChatViewModel(
         viewModelScope.launch { settingsDataStore.setDuringRunAction(action) }
     }
 
-    fun editMessage(messageId: String, newText: String) {
-        if (_uiState.value.isEditingQueued) return
-        editingDelegate.editMessage(messageId, newText)
-    }
-
     fun regenerateMessage(messageId: String) {
         if (_uiState.value.isEditingQueued) return
         editingDelegate.regenerateMessage(messageId)
@@ -1262,8 +1343,9 @@ class ChatViewModel(
 
     fun cancelPausePanelAutoAdvance() = pendingActionDelegate.cancelAutoAdvance()
 
+    /** Continues the latest reply. Not in a comparison, whose panes use [keepAndContinue]. */
     fun continueGeneration() {
-        if (_uiState.value.isEditingQueued) return
+        if (_uiState.value.isEditingQueued || _uiState.value.comparisonState.isEnabled) return
         editingDelegate.continueGeneration()
     }
 
@@ -1320,6 +1402,8 @@ class ChatViewModel(
         // admitted, dropped or added a queued turn while the app was away, and there is nothing
         // to hear it from.
         queueOrchestrationDelegate.refreshQueuedTurns()
+        // A key may have run out while the app was away, where the expiry timer doesn't count.
+        keyStatusDelegate.resettle()
         // Skills may have changed on the Skills screen while this chat was behind it.
         val state = _uiState.value
         skillPickerDelegate.refreshOnReturn(pickerOpen = parsePickerQuery(state.inputText, state.canPickSkills) != null)
@@ -1331,7 +1415,7 @@ class ChatViewModel(
     /**
      * Submits [feedback] for a message, or clears it when null.
      *
-     * Gated on `!isStreaming` like `switchBranch` / `editMessage` / `regenerateMessage`, and for
+     * Gated on `!isStreaming` like `switchBranch` / `rerunEdit` / `regenerateMessage`, and for
      * the same reason: the repository caches the result in Room, and the `loadConversation`
      * observer would re-emit and rebuild `displayMessages` with no `streamingLeafId` — un-truncating
      * the path so the in-flight reply renders after a stale branch instead of in its place. The
@@ -1365,11 +1449,14 @@ class ChatViewModel(
 
     fun onEditTextChanged(text: String) = editingDelegate.onEditTextChanged(text)
 
+    fun onEditPartTextChanged(index: Int, text: String) =
+        editingDelegate.onEditPartTextChanged(index, text)
+
     fun cancelEditing() = editingDelegate.cancelEditing()
 
-    fun submitEdit() = editingDelegate.submitEdit()
+    fun rerunEdit() = editingDelegate.rerunEdit()
 
-    fun saveEditOnly() = editingDelegate.saveEditOnly()
+    fun saveEdit() = editingDelegate.saveEdit()
 
     fun onPendingNavigationHandled() {
         streamingManager.reset()
@@ -1378,6 +1465,7 @@ class ChatViewModel(
         attachmentPreviewDelegate.reset()
         // A share sheet belongs to the conversation that just left this landing.
         conversationActionsDelegate.shareLink.close()
+        bookmarksDelegate.close()
         // The landing now stands for the next new chat, which opens on the server's spec again.
         modelDelegate.rearmModelSpecDefault()
         // …and with Skills as the new-chat slot has them, not as a pick on the last one left them.
@@ -1389,9 +1477,20 @@ class ChatViewModel(
             ChatUiState(
                 selection = ModelSelectionState(
                     choice = current.selection.choice,
+                    // The next new chat starts from the carried spec's preset, not the last chat's tweaks.
+                    modelParameters = current.selection.modelSpecs.parametersFor(current.selection.choice.spec)
+                        ?: ModelParameters.DEFAULT,
+                    // They describe the agent in `choice`, and the observer that resolves them only
+                    // fires when the agent id changes, so dropping them here would leave the next
+                    // new chat with no provider and its starters unresolved until another agent is
+                    // picked.
+                    selectedAgentProvider = current.selection.selectedAgentProvider,
+                    selectedAgentStarters = current.selection.selectedAgentStarters,
                     modelSpecs = current.selection.modelSpecs,
                     availableModels = current.availableModels,
                     endpointConfigs = current.endpointConfigs,
+                    // Fetched when the configs change, which a reset doesn't make them do.
+                    endpointKeyStates = current.endpointKeyStates,
                     agents = current.agents,
                     agentsLoaded = current.agentsLoaded,
                     mcpServers = current.mcpServers,
@@ -1483,6 +1582,8 @@ class ChatViewModel(
     fun prepareModelSelector() {
         modelDelegate.retryAgentsIfFailed(isNewConversation)
         favoritesDelegate.refresh()
+        // So the selector never offers an endpoint whose key ran out on a timer that slept.
+        keyStatusDelegate.resettle()
     }
 
     /**
@@ -1575,6 +1676,8 @@ class ChatViewModel(
     fun duplicateConversation() = conversationActionsDelegate.duplicateConversation()
     fun onDuplicatedConversationHandled() = conversationActionsDelegate.onDuplicatedConversationHandled()
     fun shareConversation() = conversationActionsDelegate.shareConversation()
+
+    fun openBookmarks() = bookmarksDelegate.open()
     fun closeShareSheet() = conversationActionsDelegate.closeShareSheet()
     fun showForkOptions(messageId: String) = conversationActionsDelegate.showForkOptions(messageId)
     fun dismissForkOptions() = conversationActionsDelegate.dismissForkOptions()
@@ -1655,6 +1758,22 @@ class ChatViewModel(
         promptInsertionHandoff.take()?.let(presetPromptDelegate::insertPromptText)
     }
 
+    /**
+     * Sends a new-chat starter through the composer, so the upload gate, the send preflight and a
+     * failed send's restore all treat it as typed text. Refused over a non-blank composer, which
+     * the starters are never shown over, so a draft is never replaced. The text skips
+     * [onInputChanged]'s draft save: that would race the send's draft delete and could bring the
+     * starter back as the next new chat's draft.
+     */
+    fun sendStarter(text: String) {
+        if (_uiState.value.inputText.isNotBlank()) return
+        presetPromptDelegate.insertPromptText(text)
+        sendMessage()
+    }
+
+    /** Puts a new-chat starter in the composer unsent, as an agent page's starter arrives. */
+    fun editStarter(text: String) = presetPromptDelegate.insertPromptText(text)
+
     fun confirmVariablePrompt(interpolated: String) = presetPromptDelegate.confirmVariablePrompt(interpolated)
     fun dismissVariablePrompt() = presetPromptDelegate.dismissVariablePrompt()
 
@@ -1706,9 +1825,56 @@ class ChatViewModel(
         // Per conversation, so it never goes through the global enabled-tools store.
         if (toolName == ToolConstants.SKILLS) skillsToggleDelegate.toggle() else modelDelegate.toggleTool(toolName)
     }
+
+    /**
+     * Stores the switch whenever it changes within one conversation, whoever wrote it (a toggle, a
+     * loaded preset, a queued edit's composer swap, the reopen's restore). A change of conversation
+     * is not a change of switch: the reopen's restore is what sets the new one, and a new chat is
+     * stored when it is created (`carrySkillsToggle`).
+     */
+    private fun rememberWebSearchChanges() {
+        viewModelScope.launch {
+            var last: Pair<String?, Boolean>? = null
+            _uiState.map { it.conversationId to it.modelParameters.webSearch }.distinctUntilChanged().collect { current ->
+                val previous = last
+                last = current
+                val id = current.first
+                if (id != null && previous?.first == id) rememberWebSearch(id)
+            }
+        }
+    }
+
+    /**
+     * Stores the user's web-search switch for [conversationId] ([ConversationWebSearchStore]), so a
+     * reopened chat has it back: when it runs LibreChat's search the server saves nothing of it.
+     * Not under a spec, whose chat starts from the spec's tools on reopen, nor in a temporary chat.
+     */
+    private fun rememberWebSearch(conversationId: String) {
+        val state = _uiState.value
+        if (state.isTemporaryChat || state.selectedSpec != null) return
+        val on = state.modelParameters.webSearch
+        viewModelScope.launch { conversationWebSearchStore.set(conversationId, on) }
+    }
     fun updateModelParameters(parameters: ModelParameters) = modelDelegate.updateModelParameters(parameters)
 
     fun branchFromComparison(agentId: String) = comparisonDelegate.branchFromComparison(agentId)
+
+    /**
+     * Keeps [agentId]'s answer and continues it with the model that wrote it. A Continue sends with
+     * the chat's model, which during a comparison is lane A's, so keeping lane B switches the chat
+     * to lane B's model and spec first; read now, since keeping the lane clears the comparison.
+     */
+    fun keepAndContinue(agentId: String) {
+        val state = _uiState.value
+        val comparison = state.comparisonState
+        val laneB = comparison.secondaryEndpoint?.takeIf { isAddedAgentId(agentId) }?.let { endpoint ->
+            comparison.secondaryModel?.let { model -> ModelChoice.restore(endpoint, model, state.laneBSpec) }
+        }
+        comparisonDelegate.keepAndContinue(agentId) {
+            laneB?.let(modelDelegate::onChoiceSelected)
+            continueGeneration()
+        }
+    }
 
     fun setContextGaugeExpanded(expanded: Boolean) {
         contextGaugeExpandedOverride.value = expanded

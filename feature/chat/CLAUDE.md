@@ -52,6 +52,32 @@ feature added to only one composer does not.
 ## Screen States
 `ChatScreenState` enum: `LANDING` | `LOADING` | `ACTIVE`
 - **Landing**: no conversation selected, shows greeting + model icon + optional conversation starters
+  - Starters (`ChatUiState.landingStarters`, `util/ConversationStarters.kt`): the agent's own, else the
+    selected spec's, at most 4. The agent list omits them, so they come from the same
+    `GET /api/agents/:id` read that resolves the agent's provider; `null` means not resolved yet and
+    shows nothing rather than the spec's for a round trip. A tap sends through the composer
+    (`sendStarter`), a hold fills it unsent (`editStarter`); hidden while the composer has text.
+  - They render as `LandingStarters` in `ChatScreen`'s measured bottom box, docked on the composer, not
+    inside `LandingContent`: that way they ride the keyboard and never sit under the composer. The hero
+    centres in the space they leave (`bottomPadding`) and drops its icon when that is too short.
+  - The hero draws what web's landing `ConvoIcon` draws (`landingHeroIcon`): the selected spec's icon
+    (see "Spec presentation", down to its endpoint's brand), the agent's avatar (the agents glyph
+    without one), else the selected endpoint's brand; the app tile only before anything is selected
+    (agents with no agent yet). A temporary chat shows the
+    temporary toggle's `VisibilityOff` in `ChatInputDefaults.temporaryAccent` instead, whatever is
+    selected, swapped as temporary chat's band crosses the heading (`landingHero`; web swaps in
+    `HatGlasses`).
+  - Compact mode (`maxHeight - bottomPadding` under `CompactHeroBelow`, plus the description's
+    measured height at the hero's width, up to its four-line limit, and its gap when there is one)
+    drops the icon, shrinks the greeting and cuts the description to two lines, so a spec's landing
+    with the keyboard up and starters docked doesn't scroll. Measuring the description (rather than
+    reserving its line limit) keeps a one-line description from tipping the hero into compact.
+  - The words are `landingText` (web's `Landing.tsx`): the selected agent's name, else a
+    `showOnLanding` spec's label, replaces the time-of-day greeting; the agent's description, else
+    that spec's, else the spec preset's `greeting` (applied without `showOnLanding`) replaces "How can
+    I help", as plain text held to 4 lines. A temporary chat shows its own title and subtitle
+    instead: `landingText` returns both sets whatever the flag, and `LandingContent` switches each
+    line as temporary chat's band reaches it (`components/veil/ModeVeil.kt`).
 - **Loading**: full-screen spinner — *nothing is cached* and the message fetch has not settled
 - **Active**: message list + streaming content + input area
 
@@ -62,7 +88,8 @@ coroutine, so an **open** paints the cached copy immediately instead of holding 
 through a GET that is retried twice with exponential backoff before it can fail. `ChatViewModel.init`
 is the only opt-in; every other caller stays network-first **deliberately**. Each of them reloads
 precisely because the server holds something the cache does not — a just-finalized turn
-(`SendCompletionDelegate`), a just-created branch (`ComparisonModeDelegate.branchFromComparison`),
+(`SendCompletionDelegate`), a just-created branch (`ComparisonModeDelegate.branch`, which already
+shows the branch from memory and reloads to bring the cache up to date),
 a stream that ended server-side (`StreamingManagerDelegate`'s `StreamError` / `ResumeExpired` /
 `Reconcile` / `attemptNetworkRecovery`), or an explicit refresh
 (`refreshMessages`) — so a cache emission there serves a snapshot that predates the very thing
@@ -104,10 +131,12 @@ Which spec applies, and whether it is prioritized, is `util/SpecSeed.kt`, a port
   Tier-0 override yields it. `ChatViewModel.onPendingNavigationHandled` re-arms it, so the next new
   chat is back on the spec. A spec agent the loaded list doesn't contain (deleted, not shared, no
   agents at all, agents denied) falls through to the ordinary tiers.
-- **Last spec**: a spec the user picked is stored with the last-used pair (`lastUsedSpec`; a raw
-  pick clears it). Unless a spec is marked `default`, new chats reopen on it, under `prioritize` too
-  and ahead of a soft default, as web reopens on `LAST_CONVO_SETUP.spec`. On restore the name is kept
-  only while the server still offers that spec on the same endpoint and model. Known divergence: web
+- **Last spec**: a spec the user picked is stored with the last-used pair (`LastUsedSelection.spec` in `:core:data`'s
+  `SettingsDataStore`; a raw pick clears it). Unless a spec is marked `default`, new chats reopen on it, under `prioritize` too
+  and ahead of a soft default, as web reopens on `LAST_CONVO_SETUP.spec`. On restore it reopens on the
+  spec's current endpoint and model (`reopenedPick`), as the resolver does, so a spec an admin moved
+  to another model still opens, in both "Start new chats on" modes; only a spec the server no longer
+  lists falls back to the stored raw pair. Known divergence: web
   also rewrites that setup when a conversation is opened, so opening a spec-B chat makes B the next
   new chat's spec; mobile writes last-used only on a pick.
 - **Soft default**: applies only when last-used can't, so a user's own selection wins.
@@ -119,6 +148,13 @@ Which spec applies, and whether it is prioritized, is `util/SpecSeed.kt`, a port
   `modelSelect: false`, and `enforce` with a raw last-used pair (a last-used spec still counts).
   Keep the override there, never in `SpecSeed.kt`, which mirrors upstream. Switching it while the
   landing is open re-seeds the landing.
+- **Under `enforce`** (both modes): the server refuses a raw pair, `addedEndpoints` or not, so a raw
+  last-used never seeds (`seedableLastUsed`) and a raw model the seeder opened before the config arrived
+  gives way; a raw pick on the landing stays, for the send preflight to ask. When the spec tiers open
+  no spec (no `default` or soft spec without `prioritize`, a spec agent the user can't reach, a last
+  spec the server dropped), Tier 1b goes on to the first spec that can: the `default` one, then list
+  order (`fallbackSpecSeeds`). Only when none can do the raw tiers run. Web opens the raw model in
+  these cases and the server refuses the send.
 
 | Server config | "Server's choice": new chats open on | "My last-used model": new chats open on | Role of last-used |
 |---|---|---|---|
@@ -127,8 +163,8 @@ Which spec applies, and whether it is prioritized, is `util/SpecSeed.kt`, a port
 | …and the user's last pick was a spec | That spec, unless a spec is marked `default` (web: `LAST_CONVO_SETUP.spec`) | That spec | Last spec reopens |
 | `prioritize: false` + `softDefault` spec | Last-used if usable, otherwise the soft spec | Same | Wins over the soft spec |
 | `prioritize: false`, no soft default | Same as no specs | Same | Same as no specs |
-| `interface.modelSelect: false` | The `default`/soft/first spec, always (a stored last spec still reopens when none is marked `default`), even from a start-chat link | Same: the setting is ignored | Used only when no spec applies |
-| `enforce: true` | As above; a raw pick can't be sent | Last-used only if it's a spec; a raw one falls back to the server's spec | Raw last-used ignored |
+| `interface.modelSelect: false` | The `default`/soft/first spec, always (a stored last spec still reopens when none is marked `default`); an agent card or a spec's shortcut still wins, as a start-chat link does on web | Same: the setting is ignored | Used only when no spec applies |
+| `enforce: true` | As above, then any spec that can open (`default` first) before a raw model; a raw pick can't be sent | Last-used only if it's a spec; otherwise as "Server's choice" | Raw last-used ignored |
 
 In both modes: a spec that can't apply (missing agent, no agent access, a model the endpoint doesn't
 offer, config not loaded yet) falls back to the normal order; existing conversations reopen on
@@ -154,9 +190,10 @@ Then:
 - With no specs either there is no picker (`ChatUiState.modelPickerShown`, web's `ModelSelector`
   returning null): the model chip and the new-chat label are plain text, the tools-sheet row and
   Compare are hidden, and the send preflight shows its reason without opening a sheet.
-- A start-chat link (agent card, model shortcut, iOS quick action) opens on the spec, as web's
-  `useNewConvo` applies the spec over the link's template. A link applied before the config loaded
-  hands the landing back to the spec once it has.
+- A start-chat link (agent card, model shortcut, iOS quick action) wins over the spec, as on web:
+  `useNewConvo` applies the spec only `if (!preset && …)`, and every link entry point
+  (`AgentDetail`, `useQueryParams`) passes a preset. An agent card opens its agent. A model shortcut
+  follows the rules under "Model shortcuts" below, which keep it off raw models the picker hides.
 
 **The selection is one value, `ModelChoice`: `Raw(endpoint, model)` or `Spec(name, endpoint,
 model)`.** Write it whole, through `ModelSelectionDelegate.applySelection`; the preset load, the
@@ -175,10 +212,81 @@ rows even when they share a model, and a raw pick clears the name. Nothing infer
 model match, with one exception: under `enforce`, a Tier-0 entry point (an agent card, a model
 shortcut) adopts the spec when exactly one opens on its pair (`uniqueSpecFor`), since the server
 would refuse the raw pair anyway. With none or several, the send preflight asks. Queue and
-composer snapshots, the new-chat handoff, the conversation cache (`spec` column, Room 10→11), comparison, presets, edit/regenerate and paused-run pins all carry it. Sending
+composer snapshots, the new-chat handoff, the conversation cache (`spec` column, Room 10→11), comparison, presets, edit/regenerate and paused-run pins all carry it.
+Comparison carries it on send only: after a reopen, lane B's spec is read back on a best-effort basis
+(see "Lane B's spec on reopen" under "Compare Models"). Sending
 it changes what the server does even without `enforce`: it fills the spec's unset private preset
 fields (`promptPrefix`, `instructions`, `system`, …) into the request (`mergeModelSpecPreset`), so a
 chat opened on a spec gets the admin's prompt as on web.
+
+**A spec's preset becomes the chat's parameters** (`util/SpecParameters.kt`), as web copies
+`{...spec.preset, spec}` into the conversation. Without `enforce` the server applies none of the
+preset's public fields (temperature, `reasoning_effort`, `max_tokens`, `maxContextTokens`, …), so the
+client has to send them. **Only the keys of the selection's parameter set go out, and the server unsets
+every stored field a request leaves out** (`getUnsetFields`), so a key the client drops or misspells is
+also erased from what web set. The set is picked by `ChatUiState.parameterTarget`: a custom endpoint's
+`customParams.defaultParamsEndpoint`, else its `type` (`paramSettingsKey`), never its own name, and an
+agent's provider resolved the same way; the sheet, the payload and `savePreset` all read it. Top P and max
+tokens are spelled per provider (`top_p` / `max_tokens` on openAI, azure and custom, `topP` on the native
+providers, `maxOutputTokens` on Anthropic and Google, `maxTokens` on Bedrock): `Preset` and `Conversation`
+keep one field per spelling, `mergedFromPreset` coalesces them, and `savePreset` writes each under the key
+the set uses (`EndpointParameterRegistry.wireKeyFor`). Only a change of spec touches the parameters (`acrossSpecChange`, from
+`applySelection` and the seeder's spec-config write, `withSpecsRefreshed`), never a re-emission of the
+same one, so a tweak on top of a spec survives config refreshes and is sent:
+- Onto a spec (a pick, a seeded tier, a retargeted spec re-applied): that spec's preset over the defaults.
+- Off a spec onto a raw model the user picked: the defaults.
+- A config that stops offering the chat's spec on its pair (removed, renamed, retargeted) drops the
+  name and keeps the parameters, in an open chat and on the landing, whichever loads first: the
+  endpoint and model are unchanged, and web keeps sending the conversation as it is. On the landing
+  a retargeted prioritized spec then re-applies through the tiers with its new preset.
+- The user's web search and URL context carry across either way, within the chat (a new chat
+  resets both). Under a spec the toolbar shows the spec's tools instead (see "Chat Tools"), so
+  these wait for the user to leave it.
+- A user preset replaces the spec's values. Only a preset naming a spec and nothing else layers its
+  values over that spec's preset. A saved preset (endpoint, model and spec) builds on the defaults:
+  `savePreset` leaves out values equal to the defaults, so a value the user reset would otherwise
+  come back as the spec's.
+- A conversation's own spec never applies the preset (`applySelection(specPreset = false)`). A
+  reopened chat restores the parameters it stored: the conversation load maps them back through the
+  same `mergedFromPreset`. The list route sends none, so list upserts keep the `modelParams` blob a
+  full read cached, stamped with the `updatedAt` it was read at (`parametersAsOf`). A row with no
+  blob, or whose `updatedAt` has since moved (the chat changed elsewhere), is fetched once per process
+  and version, with the `enforce` spec backfill. The cache applies at once and the fetch replaces it
+  only if the user changed nothing meanwhile; offline the cache stays. A config refresh meanwhile is
+  not the user's change: `SelectionWatches` follows the seeder's rewrite, so a
+  spec drop while the fetch is out still lets the fetched parameters apply.
+  A handed-off new chat takes the landing's parameters from `NewChatSelectionHandoff` instead.
+- The next new chat starts from the carried spec's preset (`onPendingNavigationHandled`).
+- Under `enforce` the server replaces the body with the preset, so while a spec is active the sheet
+  is read-only (`parametersSetBySpec`) and `updateModelParameters` ignores it. The parameters are
+  that preset there even on the same spec, on a reopened chat (`reopenedParameters`) and after a
+  loaded preset (`loadPreset`, parameter-only or naming a spec), so the locked sheet shows what the
+  server runs, not what the chat stored before `enforce` was on. A loaded preset's tool flags still
+  apply: the server reads `ephemeralAgent` from the body even under `enforce`.
+- The spec's `artifacts` go out as `ephemeralAgent.artifacts` (`true` → `"default"`), the only place
+  the server reads them. The context gauge takes the spec's `preset.maxContextTokens` after the
+  agent's and before token-config, as web's `useTokenLimits` does, and looks token-config up under
+  web's catalog alias (`modelCatalogKey`: an API-made agent on `vertexai` reads `google`'s window).
+
+**A spec's pair comes from `preset.endpoint` alone** (`toSeed`, as upstream's
+`resolveModelSpecEndpoint`): an agents spec runs its `agent_id`, any other its `model`. The server
+writes an endpoint it infers from `agent_id` into the served config (`materializeModelSpecEndpoints`),
+so the client infers nothing, and a stray `agent_id` on another endpoint is ignored, as the server
+ignores it. A spec served with no endpoint (an explicit `endpoint: null`) opens nothing.
+
+**Model shortcuts** (launcher shortcuts, iOS quick actions; mobile-only). Usage is counted per pair
+and spec (`SettingsDataStore.incrementModelUsage`): a spec's sends count apart from the raw model and
+keep its label for the shortcut's title, and the spec rides the link
+(`librechat://model?…&spec=`, `NewChat.spec`). Before publishing, the ranked list is reconciled
+with the cached spec config (`ModelRef.reconciledWith`, Android `MainActivity` and iOS
+`IosKoinAccessor`): a spec the server no longer lists drops out and a kept one takes its current
+label; with no config yet the list is left as is. At Tier 0 a shortcut reopens its spec on the spec's
+current pair (`reopenedPick`). One with no spec (a raw pick, or recorded before shortcuts kept
+specs) opens its raw pair only where the picker lists that endpoint (`showsRawEndpoint` with the
+live `modelSelect`); elsewhere the one spec on the pair opens, or nothing and the landing seeds as
+usual. Under `enforce` it takes the one spec on its pair, as before, and otherwise opens the raw pair
+for the send preflight to ask. A shortcut applied before the config loaded is resolved once it
+arrives, the same way.
 
 **`enforce` has no exception for `addedEndpoints`.** With `modelSpecs.enforce` and a non-empty list
 the server rejects any send without a `spec` (`buildEndpointOption.js`). So `requiresSpec` blocks
@@ -189,18 +297,181 @@ all, where web lists everything and every pick fails. A cached conversation with
 config rather than the selection (unseeded when the conversation loads); a failed refresh is
 retried on the next open.
 
+Compare's second model is held to the same rule, though the server checks only the primary's
+`spec` and takes a raw `addedConvo` under `enforce`: its picker and quick picks list no raw rows
+there, and the preflight refuses a comparison whose second lane has no spec with
+`SendBlockReason.SelectSecondaryModel`, which opens the selector on lane B. That case arises only
+from a reopened comparison whose spec can't be read back (see "Compare Models", Reopen).
+
+Under `enforce` a follow-up queued during an agents run stays on the local drain instead of the
+server's queue (`QueueOrchestrationDelegate.serverOwnedSpec`). The server's queued turn carries no
+spec (its enqueue schema has no such field, and the worker re-posts the turn to the chat route
+without one), so `buildEndpointOption` refuses it, even when the composer held a spec. Web's
+enqueue payload has no `spec` either.
+
+**A send to a user-key endpoint with no key is refused before it goes out**
+(`SendBlockReason.ApiKeyRequired`), as web's `useRequiresKey` disables the composer, instead of
+failing on the server with `no_user_key`. It reads `endpointKeyStates` for the selected endpoint and,
+like the picker, lets the send through while the key state is loading or unknown. The picker shows
+the Set API Key chip on that endpoint; with no picker (`modelSelect` off and no specs) the reason is
+text only.
+
 **A stored spec is kept only while the server still offers it on the same endpoint and model**
 (`offeredOn`): on a conversation load, a preset load (which adopts the spec's own pair when the
-preset names none), the last-used restore, and again whenever the spec config changes. This is
-stricter than the server, whose mismatch check compares the endpoint only, so a spec whose model
-an admin changed is dropped too. Under `enforce` the send is then blocked with "Select a model"
-rather than refused by the server.
+preset names none), and again whenever the spec config changes. This is stricter than the server,
+whose mismatch check compares the endpoint only, so a spec whose model an admin changed is dropped
+too: the spec and pair were sent together, so a moved spec is a different selection. Under
+`enforce` the send is then blocked with "Select a model" rather than refused by the server. A stored
+*pick* — the last-used restore and a model shortcut — is the exception (`reopenedPick`): it follows
+the spec to its current pair.
 
 **Spec rows** (`visibleSpecs`) sort by `order`, ascending with unordered specs after in list order
 (librechatios parity; web ignores `order`), and leave out an agent spec once the agents list has
 loaded without its agent (web parity; until then, and after a failed fetch, every spec shows).
 The list is one page of up to 100 agents where web loads them all, so a full page hides nothing.
 Compare setup stages specs like models, so a spec can be either lane before the comparison starts.
+
+**Spec presentation** (#641):
+- **Groups** (`util/SpecGroups.kt`, web's `ModelSelector` / `EndpointItem` / `CustomGroup`): a spec
+  with no `group` sits at the top; one whose `group` is exactly a shown endpoint's key (`agents` is
+  My Agents) heads that endpoint's section; any other group is a headed, collapsible section after
+  the endpoints, iconed by its first `groupIcon` (a folder when none). Under `modelSelect: false`
+  every group is its own section, as on web. Sections start closed except the one holding the
+  selected spec. A search lists specs flat, without groups, as web's does; Starred is unchanged.
+  Divergence: a spec grouped under an endpoint with no models gets a group of its own (web hides it).
+  Such a group named after a configured endpoint key or `agents` (also every endpoint-keyed group
+  under `enforce` without `addedEndpoints`, where no raw endpoint is listed) takes that endpoint's
+  label (`endpointDisplayName`, "My Agents") and icon but stays its own section; under
+  `modelSelect: false` it keeps the raw name, as on web.
+- **Row order** (`util/PickerRows.kt`): `pickerRows(PickerInputs)` lays out the whole picker as
+  data (header / spec / model / agent / note / divider rows with their keys); the sheet only resolves
+  strings, icons and clicks, so order and keys are tested in commonTest (`PickerRowsTest`).
+  - Under `enforce` with greyed raw rows, one note ("Only the server's model specs can be sent…") is
+    the first row, above Starred, so no sendable spec sits above or below a misleading note. The
+    note is mobile-only; web explains nothing.
+  - An endpoint that needs the user's key keeps its grouped specs listed under the greyed "Add key"
+    header (a tap opens the key screen) and hides its raw models, as web's `EndpointItem` lists them.
+- **Icons** (`isImageUrl`, `iconValue` and `resolveIconSource` in `:core:model` `media/IconUrls.kt`,
+  `util/SpecIcons.kt`): a spec's `iconURL`, its preset's, its agent's avatar, then its endpoint; a
+  value is an image by web's `isImageURL` rule, else an endpoint or provider whose glyph to borrow,
+  and `""` is unset. The picker rows, landing hero, Compare's spec lane and quick picks use it, and
+  so do reply avatars (see "Reply avatars" below);
+  `showIconInMenu: false` hides it in the picker and quick picks. The conversation rows apply web's
+  `EndpointIcon` rule (`Conversation.iconEndpoint(configs)` / `iconProvider(configs)`: a non-image
+  `iconURL` counts only when it is an endpoint key), joining a relative icon path to the server
+  (`ConfigRepository.serverUrl`). `showIconInHeader` is decoded only: the header
+  chip is text-only by design.
+- **Brand art** follows web's `resolveProviderIcon` (`:core:model` `media/ProviderIcons.kt`): an
+  image icon, then an icon value naming a provider (`groq`, `grok`, `Together.AI`), then the
+  endpoint's served `providerId` (the server derives it from the endpoint's `iconURL`, `baseURL`
+  host, `provider` and name), then the first-class brand, then the endpoint name.
+  `resolveIconSource` and the `SpecIcons` helpers take optional `endpointConfigs` to fill
+  `IconSource.provider`; pass them, and `EndpointIcon(provider = …)`, wherever configs are in reach,
+  or a custom endpoint draws its monogram or the generic glyph.
+- **Reply avatars are view data.** A bubble never resolves its own icon: `ChatViewModel`'s exposed
+  `uiState` combine fills each node's `MessageNode.avatar` (`util/ReplyAvatars.kt`: the message's
+  `iconURL`, else its endpoint's brand with configs), because the server URL and the endpoint configs
+  arrive on their own flows and a path built before them would keep a stale avatar. `ReplyAvatarMemo`
+  skips the walk while the path, URL and configs are unchanged, so streaming emissions cost nothing.
+  `ChatUiState.avatars` (`ReplyAvatarsState`) holds the streaming reply's and Compare lane B's, and
+  `buildComparisonDisplayMessages` puts lane B's on pane B's nodes. The bubbles, the streaming
+  bubble and the steer segment header (`SegmentAuthorHeader`) draw the `IconSource` they are given.
+  Shared links map their snapshot the same way without configs, so a custom endpoint resolves by
+  name there.
+  - **No third-party logo art is bundled.** Brand terms forbid most unlicensed logo use in an app,
+    and F-Droid would flag bundled logos as NonFreeAssets. The art loads at runtime from the user's
+    own server, which serves it as static files at `{server}/assets/<file>` (`providerAssetFiles` /
+    `providerAssetUrl` in `ProviderIcons.kt`, subpath-aware; `LocalServerUrl` is provided by the nav
+    host). A provider with no served file (Anthropic, Azure, Bedrock, xAI, Moonshot, Vercel) or a
+    file an older server lacks draws a monogram tile of its label. Loaded art is never tinted;
+    near-black art (OpenAI, MLX) sits on a light tile in a dark theme. Web's model-level refinement
+    (`byModel`) isn't ported.
+
+**Model spec fields** (v0.8.8, #668). Every field `GET /api/config` serves for a spec, and what this
+client does with it. A field that is decoded but not honoured, or not decoded at all, is left out
+on purpose; the reason is in the last column, so a sync doesn't "fix" it. The served list has
+already been through `excludeHiddenModelSpecs` and `sanitizeModelSpecs` (which strips `skills`,
+`subagents.agent_ids` / `shareFiles` and the private preset fields). Undecoded fields are also
+listed in `ModelSpec`'s KDoc.
+
+| `TModelSpec` field | Decoded | Honoured | Where | Why not / note |
+|---|---|---|---|---|
+| `name` | yes | yes | sent as `spec`; `ModelChoice.Spec` | |
+| `label` | yes | yes | picker, header chip, lane B sender (`laneBSpecFor`) | Falls back to `name` (`ModelSpec.displayLabel`), as `normalizeModelSpecs` |
+| `preset` | yes | yes | see the preset rows below | |
+| `order` | yes | yes | `visibleSpecs` sort | Web ignores it (librechatios parity) |
+| `default` | yes | yes | `SpecSeed` (`resolveDefaultModelSpec`) | |
+| `softDefault` | yes | yes | `SpecSeed`, Tier 1b | |
+| `description` | yes | yes | picker row, landing (`landingText`, with `showOnLanding`) | |
+| `group` | yes | yes | `SpecGroups` | |
+| `groupIcon` | yes | yes | `SpecGroups`, `ModelSelectorSheet` group header | Endpoint-named icon resolves to that endpoint's brand (deliberate divergence, see "Spec presentation") |
+| `showIconInMenu` | yes | yes | `SpecIcons` (picker, quick picks) | |
+| `showIconInHeader` | yes | no | | The header chip is text-only by design |
+| `showOnLanding` | yes | yes | `landingText` | |
+| `conversation_starters` | yes | yes | `resolveLandingStarters` | An agent's own starters win |
+| `showInMenu` | yes | filtered | `visibleSpecs` | Never arrives `false` (`excludeHiddenModelSpecs`); filtered again anyway |
+| `iconURL` | yes | yes | `iconValue` / `resolveIconSource`, reply avatars | |
+| `authType` | no | | | Dead upstream: only the schema and web's fake picker data mention it |
+| `hideBadgeRow` | yes | yes | `toolsHiddenBySpec` → `toolbarShown` | |
+| `webSearch` | yes | yes | `SpecTools.forcedTools`, `webSearchRoute` → LibreChat search | The server ORs it with the request's flag |
+| `fileSearch`, `executeCode`, `memory` | yes | yes | `SpecTools.forcedTools` | Same |
+| `askUserQuestion` | yes | server only | | No composer control; web sends none either |
+| `runInBackground` | no | | | The server resolves it by spec name (`agents/background.ts`); web reads it nowhere. Its results render (background-task cards) |
+| `describeIntent` | no | | | The server resolves it by spec name (`agents/intent.ts`); web reads it nowhere. Intent labels render (see "Tool intent labels") |
+| `artifacts` | yes | yes | `artifactsMode` → `ephemeralAgent.artifacts` | The server reads artifacts only from `ephemeralAgent` |
+| `mcpServers` | yes | yes | `SpecTools.forcedMcpServers` | |
+| `skills` | yes | inert | `skillsSetting` | Stripped by `sanitizeModelSpecs`, so always null against v0.8.8; the server still applies it |
+| `subagents` | no | | | Applied by the server (`agents/load.ts`, `added.ts`); only `enabled` / `allowSelf` are served, and web reads neither |
+
+| `modelSpecs` (`TSpecsConfig`) | Decoded | Where |
+|---|---|---|
+| `enforce` | yes | `requiresSpec`, `parametersSetBySpec`, `seedableLastUsed`, `fallbackSpecSeeds` |
+| `prioritize` | yes | `SpecSeed` (Tier 0b) |
+| `list` | yes | `visibleSpecs` |
+| `addedEndpoints` | yes | `showsRawEndpoint` |
+
+| Spec `preset` fields | Decoded | Honoured | Where / why not |
+|---|---|---|---|
+| `endpoint`, `model`, `agent_id` | yes | yes | The spec's pair (`toSeed`) |
+| `endpointType` | yes | no | Taken from the endpoint's own config (`EndpointConfig.type`) instead |
+| Sampling, reasoning and request keys (`temperature`, `top_p` / `topP`, `topK`, the max-token spellings, `maxContextTokens`, penalties, `stop`, `thinking*`, `effort`, `reasoning_*`, `verbosity`, `useResponsesApi`, `disableStreaming`, `promptCache*`, `imageDetail`, `resendFiles`, `fileTokenLimit`, `region`, `modelLabel`) | yes | yes | `mergedFromPreset` → the parameters; only keys the selection's parameter set lists go out, under that set's spelling (`parameterTarget`, `wireKeyFor`). `maxContextTokens` also feeds the context gauge. Under `enforce` the sheet is read-only (`parametersSetBySpec`) |
+| `web_search` | yes | yes | `presetTools` → the provider's built-in search (`webSearchRoute`) |
+| `url_context` | yes | yes | `presetTools`, shown only where `supportsUrlContext` passes |
+| `greeting` | yes | yes | Landing description fallback (`landingText`) |
+| `iconURL` | yes | yes | Icon chain after the spec's own (`iconValue`) |
+| Private: `promptPrefix`, `instructions`, `additional_instructions`, `system` | yes | server | Never served (`sanitizeModelSpecs`), so always null here; the server fills them in when the request names the spec (`mergeModelSpecPreset`). Decoded for user presets |
+| Private: `context`, `examples` | no | server | Never served; the server fills them in the same way |
+| `artifacts` (preset level) | no | | The server reads artifacts only from `ephemeralAgent`; the spec's top-level `artifacts` is what counts |
+| `codeApprovalMode`, `codeEnvironmentMode`, `codeWorkspaces` | no | | No mobile feature |
+| `tools` | no | | Legacy plugins |
+| `additionalModelRequestFields` | no | | No mobile feature (Bedrock passthrough) |
+| `assistant_id` | no | | Assistants endpoint unsupported (below) |
+| `append_current_datetime` | yes | no | Assistants-only upstream; `mergedFromPreset` ignores it |
+| `stream`, `isTemporary`, `userLabel`, `archivedAt`, `pinned`, `isShared`, `subagentThread` | no | | Conversation-only; meaningless on a preset |
+
+**Deliberate omissions and server limits.** Each is server behaviour the client accepts. Don't
+"fix" one without a server change:
+- **Two searches under `enforce`.** A spec with `webSearch: true` and a preset `web_search: true`
+  on OpenAI runs both: the server replaces the body with the preset, and also loads its own tool
+  from the spec (`agents/load.ts`, the `modelSpec?.webSearch` OR). `resolveProviderToolConflicts`
+  keeps both on OpenAI. The client can't prevent it (see the known gap under "Web search").
+- **Lane B's web search.** With an ephemeral primary (a model or spec, not a saved agent), lane B
+  copies the primary's tools (`added.ts`, `tools: [...primaryAgent.tools]`) with empty
+  `model_parameters`. So LibreChat search reaches it and the provider's built-in search never does,
+  which is why a comparison routes to LibreChat search. With a saved-agent primary, lane B searches
+  only when its own spec sets `webSearch`: the added convo carries no `ephemeralAgent`, and its
+  `model_parameters` take only the sampling keys. Web is the same.
+- **Keep this answer loses the Stopped chip.** `POST /api/messages/branch` saves the kept message
+  with `unfinished: false` and no finish reason (`routes/messages.js`), so after a plain Keep on a
+  cut-short comparison the chip never returns. Keep and continue is unaffected: it continues
+  directly.
+- **The assistants endpoint is not supported.** `Conversation` decodes `assistant_id` for display,
+  but no request model sends it.
+- **A stored `url_context: true` is still sent** after the model's URL context control is hidden
+  (#667). The server skips URL context on models that don't run it, so this is harmless.
+- **Seen on a v0.8.8 rig during #661, not traced in code** (a candidate for an upstream report):
+  every continue saves a stray user message with parent `NO_PARENT` and reparents the reply. Web's
+  payload does the same.
 
 ## Message Tree
 - Messages stored flat, linked by `parentMessageId` (root = `NO_PARENT` UUID)
@@ -212,13 +483,53 @@ Compare setup stages specs like models, so a spec can be either lane before the 
 ### Streaming anchor (in-place edit/regenerate)
 - The streamed reply is rendered by `MessageList` as a trailing `StreamingMessageBubble` *outside* the tree — the mobile divergence from web, which streams into an in-tree `initialResponse` placeholder node.
 - So during edit/regenerate the bubble must land where the new branch belongs, not after the stale one. At stream start each send path rebuilds `displayMessages` via `buildActiveMessagePath(messages, activeBranches, streamingLeafId)`, where `streamingLeafId` is the message the in-flight reply attaches to: the path is truncated there (and that branch is forced over any `activeBranches` override), so the trailing bubble renders as its pending child.
-- The leaf is the optimistic user message for `doSendMessage` / `editUserMessage` (passed inline alongside the message insert), and the existing parent user message for `regenerateMessageNow` / `editAiMessage` (via `anchorStreamTo`).
+- The leaf is the optimistic user message for `doSendMessage` / `editUserMessage` (passed inline alongside the message insert), and the existing parent user message for `regenerateMessageNow` / `rerunReply` (via `anchorStreamTo`).
 - This is a one-shot rebuild — there is no stored anchor field. The truncated `displayMessages` just persists in state for the stream's duration. On Final the untruncated path is rebuilt **in memory** by `finalizeChatDisplay` (normal + temp chats); only comparison chats still rebuild via a background `loadConversation`/Room reconcile. The full tree stays in `messages`/DB, so the old branch remains reachable via sibling navigation.
-- **Invariant (load-bearing):** while streaming, nothing may write to Room or mutate `activeBranches` — otherwise the `loadConversation` observer re-emits and rebuilds `displayMessages` with no `streamingLeafId`, un-truncating the path and clobbering the in-place view. The send paths uphold this (no mid-stream Room write); `switchBranch`, `editMessage`, and `regenerateMessage` are all gated on `!isStreaming` so user taps can't break it either.
-- **Handed-off new chat (load-bearing):** when a chat is created from the landing page, the landing VM is reset and a fresh `Chat(id)` VM resumes the stream — so the optimistic user message lives only in the discarded landing VM, and the server persists the *request* message only when the reply completes (`agents/request.js` saves it right before the Final event). Without intervention the resumed screen would show only the streaming bubble (no user message) for the whole stream. Fix: `NewChatSelectionHandoff` carries the optimistic `Message`; `ChatViewModel.init` seeds it into `messages`/`displayMessages` and into `pendingResumeUserMessage`. `loadConversation` keeps that seed appended — inside its off-Main `combine` map, guarded so it only appends while no server row is its copy — until the server's copy arrives, then drops it (so a later server-side delete still removes the row). "Its copy" is matched by id **or** by content (`isServerCopyOf`: user-authored, same parent, same text), because rc3+ servers do not adopt the client-minted id (see *Optimistic id reconciliation*). An id-only match never fired there, so a run that ended without a Final — a resume that 404s because the job already finished — left the seed as a second root sibling, and the path's newest-sibling default showed it alone over the persisted turn and its reply. `finalizeChatDisplay` *also* clears `pendingResumeUserMessage` in its atomic Final update. This is what feeds `finalizeChatDisplay`'s in-memory backfill in the handoff case — do **not** replace it with a network `reloadConversation` on Final (that was the #169 regression being avoided).
+- **Invariant (load-bearing):** while streaming, nothing may write to Room or mutate `activeBranches` — otherwise the `loadConversation` observer re-emits and rebuilds `displayMessages` with no `streamingLeafId`, un-truncating the path and clobbering the in-place view. The send paths uphold this (no mid-stream Room write); `switchBranch`, `rerunEdit`/`saveEdit`, and `regenerateMessage` are all gated on `!isStreaming` so user taps can't break it either.
+- **Handed-off new chat (load-bearing):** when a chat is created from the landing page, the landing VM is reset and a fresh `Chat(id)` VM resumes the stream — so the optimistic user message lives only in the discarded landing VM, and the server persists the *request* message only when the reply completes (`agents/request.js` saves it right before the Final event) or when a client drops its stream (see the next rule; the landing's own stream closes at the handoff, but the read can land first). Without intervention the resumed screen would show only the streaming bubble (no user message) for the whole stream. Fix: `NewChatSelectionHandoff` carries the optimistic `Message`; `ChatViewModel.init` seeds it into `messages`/`displayMessages` and into `pendingResumeUserMessage`. `loadConversation` keeps that seed appended — inside its off-Main `combine` map, guarded so it only appends while no server row is its copy — until the server's copy arrives, then drops it (so a later server-side delete still removes the row). "Its copy" is matched by id **or** by content (`isServerCopyOf`: user-authored, same parent, same text), because rc3+ servers do not adopt the client-minted id (see *Optimistic id reconciliation*). An id-only match never fired there, so a run that ended without a Final — a resume that 404s because the job already finished — left the seed as a second root sibling, and the path's newest-sibling default showed it alone over the persisted turn and its reply. `finalizeChatDisplay` *also* clears `pendingResumeUserMessage` in its atomic Final update. This is what feeds `finalizeChatDisplay`'s in-memory backfill in the handoff case — do **not** replace it with a network `reloadConversation` on Final (that was the #169 regression being avoided).
+- **A resumed run's saved partial stays off the thread.** When the client that started a run drops its stream (the landing handing off, a network drop), the server saves the user message and the reply so far, the latter `unfinished` under the run's `responseMessageId`, and keeps writing. The resumed stream's sync frame names that id (`StreamEvent.Sync.responseMessageId` → `MessagesState.resumedReplyId`), and while the stream is live the partial is left out of `displayMessages` (`withoutLivePartial`): in `loadConversation`'s path build, and in the sync update itself for a partial the load read first. Not a `combine` input, so it never re-emits the observer mid-stream. Only the `unfinished` copy goes, so the finished reply (same id) shows. The ends that reload nothing (`AbortFallback`, `ResumeFailed`) rebuild the path, since the bubble goes with `isStreaming`. Without it the partial sat frozen above the streaming bubble until Final.
 - **Optimistic id reconciliation:** `doSendMessage` / `editUserMessage` mint the optimistic user message's id and send it as `ChatRequest.messageId` (the `userMessageId` arg on `startChat`), which servers before v0.8.8-rc3 adopt and echo in the Final `requestMessage`. **rc3+ does not:** the agents controller persists the user message under `resolvePreallocatedUserMessageId` (`overrideUserMessageId ?? overrideParentMessageId ?? randomUUID()`, `api/server/controllers/agents/request.js`) and overwrites the request's `messageId` with it. The web client sends `overrideUserMessageId` only for steer recovery and queue drain, never for a plain send. So on those servers the reconciliation below does not happen by id: the Final's `requestMessage` merges in (via `mergeFinalMessagesInMemory`, keyed by id) as a sibling of the optimistic message rather than over it, and the newest-sibling default is what shows the server's copy. For a normal chat the optimistic row was never persisted, so the next Room emission drops it. Whether a **temporary** chat keeps both as a visible sibling pair is not verified. On older servers the optimistic message does reconcile by id, for normal and temp chats alike, via `mergeFinalMessagesInMemory` (`finalizeChatDisplay`, in-memory). Normal chats additionally persist the finalized turn to Room via `cacheMessages` (no network reload); the response's `parentMessageId` matching the adopted id is also what lets `finalizeChatDisplay` backfill the user message into the returned turn when a loose Final payload omits `requestMessage`, so the cached turn never drops it. Mirrors the web client's top-level `messageId`; without it the optimistic message would linger as a phantom sibling. Regenerate/continue/edit-AI send no `messageId` (they create no new user message).
-- `editAiMessage` resubmits the parent user turn (regenerate + `isEdited`); it does **not** persist the typed assistant edit (that's `saveEditOnly` → `updateMessageText`, the web `updateMessage` analog). Web additionally seeds the placeholder with the edited content for a transient preview — not ported.
 - **Completion render (load-bearing):** `MessageList` keys its `LazyColumn` items by the conversation **slot** (`MessageNode.treeParentKey`), and the trailing streaming bubble is keyed to the slot its finalized message will occupy (the last visible message's id == the reply's parent). This makes the streaming→final swap an in-place update of one item rather than a remove+add, so the list never loses its scroll anchor at completion. The finalize update is also atomic (it clears the streaming fields in the *same* `stateHandle.update` that swaps in the message — see `finalizeChatDisplay`), and the last message renders markdown synchronously via `LocalImmediateMarkdown` so it doesn't mount through a zero-height async-parse frame. Reverting any of these (per-id keys, a separate streaming-clear update, async parse for the last message) reintroduces the completion flicker.
+
+## Editing a message (#579)
+`editShapeOf` (`util/MessageEditing.kt`) picks one of two editors when the editor opens, and the
+SAME call gates the Edit affordance in `MessageList` — a button is never offered for a shape
+`MessageEditingDelegate` would refuse (the both-ends rule the feedback thumbs follow).
+- **`PLAIN_TEXT`** — any turn with no `content[]` (almost every user turn). One field over `message.text`.
+  Save sends `{ text }` with no `index`. A rerun resubmits a user turn's draft as a new sibling; on a
+  **reply** it can only be a plain regenerate, because `editedContent` is index-addressed over a
+  content array this message does not have — so the draft is not carried and the footer says so
+  (`edit_status_rerun_discards_changes`) rather than discarding it silently, which is what the
+  removed `editAiMessage` did.
+- **`CONTENT_PARTS`** — any turn with at least one editable part. One field per part, labelled
+  Response / Thoughts, with the non-editable parts still rendered read-only beside them (a
+  divergence from upstream, which hides them in edit mode) and ONE shared footer. An editable part
+  is TEXT or THINK, excluding a TEXT part carrying `tool_call_ids` and excluding artifact-bearing
+  text, which keeps its artifact card.
+- **`NONE`** — a turn of tool calls or images alone: no Edit button at all.
+
+Four rules are load-bearing:
+- **A save closes the editor only after the server has taken it.** Every sink reads its `Result`;
+  a failure keeps the draft on screen and reports through the shared `error` channel
+  (`ChatNotice.MESSAGE_SAVE_FAILED`, or the server's own sentence when it gave one, such as a
+  400's "Content part not found"). Per-part saves run **sequentially**: each `PUT` rewrites the whole stored content
+  array, so two in flight would race, and the editor advances only the baselines that actually
+  landed (`partOriginals`), leaving just the refused parts marked unsaved.
+- **A save is gated on `!isStreaming`**, affordance and sink, like `submitFeedback`: it writes Room,
+  which re-emits through the `loadConversation` observer and un-truncates the streaming anchor.
+- **`editedContent` and the wire `responseMessageId` are a pair.** The server reads the latter as
+  the history `head`; without it `setMessageOptions` loads an unrelated branch and the prefix is
+  silently dropped. Both are set only by the one-changed-TEXT-part rerun.
+- **A changed THINK part is never resubmitted.** v0.8.4 and v0.8.7 destructure `text` out of
+  `editedContent` whatever its `type` says, so a think payload writes `undefined` over the reasoning
+  prefix (only 0.8.8 reads `editedContent[type]`). It is saveable — the indexed `PUT` derives the
+  type from the stored part on every version — so a think change counts like a second changed part
+  and the footer asks for a Save first. This narrowing is why there is no version gate here.
+
+Known divergence: the reply streams as a trailing bubble outside the tree, so a rerun looks like a
+restart until Final delivers the server-merged content. Web seeds its placeholder with the edited
+prefix and offsets streamed part indices by its length (`useStepHandler`, `editPrefixLength`) — not
+ported.
 
 ## Compare Models (parallel responses)
 - A comparison send carries an `addedConvo` (secondary agent/model) alongside the primary; the server runs both agents in parallel and persists ONE assistant message whose content parts each carry an `agentId`. The added/secondary agent's parts are suffixed `____N` (real `agent_…____1`, or ephemeral `endpoint__model___sender____1`); the primary's are unsuffixed.
@@ -238,7 +549,14 @@ Compare setup stages specs like models, so a spec can be either lane before the 
   scopes the same way. **Ownership is the recursive `outputToolCallIds` walk, never
   `renderedToolCallIds`** — the latter stops at one level because that is where the dispatcher stops
   drawing cards, which is a different question.
-- **Reopen (`ComparisonModeDelegate.rehydrateFromMessage`):** nothing but the persisted attribution records that a conversation was a comparison, so `loadConversation` rehydrates comparison state from the assistant tail's parts on the first non-empty emission (latched once per load; respects a session toggle-off). Continue-with-response = `POST /api/messages/branch` filtered to one agent's parts; the branched sibling becomes a single-agent tail, so the next reopen is the normal view.
+- **Reopen (`ComparisonModeDelegate.rehydrateFromMessage`):** nothing but the persisted attribution records that a conversation was a comparison, so `loadConversation` rehydrates comparison state from the assistant tail's parts on the first non-empty emission (latched once per load; respects a session toggle-off). Keep this answer = `POST /api/messages/branch` filtered to one agent's parts; the branched sibling becomes a single-agent tail, so the next reopen is the normal view. The route returns the whole saved message (a sibling of the comparison reply), and `ComparisonModeDelegate.branch` merges it into the tree in the same update that ends the comparison, as web appends it without refetching (`useBranchMessageMutation`, registered in `scripts/mirrors.json`). Outside a temporary chat it also writes it to Room first, so a reload whose fetch fails settles on the kept reply instead of the comparison one (which the load's rehydrate would turn back into a comparison). Then it reloads. **Temporary chats depend on the merge**: their load is a no-op (nothing of theirs touches Room), so the merge is the only way the kept reply reaches the screen.
+- **Lane B's spec on reopen.** The server saves nothing about the added convo's spec: not on the message, not on the conversation. The only trace is the sender in an ephemeral lane's id, `modelLabel ?? spec.label ?? modelDisplayLabel` (left out when empty). `ComparisonState.reopenedSecondaryId` keeps that id and `laneBSpec` reads it against the spec config through `laneBSpecFor`: the one spec on the lane's pair with that label, else, under `enforce` only, the one spec on the pair. It is re-read on every use, so a reopen that lands before the spec config still finds its spec; the screens read `ChatUiState.laneBSpec`, never `secondarySpec` directly. A sender equal to the lane endpoint's `modelDisplayLabel` is what a raw lane there saves too, so outside `enforce` it reopens raw even when a spec on the pair has that label: a wrong raw reopen loses only the preset (the user can re-pick), while a wrong spec reopen sends the spec's name and preset unasked. Until the endpoint's config has loaded its label is unknown, so the lane reopens raw meanwhile, and the next read decides once it arrives. **This depends on `buildAddedConvo` sending no `modelLabel`**: the server would save that as the sender in place of the spec's label. A saved-agent lane has no spec, and the server ignores one there.
+- **Lane B's settings.** `buildAddedConvo` copies its spec preset's sampling fields flat onto `AddedConversation`, the names `packages/api/src/agents/added.ts` copies. v0.8.8 applies them only when the primary is a saved agent. They are not `ModelParamPayload` output: that is keyed per provider, and the server reads this list by name whatever the provider. **The user's custom instructions do reach lane B**, and are the only primary setting that does: `buildAddedConvo` takes the primary's payload (the same `JsonObject` its request sends) and copies its `promptPrefix` (or Bedrock's `system`) onto the added convo as `promptPrefix`, which the server applies as the lane's instructions whatever the primary is. Web gets the same by cloning the whole conversation into the added slot. A saved-agent lane gets none (it runs its own), and a saved-agent primary gives none (the server ignores its payload, so a Bedrock agent's `system` never reached it). That primary is the turn's own (`spec.endpoint` for a send or queue drain), never the live selection, which may have moved by the time a queued turn drains. Drop this and lane B answers under no instructions while the primary follows the user's. A spec's prompt never reaches lane B, on web either: the served config strips `promptPrefix` and the other private preset fields (`PRIVATE_MODEL_SPEC_PRESET_FIELDS`), and the server merges them into the primary only.
+- **Edit and regenerate carry lane B; continue and compaction don't.** `MessageEditingDelegate.launchSend` calls `onSendStart` and sends `buildAddedConvo`, so an edit or regenerate in a comparison re-runs both panes, as web does. **A comparison can't be continued as one** (v0.8.8, checked on the rig): a continue carrying `addedConvo` makes the server rewrite both lanes from scratch in place, partial text lost, and one without it saves the primary's answer alone, dropping lane B's. A single-model continue extends the reply correctly (checked on Anthropic; to an OpenAI-compatible custom endpoint the server sends no partial, so the model writes the reply again and the save replaces it). So `ChatViewModel.continueGeneration` refuses while comparing, and each pane offers **Keep and continue** instead (`ComparisonModeDelegate.keepAndContinue`): branch to that lane (as "Keep this answer" does), wait for the kept reply to be the one shown, then continue it as a single-model chat. The server records cut-short only per message (`unfinished`), never per lane, so both panes offer it. Outside a temporary chat the Continue waits for the branch's reload to settle (`loadConversation`'s `onSettled`): the kept reply is already on screen from memory, but a reload landing mid-stream writes Room and the observer rebuilds the path without the streaming anchor. A failed fetch still settles, on the cached rows (which hold the kept reply), and a load that replaces this one runs the callback when it settles, so the wait's 100s cap is only a backstop sized to the fetch's retry ladder. A pane needs its lane's agent id, which streaming learns only from text and thinking deltas; `onFinal` fills a missing one from the final message's parts (web reads the lane from each part), so a lane stopped inside its first tool call still offers Keep. A lane with no parts stays without: the server refuses to branch to it. Keeping lane B first switches the chat to lane B's model and spec (`ChatViewModel.keepAndContinue`): a Continue sends with the chat's model, which while comparing is lane A's.
+
+## Continuing a cut-short reply
+- The chip ("Stopped" + Continue, `StoppedReplyFooter`) sits under the latest reply, always visible rather than in the tap-to-reveal action row: it also says why the reply ends mid-sentence. `MessageList` and `SecondaryMessageList` draw it under the reply whose id `stoppedReply` names.
+- Which reply: `ChatUiState.continuableReplyId` (`util/StoppedReply.kt`). **Not web's rule**: web's `continueSupported` needs a `finish_reason` other than `stop`, and a v0.8.8 agents reply only ever carries `tool_call_limit`, which it excludes, so web's Continue almost never shows. A stopped or dropped reply is saved `unfinished` instead, so that counts too. `unfinished` is also what a reply paused on a tool approval or question carries, so a pending action hides the chip. A reopened chat learns of that pause only from `/api/agents/chat/status`, after the cached messages paint, so the chip also waits for that check (`MessagesState.runStatusSettled`, false from opening a conversation until `resumeActiveStreamIfNeeded` answers; new chats and local sends are settled). A failed check keeps it hidden, since Continue needs the network anyway, and the check is asked again: on a backoff (2s doubling to 60s, for a server that failed while the device stayed online) and at once on an offline → online transition. So the chip doesn't stay away until a reopen. Continue replays the user turn above the reply, so a reply with none, an error and a compaction summary get nothing; so does a comparison reply outside a comparison (a single-model continue would drop lane B).
 
 ## Content Rendering
 - `ContentPartRenderer` dispatches by `ContentPart.type`:
@@ -265,6 +583,63 @@ Compare setup stages specs like models, so a spec can be either lane before the 
     spans are skipped and an open fence stops the scan (code wins, as on the web). While streaming,
     a closer at the very end of the buffer is deferred so `US$5 to US$` + `10` never flashes as math
   - Falls back to monospace text if AndroidMath can't parse the expression
+
+## Inline citations (web_search / file_search)
+The tools make the model write anchors after the claims they cite: `turn0search0`, a group
+`…`, a highlight `…`. The grammar is upstream `client/src/utils/citations.ts`,
+ported to `:core:model` (`content/Citations.kt`) so search indexing can strip it too. Models write
+**both** forms: the private-use character and the literal six-character escape (the v0.8.8 rig's
+haiku wrote only escapes), so everything converts the escape first.
+- **Resolution** (`CitationIndex`): `turn{T}{type}{I}` is the I-th result of `type` in the reply's
+  `web_search` attachment whose `turn` is T (search→organic, news→topStories, ref→references,
+  image/video→images/videos), or of the T-th `file_search` attachment for `file`. Files keep their own
+  turn map: upstream shares one, so a reply that ran both loses one at turn 0.
+- **Rendering is two steps.** `rememberCitedMarkdownSegments` normalizes each prose segment against
+  the turn's index (`LocalMarkdownMedia.citations`, built in `ProvideMarkdownMedia`): unresolvable
+  anchors go with the space before them, highlights lose their markers, and only resolvable groups
+  stay, in canonical form. Then `citationAnnotate` claims the text leaf holding a group and emits an
+  inline-content pill (`CitationPill.kt`), sized by measuring its label. A group never splits across
+  leaves. Code spans and fences are never touched. Table cells draw a clickable label instead (no
+  inline content there). The pill opens `CitationSourcesSheet`, hosted by `ProvideMarkdownMedia`.
+- **Deliberate divergence:** the pill names the site (`attribution`) only when it differs from the
+  page title, else the domain. Upstream's `attribution || title` puts whole foreign page titles in
+  the pill, because some providers (Keenable) send the title as the attribution.
+- **While streaming** the tail of the reply holds back a partial anchor, group or escape, so
+  `turn0sea` never flashes.
+- **Find-in-page renders without citations**, and `countMarkdownOccurrences` counts the same stripped
+  text. Keep the two in step.
+- **Plain-text surfaces strip them**: read-aloud, the accessibility description, the search index
+  (format 4) and its previews. Copy numbers them `[1][2]` with a `Citations:` footer, as web's copy does.
+
+## Search cards and sources (web parity, v0.8.8)
+- **Web search** (`WebSearchCard`, `WebSearchResultCard.kt`) ports upstream `WebSearch.tsx`. While the
+  reply streams it reads "Searching the web" (or "…again" past turn 0), then "Processing results"
+  once sources arrive, then "Reading results" while it is the latest step and no reply text has
+  followed (`liveWebSearchPhase`; the streaming card gets `isLatestStep` and `replyLength`). Settled:
+  three favicons, the model's `intent` or "Searched the web", a chevron to every source (snippet,
+  domain, date), and an info button for the query, count and the provider's answer box. Inside an
+  activity group a card without an `intent` shows its query rather than repeating the group's
+  "Searched the web" (a divergence: upstream repeats it).
+  `searchOutcome`: a failed search falls back to the generic tool card; a cancelled one, or a
+  settled one with no status, output or sources, draws nothing, as upstream. A Stop after the search
+  saves its output but not the attachment, so the sources then come from the tool's text output
+  (`parseFormattedSearchOutput`; upstream's web shows none). Snippets are shown as plain text
+  (`plainSnippet`), and ISO dates as a short local date (upstream prints them raw). Only the built-in `web_search` always gets this card; another tool whose
+  name merely contains "search" keeps the generic card unless it produced web sources.
+- **Images, shopping, places** (`WebSearchVerticals.kt`, upstream `verticals.tsx`) sit under the card,
+  or below the activity group when the call is inside one (`hideAttachments`). Every URL must be
+  http(s). **Deliberate divergence:** pictures load only after a tap ("Load images"), like a reply's
+  third-party images. Places open Apple Maps on iOS and Google Maps elsewhere (`prefersAppleMaps`).
+- **File search** (`FileSearchSourcesCard`, upstream `RetrievalCall.tsx`): "Searching your files" live,
+  "Cancelled", the run's duration, and a file name that opens the file through `ToolFileActions`
+  (PDF viewer, artifact panel, or Open in / Save / Share). When the tool's text output parses, its
+  sections list in their own order, matched to files by normalized name (`fileSearchResults`).
+- **Activity groups** of searches only read "Searched the web / your files / web and files" with
+  favicons (`searchGroupHeader`), unless the server labelled the group.
+- **Sources panel** (`SourcesPanel.kt`, upstream `Sources.tsx`) only on parallel content
+  (`hasParallelGroupIds`), as upstream: All / News / Images / Files, three cards and a "+N" sheet.
+  Upstream draws one panel above both lanes; mobile draws one per Compare pane, from that lane's
+  attachments.
 
 ## Streaming
 - `ChatViewModel.sendMessage()` calls `ChatRepository.startChat()` which returns `Flow<StreamEvent>`
@@ -316,10 +691,13 @@ Compare setup stages specs like models, so a spec can be either lane before the 
   don't run the cursor's annotator — defensive today, since no `trailingCursor` caller passes a
   query), and
   `canHostInlineCursor` on the trailing segment's kind — code blocks, tables, LaTeX blocks,
-  citation-bearing text (androidMain only; iosMain has no `CitationText`, so there the exclusion
-  costs a cursor for no rendering reason), and text still inside an **unclosed** code fence, because
+  and text still inside an **unclosed** code fence, because
   `parseMarkdownSegments` only lifts *closed* fences out — without that last case a long code reply
   would stream with no cursor at all. The segment-kind half is unit-tested.
+- The bubble's sender is `replySenderName`: the agent's name, else the selected spec's label (the
+  names the server saves those replies under), else the model. Compare's pane A takes the same name
+  for its parallel turn. A raw model's reply still takes the server's own name at Final (upstream
+  `getResponseSender`: "Claude", "GPT-4o"), which isn't ported.
 - Before the first delta there is no insertion point, so the bubble shows `StreamingWaitIndicator`
   instead of a cursor blinking against empty space.
 - Tool calls tracked in `activeToolCalls` list (start -> complete lifecycle)
@@ -347,9 +725,9 @@ Compare setup stages specs like models, so a spec can be either lane before the 
 | `ChatInput` | Auto-growing text field, send/stop button, file attach, voice |
 | `MessageBubble` | Icon + content column + action bar + sibling nav |
 | `MessageList` | LazyColumn of MessageBubbles with scroll-to-bottom FAB |
-| `ModelSelectorSheet` | Bottom sheet: search + endpoint-grouped model list |
+| `ModelSelectorSheet` | Bottom sheet: search + specs, spec groups and endpoint-grouped models |
 | `SiblingNavigator` | "1/3" with chevrons for branch switching |
-| `LandingContent` | Greeting, entity icon, conversation starters |
+| `LandingContent` | Greeting or agent/spec title, description, entity icon (starters dock apart, `LandingStarters`) |
 | `StreamingCursor` | Live insertion point during generation; `StreamingWaitIndicator` before the first delta |
 | `PresetPicker` | Preset selection menu |
 | `SavePresetDialog` | Dialog to name and save current config as preset |
@@ -576,9 +954,103 @@ Steering is text-only on mobile: a during-run send carrying attachments is route
 existing upload/usage path already handles them.
 
 ## Chat Tools
-- Tool state tracked as `Set<String>` in `ChatUiState.enabledTools`
-- Tool toggles (web search, code interpreter, file search) and MCP servers live in the paged
-  "+" options sheet (`ChatToolsSheetContent`), reached from `ChatInput`'s `onOpenTools`
+- The user's own toggles: `enabledTools` and `selectedMcpServerNames` are global (stored in
+  `SettingsDataStore`, carried into every chat). Web search and URL context are
+  `ModelParameters.webSearch` / `urlContext`, so they belong to the chat: they last through model
+  changes within it, every new chat starts with both off, and a reopened chat has web search as
+  this device left it (`ConversationWebSearchStore`, next section). The Skills toggle is per
+  conversation (`SkillsToggleDelegate`).
+- Tool toggles and MCP servers live in the paged "+" options sheet (`ChatToolsSheetContent`),
+  reached from `ChatInput`'s `onOpenTools`, plus the server's pinned chips (`PinnedToolsRow`).
+- URL context shows only on a Google parameter set and a model the server runs it on
+  (`urlContextProviderGate`, `supportsUrlContext`: Gemini 2.5+, not image/live/TTS/audio). The server
+  skips it elsewhere with only a debug log. Web shows it on every Google model; the divergence is deliberate.
+- **Everything reads the tools in use, not the toggles**: `ModelSelectionState.effectiveTools`,
+  `effectiveMcpServerNames` and `sendParameters` (the parameters with web search and URL context
+  from the tools in use). The toolbar, the sheet and the request's `ephemeralAgent` go through
+  them; web search on the wire goes through `ChatUiState.webSearchRoute` (next section).
+
+### Web search: one control, two searches (#663)
+LibreChat has two web searches: its own `web_search` tool (`ephemeralAgent.web_search`, needs a
+search provider on the server, results in the sources card and citations) and the provider's
+built-in search (the conversation parameter `web_search`: OpenAI's Responses API tool, OpenRouter's
+`web` plugin, Anthropic's and Google's search tools). Web shows two controls. **Mobile shows one, on
+purpose**: two web-search switches confused users. Don't add a second one, and don't "restore
+parity" by sending both: the server runs both on OpenAI and custom
+endpoints (`resolveProviderToolConflicts` drops the built-in one only on Anthropic and Google), and
+moves a custom OpenAI-compatible endpoint to a Responses API it may not serve.
+- **Each send carries exactly one** (`util/WebSearchRoute.kt`, `ChatUiState.webSearchRoute`):
+  `ChatRequestBuilder` puts `ephemeralAgent.web_search` for `LIBRECHAT`, the top-level and payload
+  `web_search` for `BUILT_IN` (`builtInWebSearch()`, read by the live send, the queued snapshot and
+  `MessageEditingDelegate`). In order: off or a saved agent sends nothing (a saved agent runs its
+  own tools and `model_parameters`); a spec's `webSearch` is LibreChat search and its preset's
+  `web_search` the built-in one (the admin's choice, not the preference's; on an endpoint with no
+  built-in search the preset's runs LibreChat search when it can, else nothing); a comparison uses
+  LibreChat search when it can (the second model only gets the first's tools, `added.ts`); otherwise the
+  user's Settings › Chat › Web search choice (`AppPreferences.WebSearchFirst`, LibreChat first by
+  default), falling back to the other, else nothing and the control is hidden.
+- **LibreChat search counts only when it will work** (`FeatureGatesState.librechatSearchReady`):
+  `/api/config` serves `webSearch` and `GET /api/agents/tools/web_search/auth` says `authenticated`,
+  checked by `ChatConfigDelegate` on every config, account or role change (not asked at all when the
+  role or `interface.webSearch` rules LibreChat search out) and false until answered. The answer is
+  cached per account and config in `:core:data`'s `WebSearchReadinessRepository`, so only a process's
+  first chat waits for it; a failed request (offline, 5xx) caches nothing and is retried (2s … 60s).
+  An answer that lands after an account switch is dropped (it went out with the other account's
+  token). Strict on purpose: the server adds its tool's definition without checking the keys
+  (`loadToolDefinitionsWrapper`), so an unconfigured search fails when the model calls it, and on
+  Anthropic and Google it also drops the built-in search. Keys each user enters themselves read as
+  not set up (no key screen here). A wrong key or a provider that's down can't be detected.
+- **While that check is out, a send that would run LibreChat search runs none**
+  (`WebSearchRoute.CHECKING`, `librechatSearchChecking`; the caption reads "Checking LibreChat
+  search…"), so the search a send runs never depends on how fast the check answered. A route that
+  picks the built-in search isn't held. When the retries run out the hold lifts and the other search
+  runs; the check keeps going once a minute, so a connection that comes back is noticed.
+- **`interface.webSearch` rules out LibreChat search only.** The built-in search needs just the
+  role's `WEB_SEARCH.USE` (`webSearchPermitted`; the server strips it without), as web's parameters
+  panel offers its switch whatever the interface flag says.
+- **Built-in search exists** on openAI, azureOpenAI, anthropic, google and a custom endpoint whose
+  name contains `openrouter` (`builtInSearchProvider`; the server also matches the base URL, which
+  the client can't see), unless `dropParams` names `web_search`. The control's second line names the
+  search it runs ("LibreChat search", "Claude's built-in search"; `webSearchName`).
+- The parameters sheet has no Web Search row (`hiddenKeys`); the registry keeps it for the payload,
+  presets and the agent editor, where it is the agent's own built-in search.
+- **Each chat remembers its switch on the device** (`ConversationWebSearchStore`, account-scoped,
+  200 chats), as web keeps `LAST_WEB_SEARCH_TOGGLE_<id>`: a chat that ran LibreChat search sends no
+  `web_search` the server could save, so a reopen would otherwise come back off. Written by one
+  observer whenever it changes within a conversation, whoever wrote it (`rememberWebSearchChanges`),
+  and when a new chat is created. A reopen reads it before applying the model and writes it with the
+  restored parameters in one update, so the load's "user changed nothing meanwhile" check (which
+  decides whether a backfill fetch replaces the cache) sees it. Not under a spec (a reopened spec chat
+  starts from the spec's tools) nor in a temporary chat.
+- **Presets** save what the chat shows (`sendParameters`): `web_search` true when the route is
+  `BUILT_IN`, false when the control is off, and left out while LibreChat search is on (a preset is
+  conversation fields and has no field for it, on web too), so loading that one keeps the control
+  as it is.
+  Under a spec, a loaded preset's `web_search` and `url_context` go into the spec's additions
+  (`withSpecTool`), not the user's hidden toggles.
+- **Known gap:** a spec with both `webSearch` and preset `web_search` under `enforce` shows
+  LibreChat search, but the server sends the preset anyway, so OpenAI runs both.
+- **A model spec drives the tools** (`util/SpecTools.kt`, registered in `scripts/mirrors.json` as
+  `model-spec-tools` and `model-spec-tools-web`). The server ORs the spec's `webSearch`,
+  `fileSearch`, `executeCode` and `memory` with the request's flags and adds its `mcpServers`, so
+  under a spec:
+  - The chat starts from exactly the spec's tools, as web's `applyModelSpecEphemeralAgent` does; the
+    user's toggles are neither shown nor sent. The spec's own are on and locked (`lockedTools`,
+    `lockedMcpServers`, carried in `ChatInputGates`). Its preset's `web_search` and `url_context`
+    (`presetTools`, the provider's grounding parameters) start on too, as web copies the preset in;
+    the user can turn those off, except under `enforce`, where the server sends the preset anyway.
+  - The user can add tools. Additions are `SpecTools`, kept for the session only (never stored),
+    named by their spec: they count only while that spec is selected, so any change of spec starts
+    the next one clean whoever writes `choice`. `withChoice` and the preset load also drop them on a
+    change of spec. They ride the queued-edit swap and the new-chat handoff; a reopened spec chat
+    starts from the spec's tools. Web keeps them per conversation (a deliberate divergence).
+  - Nothing a spec chat does writes the user's toggles, so leaving the spec brings them back. That
+    includes the parameters sheet's URL context control (`updateModelParameters` routes it into the
+    additions), a loaded preset's web search and URL context (`withSpecTool`) and a reopened chat's
+    stored `web_search` (`reopenedParameters` keeps the current values on a spec).
+  - `hideBadgeRow` hides the tool controls (`ChatUiState.toolbarShown`) and drops the additions;
+    the request still carries the spec's own tools and artifacts, as web sends them.
+  - `ephemeralAgent` is read from the body even under `enforce`, so nothing more is locked there.
 
 ## Content Cards
 - `ImageGenCard` renders DALL-E / image generation results (spinner while generating, AsyncImage when done)
@@ -618,7 +1090,7 @@ existing upload/usage path already handles them.
 - `MermaidWebContent` renders Mermaid diagrams with zoom controls and dark theme
 - `MarkdownWebContent` renders Markdown (marked + highlight.js) with GFM and syntax highlighting
 - HTML/React/SVG templates include Tailwind, theme CSS vars, and error handling
-- React artifacts compile in-browser (Babel) and load as a real ES module; the artifact's `import`/`export` run verbatim against an import map the runner builds over the bundled React/ReactDOM globals (no source rewriting)
+- React artifacts compile in-browser (Babel) and load as a real ES module; the artifact's `import`/`export` run against an import map the runner builds over the bundled React/ReactDOM globals and the vendored npm bundles. The only rewrite is of shadcn import paths, on Babel's AST (see "npm imports use the same bridge")
 - `ArtifactPanel` supports fullscreen Dialog mode, version switching, loading indicator, and WebView error overlay
 - `ArtifactButton` shows type-specific icons and subtitle (e.g. "Mermaid Diagram", "React Component")
 - `ContentPartRenderer` wires `groupArtifactVersions()` to pass version lists to ArtifactButton/ArtifactPanel
@@ -639,7 +1111,8 @@ see rather than code the app chose to run.
 What is vendored, at which version, and why each pin sits where it does is in
 `scripts/web-assets.json`; `scripts/vendor-web-assets.py` moves the bytes and CI runs
 `--check` against a sha256 lock. Repin through **`/update-web-assets`**, never by editing a
-vendored file. ~2.5 MB compressed in the APK, mermaid and Babel being two thirds of it.
+vendored file. ~3.2 MB compressed in the APK: mermaid and Babel are about half, the artifact
+module bundles (below) about 0.7 MB.
 
 **How a page finds its assets.** Each document references its scripts *relatively*
 (`katex/katex.min.js`), so the only platform-specific part is the document base URL, from
@@ -659,11 +1132,45 @@ UMD — which is the entire reason this used to resolve `import 'react'` through
 UMD builds load as plain scripts and the runner generates small blob modules re-exporting
 `window.React` / `window.ReactDOM`, then injects an import map pointing at them *before*
 the first dynamic import (hence the classic-script-wrapping-an-async-IIFE shape — a
-`type="module"` runner would have resolved its own imports too early). A bare specifier
-that is **not** one of the bundled four resolves to a module that throws naming the
-package. Third-party npm imports (recharts, lucide-react) therefore no longer work; that
-is the known cost of this pass, and the follow-up is an opt-in consent toggle that maps
-them back to a CDN for users who accept it.
+`type="module"` runner would have resolved its own imports too early).
+
+**npm imports use the same bridge.** Web's Sandpack offers artifacts a fixed set of npm packages
+(upstream `standardDependencies`; lucide-react, recharts, three, date-fns, react-router, shadcn/ui
+and its Radix base, ...). Those are vendored as `bundle` assets: esbuild packs each into one
+**classic** script (`scripts/artifact-modules/build.mjs`) that registers module namespaces on
+`globalThis.__switchboardModules`, and the runner re-exports them from blob modules like React.
+Not ES-module files: Chromium fetches module scripts in CORS mode and `file://` is not a CORS
+scheme, so with file-from-file access off, `import 'file:///…'` is refused. A bundle never
+contains React (every `react` import inside resolves to `window.React`, or hooks break).
+- `ReactArtifactImports.plan` decides per specifier: React core, a bundle (its `<script src>`
+  goes in the page, only when imported), a stub that throws naming it (not bundled, or declined),
+  or left to the browser (relative files, URLs). The tables it emits are embedded in the runner,
+  so every string in them passes a charset guard first.
+- **shadcn/ui is imported by path** (`/components/ui/button`, as web mounts it). A path can't key
+  the import map from a `blob:` module, so a Babel visitor rewrites those import sources to
+  `@switchboard/shadcn/…` keys (AST, never text). `/`, `./` and `@/` spellings all resolve.
+- Babel runs the **typescript** preset as well as react (web's template is `react-ts`); it also
+  drops type-only imports, which bundles don't export at runtime.
+- **Flagged libraries ask first.** A bundle with an `advisory` (unmaintained, deprecated or
+  vulnerable: dat.gui, vaul today) is gated by `ArtifactLibraryGate`, inline and fullscreen: Load or
+  Don't load, optionally remembered device-wide (`ArtifactLibraryConsentStore`, `:core:data`); an
+  unremembered answer holds for that artifact until restart. A remembered answer is keyed by
+  library *and* advisory kind, so an escalated advisory asks again. Once answered, a row above the
+  preview says what loaded and what didn't; its Change takes back the answers that apply in that
+  artifact. Settings > Chat > Artifacts > Flagged libraries sets the remembered answer for each
+  library (Ask / Load / Don't load); it lists `FlaggedArtifactLibraries`, which
+  `vendor-web-assets.py` generates into `:core:data` because Settings can't read this module's
+  manifest. `VendoredAssetReferenceTest` checks the two name the same subjects.
+- **Consent fails closed.** `buildHtml` takes `allowedLibraries` (empty by default), and every
+  flagged library not in it is stubbed. A host that renders React artifacts without the gate
+  therefore loads none of them. Each flagged library is its own bundle, so not loading it keeps
+  its code from running at all; keep it that way when adding one.
+- Anything outside the set still fails by name ("not bundled"), including three's addons and
+  date-fns locales. `VendoredWebAssetInstrumentedTest` renders one artifact per bundle on a device.
+- **Known gap, HTML artifacts:** the server's prompt lets them load scripts from
+  `cdnjs.cloudflare.com`, which our CSP blocks, so such a page renders without them. Closing it
+  needs an opt-in consent for remote code (F-Droid allows that only with explicit consent), not a
+  CSP edit.
 
 **Two things this replaced were silently broken**, which is the argument for pinning in
 general: markdown syntax highlighting had never worked (marked deleted its `highlight`
@@ -727,7 +1234,7 @@ instrumented tests. Those tests skip anywhere else.
   reads it. The write used to store a bare rating string into a column that file round-trips as
   `Feedback` JSON, so every read threw into a catch that returned null and the thumb emptied
   itself on the next emission.
-- `submitFeedback` is gated on `!isStreaming` like `switchBranch`/`editMessage`/`regenerateMessage`
+- `submitFeedback` is gated on `!isStreaming` like `switchBranch`/`rerunEdit`/`regenerateMessage`
   — it caches to Room, which would re-emit through the `loadConversation` observer and un-truncate
   the streaming anchor. **The affordance is gated too** (`LocalFeedbackEnabled`, provided by
   `MessageList`): the thumbs are *disabled* — not hidden, which would reflow the action row —
@@ -737,7 +1244,7 @@ instrumented tests. Those tests skip anywhere else.
   local and disables Submit if a run starts while the sheet is already open (`onResume` adopting
   another client's run, a queued message draining) — the sheet stays up and keeps the draft rather
   than dismissing, so Submit re-enables when the run ends. Note the sibling mutations
-  (`switchBranch`, `editMessage`, `regenerateMessage`) do NOT gate their affordances — their
+  (`switchBranch`, `regenerateMessage`, `continueGeneration`) do NOT gate their affordances — their
   arrows and buttons stay live mid-stream and silently no-op.
 - The sheet is a `ModalBottomSheet` of radio rows, not chips or an `AlertDialog`: `FilterChip`/
   `InputChip` hardcode `Role.Checkbox` over any caller-supplied role, and `AlertDialog`'s text slot

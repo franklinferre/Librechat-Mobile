@@ -9,18 +9,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.common.EndpointConstants
+import com.garfiec.librechat.core.model.config.displayLabel
 import com.garfiec.librechat.core.model.config.labelFor
+import com.garfiec.librechat.core.model.media.resolveAvatarUrl
+import com.garfiec.librechat.core.model.media.resolveIconSource
 import com.garfiec.librechat.core.ui.components.LoadingIndicator
 import com.garfiec.librechat.feature.chat.components.LandingContent
+import com.garfiec.librechat.feature.chat.components.LandingHeroIcon
 import com.garfiec.librechat.feature.chat.components.MessageList
 import com.garfiec.librechat.feature.chat.components.MessagesUnavailable
+import com.garfiec.librechat.feature.chat.components.StoppedReplyAction
 import com.garfiec.librechat.feature.chat.resources.Res
+import com.garfiec.librechat.feature.chat.resources.action_continue_reply
+import com.garfiec.librechat.feature.chat.resources.chat_agent_fallback_label
 import com.garfiec.librechat.feature.chat.resources.sender_assistant
 import com.garfiec.librechat.feature.chat.util.ClipboardWriter
 import com.garfiec.librechat.feature.chat.util.MessageNode
 import com.garfiec.librechat.feature.chat.util.collapseParallelToPrimary
+import com.garfiec.librechat.feature.chat.util.iconSource
 import com.garfiec.librechat.feature.chat.util.rememberClipboardWriter
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
@@ -78,16 +87,7 @@ internal fun ColumnScope.ChatContent(
     val topInsetModifier = Modifier
         .weight(1f)
         .padding(top = topContentPadding)
-    // Streaming-bubble sender label for the active model: the agent's
-    // display name under the agents endpoint, else the raw model id.
-    val senderName = run {
-        val model = uiState.selectedModel
-        if (uiState.selectedEndpoint == EndpointConstants.AGENTS && model != null) {
-            uiState.agents.find { it.id == model }?.name ?: model
-        } else {
-            model ?: fallbackSenderName
-        }
-    }
+    val senderName = uiState.replySenderName(fallbackSenderName)
     // The thread's scroll position, shared by the single list and Compare's pane A: opening or
     // cancelling Compare swaps one for the other, and the reader keeps their place. A fresh one per
     // ACTIVE stretch: the landing entry outlives its chats (a handed-off new chat resets it to the
@@ -135,14 +135,20 @@ internal fun ColumnScope.ChatContent(
     } else {
         when (uiState.screenState) {
             ChatScreenState.LANDING -> {
-                // A selected spec is named by its label, as the top bar names it.
-                val specLabel = uiState.modelSpecs?.labelFor(uiState.selectedSpec)
+                val text = uiState.landingText(agentName, stringResource(Res.string.chat_agent_fallback_label))
                 LandingContent(
-                    selectedModel = specLabel ?: uiState.selectedModel,
-                    selectedAgentName = agentName?.let { specLabel ?: it },
+                    selectedModel = text.caption,
+                    selectedAgentName = text.agentName,
+                    title = text.title,
+                    description = text.description,
+                    temporaryAgentName = text.temporaryAgentName,
+                    temporaryModel = text.temporaryCaption,
                     onSelectModel = viewModel::openModelSheet.takeIf { uiState.modelPickerShown },
-                    // A temporary chat is never filed (SendDispatchDelegate), so it claims no project.
-                    projectName = projectName?.takeIf { !uiState.isTemporaryChat },
+                    projectName = projectName,
+                    heroIcon = uiState.landingHeroIcon(),
+                    showSubtitle = !uiState.hasLandingStarters,
+                    isTemporaryChat = uiState.isTemporaryChat,
+                    bottomPadding = maxOf(120.dp, paneBottomInset),
                     modifier = topInsetModifier.then(pullUpModifier),
                 )
             }
@@ -247,9 +253,13 @@ private fun ChatMessageListPane(
     listState: LazyListState,
     modifier: Modifier = Modifier,
 ) {
+    val continueLabel = stringResource(Res.string.action_continue_reply)
     MessageList(
         listState = listState,
         canResubmit = uiState.canStartRun,
+        stoppedReply = uiState.continuableReplyId?.let { id ->
+            StoppedReplyAction(id, continueLabel, viewModel::continueGeneration)
+        },
         displayMessages = displayMessages,
         isStreaming = isStreaming,
         justSettledMessageId = uiState.justSettledMessageId,
@@ -265,15 +275,14 @@ private fun ChatMessageListPane(
         onCopyMessage = { messageId -> copyMessageToClipboard(viewModel, clipboard, messageId) },
         onFeedback = viewModel::submitFeedback,
         feedbackEnabled = uiState.gates.feedbackEnabled,
-        onContinue = { viewModel.continueGeneration() },
         onReadAloud = viewModel::readAloud,
         onFork = viewModel::showForkOptions,
         currentlyReadingMessageId = uiState.currentlyReadingMessageId,
-        editingMessageId = uiState.editingMessageId,
-        editingText = uiState.editingText,
+        editing = uiState.editing,
         onEditTextChange = viewModel::onEditTextChanged,
-        onEditSaveAndSubmit = viewModel::submitEdit,
-        onEditSaveOnly = viewModel::saveEditOnly,
+        onEditPartTextChange = viewModel::onEditPartTextChanged,
+        onEditSave = viewModel::saveEdit,
+        onEditRerun = viewModel::rerunEdit,
         onEditCancel = viewModel::cancelEditing,
         baseUrl = uiState.serverUrl,
         fontSizeMultiplier = fontSizeMultiplier,
@@ -281,7 +290,7 @@ private fun ChatMessageListPane(
         onRefresh = viewModel::refreshMessages,
         userAvatarUrl = uiState.userAvatarUrl,
         userName = uiState.userName,
-        selectedEndpoint = uiState.selectedEndpoint,
+        streamingAvatar = uiState.avatars.streaming,
         streamingSenderName = streamingSenderName,
         showImageDescriptions = showImageDescriptions,
         chatLayoutStyle = chatLayoutStyle,
@@ -299,5 +308,94 @@ private fun ChatMessageListPane(
         topContentPadding = topContentPadding,
         pendingAction = uiState.renderablePendingAction,
         modifier = modifier,
+    )
+}
+
+/**
+ * The new chat's icon, as web's landing draws it (`ConvoIcon`): the selected spec's ([iconSource]: its
+ * `iconURL`, its preset's, its agent's avatar, else its endpoint's brand), the selected agent's avatar
+ * (the agents glyph without one), else the selected endpoint's brand. Null, before anything is
+ * selected, keeps the app tile.
+ */
+internal fun ChatUiState.landingHeroIcon(): LandingHeroIcon? {
+    val spec = modelSpecs?.list?.find { it.name == selectedSpec }
+    val icon = when {
+        spec != null -> spec.iconSource(agents, serverUrl, endpointConfigs)
+        selectedEndpoint.isBlank() -> return null
+        // No agent yet is the selection before seeding, not a choice to draw.
+        selectedEndpoint == EndpointConstants.AGENTS ->
+            return if (selectedModel == null) {
+                null
+            } else {
+                LandingHeroIcon(
+                    endpointName = EndpointConstants.AGENTS,
+                    iconUrl = selectedAgent()?.avatarUrl?.let { resolveAvatarUrl(it, serverUrl) },
+                )
+            }
+        else -> resolveIconSource(null, selectedEndpoint, serverUrl, endpointConfigs)
+    }
+    return LandingHeroIcon(endpointName = icon.endpointName, iconUrl = icon.imageUrl, provider = icon.provider)
+}
+
+/**
+ * The name a reply in progress goes by until the server's saved one replaces it: the agent's name
+ * under the agents endpoint, else the selected spec's label (the names the server saves those
+ * replies under), else the model, where the server's own name (`getResponseSender`) isn't ported.
+ */
+internal fun ChatUiState.replySenderName(fallback: String): String {
+    val model = selectedModel
+    if (selectedEndpoint == EndpointConstants.AGENTS && model != null) {
+        return agents.find { it.id == model }?.name ?: model
+    }
+    return modelSpecs?.labelFor(selectedSpec) ?: model ?: fallback
+}
+
+private fun ChatUiState.selectedAgent() =
+    agents.takeIf { selectedEndpoint == EndpointConstants.AGENTS }?.find { it.id == selectedModel }
+
+/** What the new-chat screen says. Null fields keep [LandingContent]'s defaults. */
+internal data class LandingText(
+    /** Replaces the time-of-day greeting. */
+    val title: String? = null,
+    /** Replaces "How can I help". */
+    val description: String? = null,
+    /** The prominent agent line under the greeting; only a temporary chat, whose title is fixed, uses it. */
+    val agentName: String? = null,
+    /** The small model label that opens the picker. */
+    val caption: String? = null,
+    /** [agentName] once temporary chat's fixed title has replaced [title]. */
+    val temporaryAgentName: String? = null,
+    /** [caption] once temporary chat's fixed title has replaced [title]: never folded into it. */
+    val temporaryCaption: String? = null,
+)
+
+/**
+ * The landing's words, as web's `Landing.tsx`: the selected agent's name, else the spec's label when
+ * it has `showOnLanding`, is the title; the description is the agent's, then that spec's, then the
+ * spec preset's `greeting` (which applies without `showOnLanding`, as a new chat carries the preset's
+ * greeting). A temporary chat keeps its own title and subtitle: both sets are returned whatever the
+ * flag, because the landing switches each line as temporary chat's band reaches it. [agentName] is the selected agent's,
+ * resolved by the caller; for an agent spec it wins over the spec's label, as on web. An agent not
+ * (yet) in the list is captioned [agentFallbackLabel], so the landing still opens the picker.
+ */
+internal fun ChatUiState.landingText(agentName: String?, agentFallbackLabel: String? = null): LandingText {
+    val spec = modelSpecs?.list?.find { it.name == selectedSpec }
+    val specLabel = modelSpecs?.labelFor(selectedSpec)
+    // An agent's raw "model" is its id, which says nothing.
+    val modelLabel = specLabel ?: when {
+        selectedEndpoint != EndpointConstants.AGENTS -> selectedModel
+        agentName == null && selectedModel != null -> agentFallbackLabel
+        else -> null
+    }
+    val branded = spec?.takeIf { it.showOnLanding == true }
+    val title = agentName ?: branded?.displayLabel
+    val description = listOf(selectedAgent()?.description, branded?.description, spec?.preset?.greeting)
+        .firstOrNull { !it.isNullOrBlank() }
+    return LandingText(
+        title = title,
+        description = description,
+        caption = modelLabel.takeUnless { it == title },
+        temporaryAgentName = agentName,
+        temporaryCaption = modelLabel,
     )
 }

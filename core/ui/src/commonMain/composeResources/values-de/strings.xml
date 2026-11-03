@@ -28,6 +28,8 @@
     <string name="pdf_password_incorrect">Falsches Passwort. Versuche es erneut.</string>
     <string name="pdf_password_show">Passwort anzeigen</string>
     <string name="pdf_password_hide">Passwort ausblenden</string>
+    <string name="cd_show_secret">Anzeigen</string>
+    <string name="cd_hide_secret">Ausblenden</string>
     <string name="pdf_password_confirm">Entschlüsseln und hochladen</string>
     <string name="pdf_password_cancel">Abbrechen</string>
     <string name="param_thinking_between_tools_description">Aktiviert adaptives Denken, das über den Parameter „Aufwand“ gesteuert wird. Dieses Modell kann das Denken nicht vollständig abschalten: Beim Ausschalten wird die niedrigste Stufe verwendet, die erweitertes Denken überspringt und nur kurze Notizen zwischen Tool-Aufrufen behält. Im ausgeschalteten Zustand ist der Aufwand auf „Hoch“ begrenzt.</string>
@@ -150,6 +152,8 @@
     <string name="param_label_prompt_caching">Prompt-Caching</string>
     <string name="param_label_reasoning_effort">Denkaufwand</string>
     <string name="param_label_reasoning_summary">Zusammenfassung des Denkens</string>
+    <string name="param_label_reasoning_mode">Denkmodus</string>
+    <string name="param_label_reasoning_context">Denkkontext</string>
     <string name="param_label_reasoning_visibility">Sichtbarkeit des Denkens</string>
     <string name="param_label_region">Region</string>
     <string name="param_label_resend_files">Dateien erneut senden</string>
@@ -175,6 +179,10 @@
     <string name="param_option_auto">Automatisch</string>
     <string name="param_option_concise">Knapp</string>
     <string name="param_option_detailed">Ausführlich</string>
+    <string name="param_option_standard">Standard</string>
+    <string name="param_option_pro">Pro</string>
+    <string name="param_option_current_turn">Aktueller Zug</string>
+    <string name="param_option_all_turns">Alle Züge</string>
     <string name="param_option_summarized">Zusammengefasst</string>
     <string name="param_option_omitted">Ausgelassen</string>
     <string name="param_option_updates">Zwischenstände</string>
@@ -201,6 +209,8 @@
     <string name="param_desc_frequency_penalty">Bestraft Token nach ihrer Häufigkeit im bisherigen Text.</string>
     <string name="param_desc_url_context">Lässt das Modell genannte URLs (und YouTube) abrufen und sich darauf stützen.</string>
     <string name="param_desc_reasoning_summary">Wie die Zusammenfassung des Denkens in der Antwort erscheint.</string>
+    <string name="param_desc_reasoning_mode">Nur Responses API: wählt den Denkmodus. Pro schaltet erweitertes Denken bei unterstützten Modellen ein.</string>
+    <string name="param_desc_reasoning_context">Nur Responses API: wie viel früheres Denken das Modell wiederverwendet.</string>
     <string name="param_desc_prompt_cache_duration">Wie lange Prompt-Caches bestehen bleiben (Anthropic). Gilt bei aktivem Prompt-Caching.</string>
     <string name="param_desc_thinking_level">Steuert, wie viel das Modell nachdenkt.</string>
     <string name="param_desc_reasoning_effort">Steuert, wie viel das Modell abwägt.</string>
@@ -289,4 +299,32 @@
     <string name="acl_error_owner_protected">Der Zugriff des Eigentümers kann nicht geändert werden.</string>
     <string name="acl_error_generic">Zugriff konnte nicht aktualisiert werden. Versuche es erneut.</string>
     <string name="acl_error_load">Die Zugriffsliste konnte nicht geladen werden.</string>
+    <string name="bookmarks">Lesezeichen</string>
+    <string name="bookmark_new">Neues Lesezeichen</string>
+    <string name="bookmark_edit">Lesezeichen bearbeiten</string>
+    <string name="bookmark_name">Name</string>
+    <string name="bookmark_description">Beschreibung</string>
+    <string name="bookmark_description_hint">Optional</string>
+    <string name="bookmark_add_to_chat">Zu diesem Chat hinzufügen</string>
+    <string name="bookmark_create">Erstellen</string>
+    <string name="bookmark_save">Speichern</string>
+    <string name="bookmark_saving">Wird gespeichert…</string>
+    <string name="bookmark_cancel">Abbrechen</string>
+    <string name="bookmark_error_blank">Gib einen Namen ein</string>
+    <string name="bookmark_error_duplicate">Du hast bereits ein Lesezeichen mit diesem Namen</string>
+    <string name="bookmark_error_reserved">„Saved“ ist für Favoriten reserviert. Wähle einen anderen Namen.</string>
+    <string name="bookmark_char_counter">%1$d/%2$d</string>
+    <string name="bookmarks_none_yet">Noch keine Lesezeichen</string>
+    <string name="bookmarks_no_match">Keine Lesezeichen passen zu „%1$s“</string>
+    <string name="search_bookmarks">Lesezeichen durchsuchen</string>
+    <string name="cd_bookmarked">Hinzugefügt</string>
+    <string name="cd_not_bookmarked">Nicht hinzugefügt</string>
+    <plurals name="bookmark_chat_count">
+        <item quantity="one">%1$d Chat</item>
+        <item quantity="other">%1$d Chats</item>
+    </plurals>
+    <plurals name="bookmark_error_too_long">
+        <item quantity="one">Höchstens %1$d Zeichen</item>
+        <item quantity="other">Höchstens %1$d Zeichen</item>
+    </plurals>
 </resources>

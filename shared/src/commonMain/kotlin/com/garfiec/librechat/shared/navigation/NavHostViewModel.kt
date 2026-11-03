@@ -186,6 +186,10 @@ class NavHostViewModel(
     // cold transition flow restarted in that gap would silently swallow a flip that landed mid-gap.
     val accountState: StateFlow<AccountState> = activeAccountProvider.state
 
+    /** The active account's server, for UI loading what the server serves (provider art). */
+    val serverUrl: StateFlow<String?> = configRepository.serverUrl
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     // The signed-in accounts for the drawer chip + switcher sheet: active entry first, the rest by
     // recency (matching "switch to most-recently-active" on remove). Account identity + switching
     // stay in the nav shell; only the drawer *renders* this list ([AccountUiModel] lives with the
@@ -455,10 +459,10 @@ class NavHostViewModel(
     private fun activeAccountId(): String? =
         (activeAccountProvider.state.value as? AccountState.Resolved)?.id?.value
 
-    /** Remove an account and all its local data. Removing the active one switches to the
-     *  most-recently-active survivor, or routes to auth when it was the last. */
+    /** Sign an account out on its server and remove it with all its local data. Removing the active
+     *  one switches to the most-recently-active survivor, or routes to auth when it was the last. */
     fun removeAccount(accountId: String) {
-        viewModelScope.launch { accountSwitcher.remove(accountId) }
+        viewModelScope.launch { authRepository.removeAccount(accountId) }
     }
 
     /** Abandon any in-progress add-account flow; no-op when none is pending. Driven by the NavHost

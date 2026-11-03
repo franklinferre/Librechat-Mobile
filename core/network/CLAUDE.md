@@ -243,7 +243,7 @@ Four rules that are load-bearing and easy to undo by accident:
   every refresh overwrites, so a value snapshotted before a rotation is already rejected — with a
   **403**, not a 401. Read it at attach time, keyed to the snapshot's `accountId`, and let the
   one-shot 403 retry (re-read, resend only if it *changed*) absorb the race. It is deliberately not
-  on `RequestIdentity` and not on `TokenManager`: `ImageCookieCredentials` is a one-method seam bound
+  on `RequestIdentity` and not on `TokenManager`: `RefreshCookieCredentials` is a one-method seam bound
   to the token store, so the six `TokenManager` fakes never gain a second credential.
 
 Gating is `isSameServerAuthority` (scheme + host + port, fail-closed) plus a **base-path-aware** path
@@ -284,3 +284,23 @@ deployment's mount at all. A null or pending account attaches nothing.
 - Convention plugins: `librechat.mobile.library` + `librechat.mobile.koin` + `librechat.kotlin.serialization`.
 - API services must not contain business logic -- they are thin HTTP wrappers.
 - All `arg`-wrapped endpoints must match the backend pattern `{ "arg": { ... } }`. Build it as a `@Serializable` wrapper class (see `ConvoUpdateBody`) or with `buildJsonObject`, **never as a `Map<String, Any>`**. Ktor picks a map's serializer from its values, so a map that nests an object beside a string throws "Serializing collections of different element types" before the request is sent, and `safeApiCall` turns that into a generic error rather than a crash. A map is safe only when every value has one type (e.g. `mapOf("refreshToken" to token)`).
+
+## OpenID token reuse (issue #653)
+
+`OpenIdCookiePlugin` runs on the main, streaming and refresh clients, before `ServerHeadersPlugin`.
+It attaches `token_provider=openid` and the opaque `openid_user_id` from the request's own identity;
+it never reads an active account in place of a pending or captured identity. Explicit refresh,
+logout and image requests use `attachAuthCookies` to send the complete cookie bundle. Only those
+paths send a refresh token. Redirect sends strip app cookies outside the captured authority or
+deployment root. Gateway cookies merge into one header; app-owned cookie values win.
+
+`CookieHelper.update` preserves omitted cookies, handles explicit expiry/provider changes, and
+rejects an OpenID refresh rotation without its replacement user marker. The marker is a
+server-signed user-id JWT, not derived from the refresh token. The server reissues it whenever it
+rotates the refresh token (`setOpenIDAuthTokens`); its session-reuse branch answers 200 with no
+auth cookies, so a refresh that rotates nothing keeps the previous marker. Treat it as opaque: do
+not reconstruct, decode or independently persist it. Parse response cookies through Ktor's
+`HttpMessage.setCookie()`: Foundation combines repeated fields, and `Expires` contains commas that
+cannot be split blindly. `refreshBearerFor` updates both bearer and marker on retry. The raw iOS
+SSE path bypasses these plugins and uses the shared `sseCustomHeaderLines` renderer, including
+after renewal. Never add a process-wide cookie jar.

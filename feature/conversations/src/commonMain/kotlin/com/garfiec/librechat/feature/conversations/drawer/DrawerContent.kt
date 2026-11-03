@@ -8,6 +8,7 @@ import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -53,6 +54,7 @@ import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -64,16 +66,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddComment
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -99,19 +97,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
@@ -125,6 +128,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.common.datetime.listLabel
@@ -133,19 +137,15 @@ import com.garfiec.librechat.core.data.search.FtsQueryPlan
 import com.garfiec.librechat.core.data.search.MessageSearchHit
 import com.garfiec.librechat.core.data.search.TitleMatch
 import com.garfiec.librechat.core.model.ChatProject
-import com.garfiec.librechat.core.model.SAVED_TAG
 import com.garfiec.librechat.core.ui.components.AdaptiveCircularProgressIndicator
 import com.garfiec.librechat.core.ui.components.AdaptiveDivider
+import com.garfiec.librechat.core.ui.components.DragSelectRowShape
 import com.garfiec.librechat.core.ui.components.EndpointIcon
-import com.garfiec.librechat.core.ui.components.ListDragSelection
 import com.garfiec.librechat.core.ui.components.MenuDragSelection
 import com.garfiec.librechat.core.ui.components.adaptiveSelectedRowColor
 import com.garfiec.librechat.core.ui.components.dragSelectRow
-import com.garfiec.librechat.core.ui.components.dragSelectRowIcon
-import com.garfiec.librechat.core.ui.components.listDragSelection
 import com.garfiec.librechat.core.ui.components.menuDragAnchor
 import com.garfiec.librechat.core.ui.components.pressBounce
-import com.garfiec.librechat.core.ui.components.rememberListDragSelection
 import com.garfiec.librechat.core.ui.components.rememberMenuDragSelection
 import com.garfiec.librechat.core.ui.components.rememberPressBounce
 import com.garfiec.librechat.core.ui.datetime.LocalDateTimeFormat
@@ -155,6 +155,7 @@ import com.garfiec.librechat.core.ui.glass.GlassControlColors
 import com.garfiec.librechat.core.ui.theme.isLiquidGlass
 import com.garfiec.librechat.core.ui.theme.isSurfaceDark
 import com.garfiec.librechat.core.ui.theme.searchMatchColor
+import com.garfiec.librechat.feature.conversations.components.BookmarkPickerHost
 import com.garfiec.librechat.feature.conversations.components.ConversationActionDialogs
 import com.garfiec.librechat.feature.conversations.components.ConversationActionEffects
 import com.garfiec.librechat.feature.conversations.components.ConversationActionsMenu
@@ -164,12 +165,13 @@ import com.garfiec.librechat.feature.conversations.components.ProjectMenuButton
 import com.garfiec.librechat.feature.conversations.components.ProjectPicker
 import com.garfiec.librechat.feature.conversations.components.ProjectTile
 import com.garfiec.librechat.feature.conversations.components.ShareLinkSheetHost
-import com.garfiec.librechat.feature.conversations.components.TagPicker
+import com.garfiec.librechat.feature.conversations.components.excludedFromReorder
+import com.garfiec.librechat.feature.conversations.components.lazyReorder
+import com.garfiec.librechat.feature.conversations.components.rememberLazyReorderState
+import com.garfiec.librechat.feature.conversations.components.rememberPickUpHaptic
 import com.garfiec.librechat.feature.conversations.export.ExportFormat
 import com.garfiec.librechat.feature.conversations.export.ExportFormatPicker
 import com.garfiec.librechat.feature.conversations.resources.Res
-import com.garfiec.librechat.feature.conversations.resources.agents
-import com.garfiec.librechat.feature.conversations.resources.bookmark
 import com.garfiec.librechat.feature.conversations.resources.cd_close_search
 import com.garfiec.librechat.feature.conversations.resources.cd_collapse_section
 import com.garfiec.librechat.feature.conversations.resources.cd_conversation_actions
@@ -177,28 +179,27 @@ import com.garfiec.librechat.feature.conversations.resources.cd_expand_section
 import com.garfiec.librechat.feature.conversations.resources.cd_open_search
 import com.garfiec.librechat.feature.conversations.resources.cd_search
 import com.garfiec.librechat.feature.conversations.resources.drawer_running_chats
+import com.garfiec.librechat.feature.conversations.resources.favorite
 import com.garfiec.librechat.feature.conversations.resources.favorites
-import com.garfiec.librechat.feature.conversations.resources.files
 import com.garfiec.librechat.feature.conversations.resources.new_chat
 import com.garfiec.librechat.feature.conversations.resources.no_conversations_found
 import com.garfiec.librechat.feature.conversations.resources.pinned
 import com.garfiec.librechat.feature.conversations.resources.project_create_confirm
 import com.garfiec.librechat.feature.conversations.resources.project_edit
+import com.garfiec.librechat.feature.conversations.resources.project_move_down
+import com.garfiec.librechat.feature.conversations.resources.project_move_up
 import com.garfiec.librechat.feature.conversations.resources.project_new
 import com.garfiec.librechat.feature.conversations.resources.project_new_chat_in
 import com.garfiec.librechat.feature.conversations.resources.project_unassigned
 import com.garfiec.librechat.feature.conversations.resources.projects
 import com.garfiec.librechat.feature.conversations.resources.projects_all
-import com.garfiec.librechat.feature.conversations.resources.projects_see_all
-import com.garfiec.librechat.feature.conversations.resources.remove_bookmark
+import com.garfiec.librechat.feature.conversations.resources.remove_favorite
 import com.garfiec.librechat.feature.conversations.resources.save
-import com.garfiec.librechat.feature.conversations.resources.schedules
 import com.garfiec.librechat.feature.conversations.resources.search_open_all
 import com.garfiec.librechat.feature.conversations.resources.search_title
 import com.garfiec.librechat.feature.conversations.resources.settings
 import com.garfiec.librechat.feature.conversations.resources.show_less
 import com.garfiec.librechat.feature.conversations.resources.show_more
-import com.garfiec.librechat.feature.conversations.resources.skills
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -218,8 +219,10 @@ private val ActiveIndicatorShape = RoundedCornerShape(2.dp)
 // Pulls a tappable drawer row in from the edges and clips its ripple to [ItemShape], so every row
 // reads as the same inset, rounded button instead of a full-bleed rectangular highlight. Apply
 // before .clickable so the indication is bounded by the rounded shape.
-private fun Modifier.drawerRowShape(): Modifier =
-    padding(horizontal = 4.dp, vertical = 1.dp).clip(ItemShape)
+private fun Modifier.drawerRowShape(): Modifier = drawerRowInset().clip(ItemShape)
+
+/** [drawerRowShape]'s inset alone, for a row that draws a shadow between the inset and the clip. */
+private fun Modifier.drawerRowInset(): Modifier = padding(horizontal = 4.dp, vertical = 1.dp)
 
 private const val STAR_SWELL = 0.35f
 
@@ -240,10 +243,7 @@ fun DrawerContent(
     onNewChat: () -> Unit,
     onConversationClick: (String) -> Unit,
     onSettingsClick: () -> Unit,
-    onAgentsClick: () -> Unit,
-    onFilesClick: () -> Unit,
-    onSkillsClick: () -> Unit,
-    onSchedulesClick: () -> Unit,
+    onWorkspaceClick: (WorkspaceDestination) -> Unit,
     accounts: List<AccountUiModel>,
     modifier: Modifier = Modifier,
     onOpenProjectsIndex: () -> Unit = {},
@@ -269,16 +269,20 @@ fun DrawerContent(
     // Opens the full Search screen with the drawer's query; null hides both ways in (the field's
     // expand button and "See all").
     onOpenSearch: ((String) -> Unit)? = null,
+    // The Workspace destination open in the tablet's content pane, highlighted in the footer. Null on
+    // a phone, and while a chat is open.
+    currentWorkspace: WorkspaceDestination? = null,
     viewModel: DrawerViewModel = koinViewModel(),
+    pinsViewModel: WorkspacePinsViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.drawerUiState.collectAsStateWithLifecycle()
     // The field reads the query straight from its own state flow: the combined UI state carries it
     // a frame or more later, and a field showing that copy drops keystrokes typed in between.
     val searchFieldText by viewModel.searchQuery.collectAsStateWithLifecycle()
     val projects by viewModel.projects.collectAsStateWithLifecycle()
-    val hasMoreProjects by viewModel.hasMoreProjects.collectAsStateWithLifecycle()
     val inlineProjectChats by viewModel.inlineProjectChats.collectAsStateWithLifecycle()
     val libraryTab by viewModel.drawerLibraryTab.collectAsStateWithLifecycle()
+    val workspace by viewModel.workspace.collectAsStateWithLifecycle()
 
     // Drives the Running group's active-jobs poll: on only while this surface is open and started.
     LifecycleStartEffect(viewModel, isOpen) {
@@ -298,6 +302,7 @@ fun DrawerContent(
             showAccountSheet = false
             removeAccountTarget = null
             viewModel.closeShareSheet()
+            viewModel.bookmarkPicker.close()
         }
     }
     LaunchedEffect(isOpen, libraryTab) {
@@ -317,7 +322,7 @@ fun DrawerContent(
         uiState = uiState,
         searchFieldText = searchFieldText,
         viewMemory = viewModel.viewMemory,
-        footerContent = { dragSelection ->
+        footerContent = {
             val active = accounts.firstOrNull { it.isActive }
             Spacer(modifier = Modifier.height(8.dp))
             // Footer row: Settings (icon + label) on the left takes the width; the account avatar
@@ -339,7 +344,6 @@ fun DrawerContent(
                     icon = Icons.Default.Settings,
                     label = stringResource(Res.string.settings),
                     onClick = onSettingsClick,
-                    dragSelection = dragSelection,
                     modifier = Modifier.weight(1f),
                 )
                 if (active != null) {
@@ -372,11 +376,13 @@ fun DrawerContent(
             }
         },
         onOpenSearch = onOpenSearch,
-        onAgentsClick = onAgentsClick,
-        onFilesClick = onFilesClick,
-        onSkillsClick = onSkillsClick,
-        onSchedulesClick = onSchedulesClick,
-        onToggleFavorite = { data -> viewModel.toggleFavorite(data.conversationId, data.tags) },
+        onWorkspaceClick = onWorkspaceClick,
+        workspace = workspace,
+        currentWorkspace = currentWorkspace,
+        onPinWorkspace = pinsViewModel::pin,
+        onUnpinWorkspace = pinsViewModel::unpin,
+        onReorderWorkspacePins = pinsViewModel::reorder,
+        onToggleFavorite = { data -> viewModel.setFavorite(data.conversationId, favorite = !data.isFavorite) },
         onRefresh = viewModel::refreshConversations,
         onLoadMore = viewModel::loadMoreConversations,
         onRename = { id, newTitle -> viewModel.renameConversation(id, newTitle) },
@@ -384,7 +390,6 @@ fun DrawerContent(
         onDelete = viewModel::deleteConversation,
         onPin = viewModel::pinConversation,
         projects = projects,
-        hasMoreProjects = hasMoreProjects,
         onLoadProjects = { viewModel.reloadProjects() },
         onMoveToProject = viewModel::moveConversationToProject,
         onCreateProjectAndAssign = viewModel::createProjectAndAssign,
@@ -393,19 +398,22 @@ fun DrawerContent(
         onSelectTab = viewModel::setDrawerLibraryTab,
         inlineProjectChats = inlineProjectChats,
         onToggleProject = viewModel::toggleProjectExpanded,
+        onPickUpProject = viewModel::closeExpandedProject,
+        onReorderProjects = viewModel::reorderProjects,
         onCreateProject = viewModel::createProject,
         onEditProject = viewModel::editProject,
         onNewChatInProject = onNewChatInProject,
         onDeleteProject = viewModel::deleteProject,
         onShare = viewModel::shareConversation,
         onDuplicate = { id, title -> viewModel.duplicateConversation(id, title) },
-        onUpdateTags = { data, tags -> viewModel.updateConversationTags(data.conversationId, data.tags, tags) },
+        onOpenBookmarks = { data -> viewModel.openBookmarks(data.conversationId) },
         onExportFormat = { data, format -> viewModel.exportConversation(data.conversationId, data.title, format) },
         modifier = modifier,
         isOpen = isOpen,
     )
 
     ShareLinkSheetHost(controller = viewModel.shareLink, onDismiss = viewModel::closeShareSheet)
+    BookmarkPickerHost(controller = viewModel.bookmarkPicker)
 
     if (showAccountSheet) {
         AccountSwitcherSheet(
@@ -446,15 +454,17 @@ fun DrawerContent(
     onSearchQueryChange: (String) -> Unit,
     onNewChat: () -> Unit,
     onConversationClick: (String) -> Unit,
-    onAgentsClick: () -> Unit,
-    onFilesClick: () -> Unit,
-    onSkillsClick: () -> Unit,
-    onSchedulesClick: () -> Unit,
+    onWorkspaceClick: (WorkspaceDestination) -> Unit,
     modifier: Modifier = Modifier,
-    // Slot below the footer links (Files, Agents, …) — the stateful wrapper puts the Settings row
-    // and the account avatar here, at the bottom of the drawer. Its rows join the footer links'
-    // drag-to-select through the [ListDragSelection] it's given.
-    footerContent: (@Composable (ListDragSelection?) -> Unit)? = null,
+    // Slot below the Workspace row and the pinned rows — the stateful wrapper puts the Settings row
+    // and the account avatar here, at the bottom of the drawer.
+    footerContent: (@Composable () -> Unit)? = null,
+    /** The Workspace row's destinations and the ones pinned under it, in the user's order. */
+    workspace: WorkspaceUiState = workspaceUiState(WorkspaceDestination.entries, storedIds = emptyList()),
+    currentWorkspace: WorkspaceDestination? = null,
+    onPinWorkspace: (WorkspaceDestination) -> Unit = {},
+    onUnpinWorkspace: (WorkspaceDestination) -> Unit = {},
+    onReorderWorkspacePins: (List<WorkspaceDestination>) -> Unit = {},
     onMessageHitClick: (MessageSearchHit) -> Unit = {},
     onOpenSearch: ((String) -> Unit)? = null,
     onToggleFavorite: (DrawerConversationDisplayData) -> Unit = {},
@@ -465,7 +475,6 @@ fun DrawerContent(
     onDelete: (String) -> Unit = {},
     onPin: (String, Boolean) -> Unit = { _, _ -> },
     projects: List<ChatProject> = emptyList(),
-    hasMoreProjects: Boolean = false,
     onLoadProjects: () -> Unit = {},
     onMoveToProject: (String, String?) -> Unit = { _, _ -> },
     onCreateProjectAndAssign: (String, String) -> Unit = { _, _ -> },
@@ -477,13 +486,17 @@ fun DrawerContent(
     onSelectTab: (DrawerTab) -> Unit = {},
     inlineProjectChats: InlineProjectChatsState = InlineProjectChatsState(),
     onToggleProject: (String) -> Unit = {},
+    // Switchboard-only custom folder order: a folder was picked up / dropped in its new place.
+    onPickUpProject: () -> Unit = {},
+    onReorderProjects: (orderedIds: List<String>) -> Unit = {},
     onCreateProject: (String, String) -> Unit = { _, _ -> },
     onEditProject: (String, String, String) -> Unit = { _, _, _ -> },
     onDeleteProject: (String) -> Unit = {},
     onNewChatInProject: (projectId: String, projectName: String) -> Unit = { _, _ -> },
     onShare: (String) -> Unit = {},
     onDuplicate: (String, String) -> Unit = { _, _ -> },
-    onUpdateTags: (DrawerConversationDisplayData, List<String>) -> Unit = { _, _ -> },
+    /** Opens the row's bookmark checklist (the stateful drawer hosts it). */
+    onOpenBookmarks: (DrawerConversationDisplayData) -> Unit = {},
     onExportFormat: (DrawerConversationDisplayData, ExportFormat) -> Unit = { _, _ -> },
     /** What the search field shows: the query as typed, ahead of [uiState]'s copy of it. */
     searchFieldText: String = uiState.searchQuery,
@@ -500,7 +513,6 @@ fun DrawerContent(
     // so they survive the per-row menu — which is composed only for the open row — leaving the tree.
     var renameTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
     var deleteTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
-    var tagPickerTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
     var exportPickerTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
     var projectPickerTarget by remember { mutableStateOf<DrawerConversationDisplayData?>(null) }
 
@@ -823,7 +835,7 @@ fun DrawerContent(
                             onDismiss = { menuRowKey = null },
                             title = data.title,
                             offset = menuOffset,
-                            isBookmarked = data.isFavorite,
+                            isFavorite = data.isFavorite,
                             bookmarksEnabled = uiState.bookmarksEnabled,
                             isPinned = data.isPinned,
                             showPinAction = uiState.pinEnabled,
@@ -834,13 +846,13 @@ fun DrawerContent(
                                 projectPickerTarget = data
                             },
                             showShareAction = uiState.sharedLinksEnabled,
-                            onBookmarkToggle = { onToggleFavorite(data) },
+                            onFavoriteToggle = { onToggleFavorite(data) },
                             onRenameRequest = { renameTarget = data },
                             onArchive = { onArchive(data.conversationId) },
                             onDeleteRequest = { deleteTarget = data },
                             onShare = { onShare(data.conversationId) },
                             onDuplicate = { newTitle -> onDuplicate(data.conversationId, newTitle) },
-                            onTags = { tagPickerTarget = data },
+                            onBookmarks = { onOpenBookmarks(data) },
                             onExport = { exportPickerTarget = data },
                             dragSelection = menuDrag,
                         )
@@ -1054,9 +1066,10 @@ fun DrawerContent(
         if (showProjects) {
             DrawerProjectsList(
                 projects = projects,
-                hasMoreProjects = hasMoreProjects,
                 inlineProjectChats = inlineProjectChats,
                 onToggleProject = onToggleProject,
+                onPickUpProject = onPickUpProject,
+                onReorderProjects = onReorderProjects,
                 onOpenProjectsIndex = onOpenProjectsIndex,
                 onCreateProject = onCreateProject,
                 onEditProject = onEditProject,
@@ -1077,48 +1090,22 @@ fun DrawerContent(
                 color = MaterialTheme.colorScheme.outlineVariant,
             )
 
-            val dragSelection = rememberListDragSelection()
-            val footerScroll = rememberScrollState()
-            // Only once the links overflow do they scroll; until then a vertical drag is drag-select.
-            val footerScrolls = footerScroll.maxValue > 0
             Column(
                 modifier = Modifier
                     .atMostHalfTheRoomLeft()
-                    .verticalScroll(footerScroll, enabled = footerScrolls)
-                    .listDragSelection(dragSelection, holdOnly = footerScrolls),
+                    .verticalScroll(rememberScrollState()),
             ) {
-                if (uiState.agentsEntryVisible) {
-                    DrawerFooterItem(
-                        icon = Icons.Default.SmartToy,
-                        label = stringResource(Res.string.agents),
-                        onClick = onAgentsClick,
-                        dragSelection = dragSelection,
-                    )
-                }
-                if (uiState.skillsEnabled) {
-                    DrawerFooterItem(
-                        icon = Icons.Default.Extension,
-                        label = stringResource(Res.string.skills),
-                        onClick = onSkillsClick,
-                        dragSelection = dragSelection,
-                    )
-                }
-                if (uiState.schedulesEnabled) {
-                    DrawerFooterItem(
-                        icon = Icons.Default.Schedule,
-                        label = stringResource(Res.string.schedules),
-                        onClick = onSchedulesClick,
-                        dragSelection = dragSelection,
-                    )
-                }
-                DrawerFooterItem(
-                    icon = Icons.Default.Folder,
-                    label = stringResource(Res.string.files),
-                    onClick = onFilesClick,
-                    dragSelection = dragSelection,
+                WorkspaceFooterRows(
+                    workspace = workspace,
+                    current = currentWorkspace,
+                    onOpen = onWorkspaceClick,
+                    onPin = onPinWorkspace,
+                    onUnpin = onUnpinWorkspace,
+                    onReorderPins = onReorderWorkspacePins,
+                    isOpen = isOpen,
                 )
 
-                footerContent?.invoke(dragSelection)
+                footerContent?.invoke()
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -1144,15 +1131,6 @@ fun DrawerContent(
 
     // Secondary pickers opened from the long-press action menu. Rendered as overlay bottom
     // sheets, so their position in the tree doesn't matter.
-    tagPickerTarget?.let { target ->
-        TagPicker(
-            availableTags = uiState.availableTags,
-            currentTags = target.tags.filterNot { it == SAVED_TAG },
-            onTagsChange = { newTags -> onUpdateTags(target, newTags) },
-            onDismiss = { tagPickerTarget = null },
-        )
-    }
-
     exportPickerTarget?.let { target ->
         ExportFormatPicker(
             onFormatSelect = { format ->
@@ -1327,9 +1305,10 @@ private val NewChatStartPadding = 16.dp
 @Composable
 private fun DrawerProjectsList(
     projects: List<ChatProject>,
-    hasMoreProjects: Boolean,
     inlineProjectChats: InlineProjectChatsState,
     onToggleProject: (String) -> Unit,
+    onPickUpProject: () -> Unit,
+    onReorderProjects: (orderedIds: List<String>) -> Unit,
     onOpenProjectsIndex: () -> Unit,
     onCreateProject: (name: String, description: String) -> Unit,
     onEditProject: (projectId: String, name: String, description: String) -> Unit,
@@ -1378,7 +1357,38 @@ private fun DrawerProjectsList(
         }
     }
 
-    LazyColumn(modifier = modifier.fillMaxWidth()) {
+    val listState = rememberLazyListState()
+    val reorder = rememberLazyReorderState(listState)
+    val projectIds = remember(projects) { projects.map { it.id } }
+    val currentProjectIds by rememberUpdatedState(projectIds)
+    LaunchedEffect(projects) { reorder.onItemsChanged() }
+    val byId = remember(projects) { projects.associateBy { it.id } }
+    val indexOf = remember(projectIds) { projectIds.withIndex().associate { it.value to it.index } }
+    val shownIds = reorder.shownIds(projectIds)
+    val shownProjects = remember(shownIds, byId) { shownIds.mapNotNull(byId::get) }
+    val pickUp = rememberPickUpHaptic(onPickUpProject)
+    val currentOnReorder by rememberUpdatedState(onReorderProjects)
+    val moveUpLabel = stringResource(Res.string.project_move_up)
+    val moveDownLabel = stringResource(Res.string.project_move_down)
+    val moveBy: (String, Int) -> Unit = { id, by ->
+        val from = indexOf[id] ?: -1
+        val to = from + by
+        if (from >= 0 && to in projectIds.indices) {
+            onReorderProjects(projectIds.toMutableList().apply { add(to, removeAt(from)) })
+        }
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = modifier
+            .fillMaxWidth()
+            .lazyReorder(
+                state = reorder,
+                ids = { currentProjectIds },
+                onPickUp = pickUp,
+                onDrop = { currentOnReorder(it) },
+            ),
+    ) {
         // Action row: link to the full-page index (advanced controls) + create a new folder.
         item(key = "projects_actions") {
             Row(
@@ -1431,8 +1441,25 @@ private fun DrawerProjectsList(
             )
         }
 
-        items(items = projects, key = { it.id }) { folder ->
+        items(items = shownProjects, key = { it.id }) { folder ->
+            val held = reorder.heldId == folder.id
+            val index = indexOf[folder.id] ?: -1
             ProjectFolderAccordion(
+                modifier = Modifier
+                    // The held row follows the finger; the rest slide aside to open its new slot.
+                    .then(if (held) Modifier else Modifier.animateItem())
+                    .zIndex(if (held) 1f else 0f)
+                    .graphicsLayer { translationY = reorder.translationOf(folder.id) }
+                    .semantics {
+                        customActions = buildList {
+                            if (index > 0) add(CustomAccessibilityAction(moveUpLabel) { moveBy(folder.id, -1); true })
+                            if (index in 0 until projectIds.lastIndex) {
+                                add(CustomAccessibilityAction(moveDownLabel) { moveBy(folder.id, 1); true })
+                            }
+                        }
+                    },
+                lifted = held,
+                onHeaderSizeChange = { reorder.onHeaderSizeChange(folder.id, it) },
                 name = folder.name,
                 conversationCount = folder.conversationCount,
                 leading = { ProjectTile(projectId = folder.id, name = folder.name, size = 20.dp) },
@@ -1442,6 +1469,8 @@ private fun DrawerProjectsList(
                 menuContent = {
                     // Laid out at the slot's size; M3 still gives it a full-size touch target.
                     ProjectMenuButton(
+                        // Holding the ⋮ opens its menu; without this the folder would lift too.
+                        modifier = Modifier.excludedFromReorder(reorder),
                         buttonSize = ProjectMenuSlot,
                         onNewChat = { onNewChatInProject(folder.id, folder.name) },
                         onEdit = { editTarget = folder },
@@ -1450,22 +1479,6 @@ private fun DrawerProjectsList(
                 },
                 expandedContent = { expandedChats(folder.id) },
             )
-        }
-
-        if (hasMoreProjects) {
-            item(key = "projects_more") {
-                TextButton(
-                    onClick = onOpenProjectsIndex,
-                    modifier = Modifier.padding(start = 4.dp, top = 4.dp),
-                ) {
-                    Text(
-                        text = stringResource(Res.string.projects_see_all),
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
         }
     }
 
@@ -1524,18 +1537,28 @@ private fun ProjectFolderAccordion(
     menuContent: (@Composable () -> Unit)? = null,
     /** The selected project (the open folder), which the drawer's New chat files into. */
     highlighted: Boolean = false,
+    /** Held by a reorder drag: drawn raised above the rows it passes over. */
+    lifted: Boolean = false,
+    /** The folder row's height in px, without its chats: a reorder picks up only from the row. */
+    onHeaderSizeChange: ((Int) -> Unit)? = null,
 ) {
     val chevronRotation by animateFloatAsState(
         targetValue = if (expanded) 0f else -90f,
         label = "ProjectChevronRotation",
     )
+    val liftElevation by animateDpAsState(if (lifted) 6.dp else 0.dp, label = "ProjectLiftElevation")
     Column(modifier = modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .drawerRowShape()
+                .then(if (onHeaderSizeChange != null) Modifier.onSizeChanged { onHeaderSizeChange(it.height) } else Modifier)
+                .drawerRowInset()
+                // Opaque while held: the rows it passes over must not show through it.
+                .shadow(liftElevation, ItemShape)
+                .clip(ItemShape)
+                .background(if (lifted) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent)
                 .background(
-                    if (highlighted) adaptiveSelectedRowColor else Color.Transparent,
+                    if (highlighted || lifted) adaptiveSelectedRowColor else Color.Transparent,
                 )
                 .clickable(onClick = onToggle)
                 .padding(start = 4.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
@@ -1592,11 +1615,12 @@ private fun ProjectFolderAccordion(
 private fun DrawerConversationItem(
     data: DrawerConversationDisplayData,
     onClick: () -> Unit,
+    /** Bookmarks are on: the favorite star shows, leading (when favorited) and as the toggle. */
+    showBookmarkToggle: Boolean,
     modifier: Modifier = Modifier,
     onToggleFavorite: () -> Unit = {},
     onLongPress: () -> Unit = {},
     onMenuCancel: () -> Unit = {},
-    showBookmarkToggle: Boolean = true,
     // While searching: the query, so the title's matching words are marked.
     searchQuery: String? = null,
     menuContent: @Composable (DpOffset, MenuDragSelection) -> Unit = { _, _ -> },
@@ -1661,7 +1685,7 @@ private fun DrawerConversationItem(
                 Spacer(modifier = Modifier.width(8.dp))
             }
 
-            if (data.isFavorite) {
+            if (showBookmarkToggle && data.isFavorite) {
                 Icon(
                     imageVector = Icons.Default.Star,
                     contentDescription = null,
@@ -1670,8 +1694,9 @@ private fun DrawerConversationItem(
                 )
             } else {
                 EndpointIcon(
-                    endpointName = data.endpoint,
+                    endpointName = data.iconEndpoint,
                     iconUrl = data.endpointIconUrl,
+                    provider = data.iconProvider,
                     size = 18.dp,
                     glyphTint = if (data.isActive) {
                         MaterialTheme.colorScheme.primary
@@ -1741,9 +1766,9 @@ private fun DrawerConversationItem(
                 Icon(
                     imageVector = if (data.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
                     contentDescription = if (data.isFavorite) {
-                        stringResource(Res.string.remove_bookmark)
+                        stringResource(Res.string.remove_favorite)
                     } else {
-                        stringResource(Res.string.bookmark)
+                        stringResource(Res.string.favorite)
                     },
                     modifier = Modifier
                         .size(32.dp)
@@ -1875,19 +1900,21 @@ internal fun DrawerFooterItem(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    dragSelection: ListDragSelection? = null,
+    /** The tablet's content pane shows this row's screen. */
+    selected: Boolean = false,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .dragSelectRow(dragSelection, onClick = onClick)
+            .then(if (selected) Modifier.background(adaptiveSelectedRowColor, DragSelectRowShape) else Modifier)
+            .dragSelectRow(state = null, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            modifier = Modifier.size(20.dp).dragSelectRowIcon(),
+            modifier = Modifier.size(20.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.width(12.dp))

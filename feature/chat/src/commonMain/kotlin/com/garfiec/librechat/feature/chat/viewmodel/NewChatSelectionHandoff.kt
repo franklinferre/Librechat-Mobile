@@ -2,6 +2,8 @@ package com.garfiec.librechat.feature.chat.viewmodel
 
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.request.NO_PARENT
+import com.garfiec.librechat.core.ui.components.ModelParameters
+import com.garfiec.librechat.feature.chat.util.SpecTools
 
 /**
  * In-process, single-slot handoff of the model selection from the NewChat landing
@@ -60,6 +62,13 @@ class NewChatSelectionHandoff {
         val stagedManualSkills: List<String> = emptyList(),
         /** The landing was showing the "skills not sent" notice for [stagedManualSkills]. */
         val skillsNotSentNotice: Boolean = false,
+        /**
+         * The parameters the first turn was sent with (a spec's preset, the user's tweaks), so the
+         * follow-ups send them too. Null when nothing was staged.
+         */
+        val modelParameters: ModelParameters? = null,
+        /** The tools added on top of the spec the first turn was sent on, so the chat keeps them. */
+        val specTools: SpecTools? = null,
     )
 
     private var pending: Selection? = null
@@ -71,6 +80,8 @@ class NewChatSelectionHandoff {
         skillsToggle: Boolean? = null,
         stagedManualSkills: List<String> = emptyList(),
         skillsNotSentNotice: Boolean = false,
+        modelParameters: ModelParameters? = null,
+        specTools: SpecTools? = null,
     ) {
         pending = Selection(
             conversationId = conversationId,
@@ -79,6 +90,8 @@ class NewChatSelectionHandoff {
             skillsToggle = skillsToggle,
             stagedManualSkills = stagedManualSkills,
             skillsNotSentNotice = skillsNotSentNotice,
+            modelParameters = modelParameters,
+            specTools = specTools,
         )
     }
 

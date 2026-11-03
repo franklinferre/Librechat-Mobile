@@ -1,8 +1,13 @@
 package com.garfiec.librechat.core.model
 
+import com.garfiec.librechat.core.model.media.ProviderId
+import com.garfiec.librechat.core.model.media.isImageUrl
+import com.garfiec.librechat.core.model.media.resolveIconSource
+import com.garfiec.librechat.core.model.media.resolveProviderIcon
 import com.garfiec.librechat.core.model.serializer.LenientInstantSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlin.time.Instant
 
 @Serializable
@@ -38,13 +43,16 @@ data class Conversation(
      */
     val isShared: Boolean? = null,
     val temperature: Double? = null,
-    @SerialName("top_p") val topP: Double? = null,
+    // One field per upstream spelling (`tConversationSchema`), as on [Preset].
+    @SerialName("top_p") val topPSnake: Double? = null,
+    @SerialName("topP") val topPCamel: Double? = null,
     val topK: Int? = null,
     @SerialName("frequency_penalty") val frequencyPenalty: Double? = null,
     @SerialName("presence_penalty") val presencePenalty: Double? = null,
+    @SerialName("max_tokens") val maxTokensSnake: Int? = null,
+    @SerialName("maxTokens") val maxTokensCamel: Int? = null,
     val maxOutputTokens: Int? = null,
     val maxContextTokens: Int? = null,
-    val maxTokens: Int? = null,
     val system: String? = null,
     @SerialName("reasoning_effort") val reasoningEffort: String? = null,
     /** Reasoning mode for Responses-API models (sibling of [reasoningEffort]). */
@@ -64,6 +72,20 @@ data class Conversation(
     @SerialName("url_context") val urlContext: Boolean? = null,
     /** Anthropic prompt-cache duration: `"5m"` | `"1h"` (v0.8.7). Persisted per-conversation. */
     val promptCacheTtl: String? = null,
+    val promptPrefix: String? = null,
+    val modelLabel: String? = null,
+    val chatGptLabel: String? = null,
+    @SerialName("reasoning_summary") val reasoningSummary: String? = null,
+    val verbosity: String? = null,
+    val useResponsesApi: Boolean? = null,
+    val disableStreaming: Boolean? = null,
+    val thinking: Boolean? = null,
+    val thinkingBudget: Int? = null,
+    val promptCache: Boolean? = null,
+    val imageDetail: String? = null,
+    val fileTokenLimit: Int? = null,
+    val region: String? = null,
+    val resendFiles: Boolean? = null,
     /** Whether the conversation is pinned to the top of the list (v0.8.7). */
     val pinned: Boolean? = null,
     /** Chat Project (folder) this conversation is assigned to, or null if unassigned (v0.8.7). */
@@ -79,14 +101,46 @@ data class Conversation(
     val createdAt: Instant? = null,
     @Serializable(with = LenientInstantSerializer::class)
     val updatedAt: Instant? = null,
+    /**
+     * Local only: the [updatedAt] this conversation had when its cached parameters were read off
+     * the server. The list route sends no parameters, so a row it refreshed keeps older ones.
+     */
+    @Transient
+    val parametersAsOf: Instant? = null,
 )
 
 /**
- * Resolves the icon URL to display for this conversation, preferring the per-conversation
- * [iconURL] (set by agents/assistants threads) over the per-endpoint URL from
- * [EndpointConfig.iconURL]. Returns null when no URL is available — callers fall through
- * to the bundled brand glyph or Material fallback.
+ * Resolves the icon URL to display for this conversation, as web's `EndpointIcon`: an image
+ * [iconURL] (a spec's or an agent thread's) wins; otherwise the image [EndpointConfig.iconURL] of
+ * the endpoint [iconEndpoint] names. Either is joined to [serverUrl] when it is a rooted, bare or
+ * protocol-relative path, as the picker's icons are ([resolveIconSource]). Returns null when no
+ * image is available (a configured `iconURL` naming a brand reaches the row as [iconProvider]):
+ * callers fall through to the brand glyph or Material fallback.
  */
 fun Conversation.resolveEndpointIconUrl(
     endpointConfigs: Map<String, EndpointConfig>,
-): String? = iconURL ?: endpoint?.let { endpointConfigs[it]?.iconURL }
+    serverUrl: String,
+): String? {
+    val icon = iconURL?.takeIf(::isImageUrl)
+        ?: iconEndpoint(endpointConfigs)?.let { endpointConfigs[it]?.iconURL }?.takeIf(::isImageUrl)
+    return icon?.let { resolveIconSource(it, endpoint, serverUrl).imageUrl }
+}
+
+/**
+ * The endpoint whose glyph stands for this conversation, as web's `getIconEndpoint`: a spec may store
+ * an endpoint's key in [iconURL], which wins over [endpoint] only when [endpointConfigs] lists that
+ * key. Any other [iconURL] (an image, a bare provider name like `"groq"`, blank) leaves [endpoint].
+ *
+ * MIRRORED from `client/src/components/Endpoints/EndpointIcon.tsx` (registered in
+ * `scripts/mirrors.json` as `endpoint-icon-rule`).
+ */
+fun Conversation.iconEndpoint(endpointConfigs: Map<String, EndpointConfig>): String? =
+    iconURL?.takeIf { it.isNotEmpty() && it in endpointConfigs } ?: endpoint
+
+/**
+ * The brand art for this conversation's row: [iconEndpoint]'s by [resolveProviderIcon] (its configured
+ * `iconURL` naming a brand, its served `providerId`, its first-class brand, then its name). Null when
+ * that endpoint's configured icon is an image, or nothing resolves.
+ */
+fun Conversation.iconProvider(endpointConfigs: Map<String, EndpointConfig>): ProviderId? =
+    resolveProviderIcon(iconEndpoint(endpointConfigs), endpointConfigs).provider

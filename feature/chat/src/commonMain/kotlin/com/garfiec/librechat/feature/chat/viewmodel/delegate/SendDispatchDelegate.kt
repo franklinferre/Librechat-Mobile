@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.JsonObject
 import kotlin.time.Clock
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -61,8 +62,15 @@ class SendDispatchDelegate(
     private val launchStream: (Flow<StreamEvent>) -> Unit,
     /** `ComparisonModeDelegate.onSendStart`, before the added conversation is built. */
     private val onComparisonSendStart: () -> Unit,
-    /** `ComparisonModeDelegate.buildAddedConvo` for the parent this turn attaches to. */
-    private val buildAddedConvo: (parentMessageId: String?) -> AddedConversation?,
+    /**
+     * `ComparisonModeDelegate.buildAddedConvo` for the parent this turn attaches to, given the
+     * primary's model-parameter payload (the second model shares its instructions).
+     */
+    private val buildAddedConvo: (
+        parentMessageId: String?,
+        primaryEndpoint: String?,
+        primaryModelParams: JsonObject?,
+    ) -> AddedConversation?,
     /** The project a new chat from this landing is filed into; sent on its first turn only. */
     private val chatProjectId: String? = null,
     private val newChatDraftKey: String = NEW_CHAT_DRAFT_KEY,
@@ -113,7 +121,9 @@ class SendDispatchDelegate(
             choice = state.selection.choice,
             enabledTools = state.enabledTools,
             mcpServerNames = state.selectedMcpServerNames,
+            specTools = state.selection.specTools,
             modelParameters = state.modelParameters,
+            webSearch = requestBuilder.builtInWebSearch(),
             modelParamsPayload = requestBuilder.buildModelParams(),
             ephemeralAgent = requestBuilder.buildEphemeralAgent(),
             dispatch = requestBuilder.currentDispatch(),
@@ -335,11 +345,14 @@ class SendDispatchDelegate(
 
         // Count one "used" tick for the picked model — the real usage signal for the most-used
         // ranking behind home-screen shortcuts. Fires on every dispatched send (live or a drained
-        // queue item, since both land here). Agents are excluded: their selection is an opaque
-        // agentId, which would surface as an unreadable shortcut label.
+        // queue item, since both land here). A spec's sends count as the spec, so its shortcut
+        // reopens it. Bare agents are excluded: their selection is an opaque agentId, which would
+        // surface as an unreadable shortcut label; an agent spec has the spec's.
         val usedModel = spec.model
-        if (spec.endpoint != EndpointConstants.AGENTS && !usedModel.isNullOrBlank()) {
-            handle.scope.launch { settingsDataStore.incrementModelUsage(spec.endpoint, usedModel) }
+        val usedSpec = spec.modelSpec
+        if ((usedSpec != null || spec.endpoint != EndpointConstants.AGENTS) && !usedModel.isNullOrBlank()) {
+            val label = usedSpec?.let { name -> handle.state.modelSpecs?.list?.firstOrNull { it.name == name }?.label }
+            handle.scope.launch { settingsDataStore.incrementModelUsage(spec.endpoint, usedModel, usedSpec, label) }
         }
 
         val conversationId = handle.state.conversationId
@@ -382,7 +395,7 @@ class SendDispatchDelegate(
         beginStreaming(optimisticMessage.messageId, spec)
 
         Logger.d {
-            "sendMessage: webSearch=${spec.modelParameters.webSearch}, " +
+            "sendMessage: webSearch=${spec.webSearch}, " +
                 "endpoint=${spec.endpoint}, " +
                 "model=${spec.model}, spec=${spec.modelSpec}, " +
                 "files=${fileRefs.size}, " +
@@ -397,7 +410,7 @@ class SendDispatchDelegate(
         val effectiveAgentId = spec.agentId
         onComparisonSendStart()
 
-        val effectiveAddedConvo = buildAddedConvo(lastMessageId)
+        val effectiveAddedConvo = buildAddedConvo(lastMessageId, spec.endpoint, spec.modelParamsPayload)
         val stream = chatRepository.startChat(
             text = messageText,
             conversationId = conversationId,
@@ -410,7 +423,7 @@ class SendDispatchDelegate(
             userMessageId = optimisticMessage.messageId,
             parentMessageId = lastMessageId,
             agentId = effectiveAgentId,
-            webSearch = spec.modelParameters.webSearch,
+            webSearch = spec.webSearch,
             files = fileRefs.takeIf { it.isNotEmpty() },
             addedConvo = effectiveAddedConvo,
             ephemeralAgent = spec.ephemeralAgent,

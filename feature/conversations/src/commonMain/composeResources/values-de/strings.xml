@@ -19,9 +19,7 @@
     <string name="cd_search">Suchen</string>
     <string name="cd_clear_search">Suche löschen</string>
     <string name="cd_close_search">Suche schließen</string>
-    <string name="cd_bookmarked">Mit Lesezeichen versehen</string>
     <string name="cd_conversation_actions">Unterhaltungsaktionen</string>
-    <string name="cd_add_tag">Tag hinzufügen</string>
     <string name="cd_hide_tags">Tags ausblenden</string>
     <string name="cd_show_tags">Tags anzeigen</string>
     <string name="cd_clear_filter">Filter löschen</string>
@@ -41,8 +39,6 @@
     <string name="copy_of">Kopie von %1$s</string>
 
     <!-- Conversation actions -->
-    <string name="remove_bookmark">Lesezeichen entfernen</string>
-    <string name="bookmark">Lesezeichen</string>
     <string name="pin">Anheften</string>
     <string name="unpin">Lösen</string>
     <string name="move_to_project">In Projekt verschieben</string>
@@ -59,7 +55,6 @@
     <string name="project_delete_confirm">Projekt "%1$s" löschen? Die Unterhaltungen bleiben erhalten, werden aber aus dem Projekt entfernt.</string>
     <string name="project_unassigned">Ohne Projekt</string>
     <string name="projects_all">Alle Projekte</string>
-    <string name="projects_see_all">Alle Projekte ansehen</string>
     <string name="project_new">Neues Projekt</string>
     <string name="project_name_label">Projektname</string>
     <string name="project_edit">Projekt bearbeiten</string>
@@ -73,19 +68,17 @@
     <string name="projects_search">Projekte durchsuchen</string>
     <string name="project_sort_activity">Letzte Aktivität</string>
     <string name="project_sort_name">Name</string>
+    <string name="project_sort_custom">Eigene Reihenfolge</string>
+    <string name="project_move_up">Nach oben</string>
+    <string name="project_move_down">Nach unten</string>
     <string name="projects_empty_description">Ein Projekt fasst Chats zu einem Thema zusammen. Verschiebe einen Chat über sein Menü in ein Projekt.</string>
     <string name="projects_no_match">Keine Projekte passend zu "%1$s"</string>
-    <string name="tags">Tags</string>
     <string name="rename_conversation">Unterhaltung umbenennen</string>
     <string name="rename_dialog_message">Gib einen neuen Titel für diese Unterhaltung ein.</string>
     <string name="title_label">Titel</string>
     <string name="delete_conversation">Unterhaltung löschen</string>
     <string name="delete_confirmation_message">Möchtest du "%1$s" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.</string>
     <string name="this_conversation">diese Unterhaltung</string>
-
-    <!-- Tag picker -->
-    <string name="no_tags_yet">Noch keine Tags. Füge unten eines hinzu.</string>
-    <string name="add_new_tag">Neues Tag hinzufügen</string>
 
     <!-- Tag filter bar -->
 
@@ -99,6 +92,8 @@
     <!-- Archived conversations screen -->
     <string name="archived_conversations">Archivierte Unterhaltungen</string>
     <string name="could_not_load_archived">Archivierte Unterhaltungen konnten nicht geladen werden</string>
+    <string name="could_not_load_more_archived">Weitere archivierte Chats konnten nicht geladen werden</string>
+    <string name="archived_load_more_retry">Erneut versuchen</string>
     <string name="no_archived_conversations">Keine archivierten Unterhaltungen</string>
     <string name="archived_will_appear_here">Archivierte Unterhaltungen erscheinen hier</string>
 
@@ -237,4 +232,57 @@
         <item quantity="one">%1$d Projekt</item>
         <item quantity="other">%1$d Projekte</item>
     </plurals>
+    <string name="favorite">Zu Favoriten hinzufügen</string>
+    <string name="remove_favorite">Aus Favoriten entfernen</string>
+    <string name="cd_favorited">Favorit</string>
+    <string name="bookmarks_ellipsis">Lesezeichen…</string>
+    <string name="bookmark_update_failed">Lesezeichen konnten nicht aktualisiert werden. Versuche es erneut.</string>
+    <string name="bookmark_create_failed">Lesezeichen konnte nicht erstellt werden. Versuche es erneut.</string>
+    <string name="bookmarks_load_failed">Lesezeichen dieses Chats konnten nicht geladen werden</string>
+    <string name="favorite_update_failed">Favoriten konnten nicht aktualisiert werden. Versuche es erneut.</string>
+    <plurals name="bookmarks_count">
+        <item quantity="one">%1$d Lesezeichen</item>
+        <item quantity="other">%1$d Lesezeichen</item>
+    </plurals>
+    <string name="bookmarks_reorder_hint">Karte gedrückt halten, um sie zu verschieben</string>
+    <string name="bookmark_no_chats">Noch keine Chats</string>
+    <string name="bookmarks_empty_description">Setze Lesezeichen auf Chats, um sie wiederzufinden. Erstelle hier eins oder füge einen Chat über sein Menü hinzu.</string>
+    <string name="bookmark_options">Lesezeichen-Optionen</string>
+    <string name="bookmark_delete">Lesezeichen löschen</string>
+    <string name="bookmark_delete_title">„%1$s“ löschen?</string>
+    <plurals name="bookmark_delete_body">
+        <item quantity="one">Es wird von %1$d Chat entfernt. Der Chat selbst bleibt erhalten.</item>
+        <item quantity="other">Es wird von %1$d Chats entfernt. Die Chats selbst bleiben erhalten.</item>
+    </plurals>
+    <string name="bookmarks_load_error">Lesezeichen konnten nicht geladen werden</string>
+    <string name="bookmark_save_failed">Lesezeichen konnte nicht gespeichert werden. Versuche es erneut.</string>
+    <string name="bookmark_delete_failed">Lesezeichen konnte nicht gelöscht werden. Versuche es erneut.</string>
+    <string name="bookmark_move_failed">Lesezeichen konnte nicht verschoben werden. Versuche es erneut.</string>
+    <string name="bookmark_chats_empty">Keine Chats haben dieses Lesezeichen</string>
+    <string name="bookmark_chats_empty_description">Füge einen Chat über sein Menü unter „Lesezeichen…“ hinzu.</string>
+    <string name="bookmark_chats_load_error">Diese Chats konnten nicht geladen werden</string>
+    <string name="workspace">Arbeitsbereich</string>
+    <string name="workspace_current">Arbeitsbereich · %1$s</string>
+    <string name="workspace_expanded">Ausgeklappt</string>
+    <string name="workspace_collapsed">Eingeklappt</string>
+    <string name="workspace_group_build">Erstellen und automatisieren</string>
+    <string name="workspace_group_data">Deine Daten</string>
+    <string name="workspace_prompts">Prompts</string>
+    <string name="workspace_mcp_servers">MCP-Server</string>
+    <string name="workspace_memories">Erinnerungen</string>
+    <string name="workspace_shared_links">Geteilte Links</string>
+    <string name="workspace_archived">Archiviert</string>
+    <string name="workspace_hint_agents">Assistenten entdecken und erstellen</string>
+    <string name="workspace_hint_skills">Wiederverwendbare Anweisungen für Agenten</string>
+    <string name="workspace_hint_prompts">Gespeicherte Prompts und Vorlagen</string>
+    <string name="workspace_hint_mcp_servers">Tools und Dienste verbinden</string>
+    <string name="workspace_hint_schedules">Chats, die nach Zeitplan laufen</string>
+    <string name="workspace_hint_memories">Was sich der Assistent merkt</string>
+    <string name="workspace_hint_bookmarks">Chats, die du markiert hast</string>
+    <string name="workspace_hint_files">Alles, was du hochgeladen hast</string>
+    <string name="workspace_hint_shared_links">Chats, die du geteilt hast</string>
+    <string name="workspace_hint_archived">Chats, die du weggelegt hast</string>
+    <string name="workspace_pin">%1$s an die Seitenleiste anheften</string>
+    <string name="workspace_unpin">%1$s von der Seitenleiste lösen</string>
+    <string name="workspace_reorder">Zum Neuordnen ziehen</string>
 </resources>

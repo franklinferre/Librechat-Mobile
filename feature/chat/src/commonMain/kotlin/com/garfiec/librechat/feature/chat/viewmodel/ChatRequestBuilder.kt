@@ -1,9 +1,9 @@
 package com.garfiec.librechat.feature.chat.viewmodel
 
-import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.ToolConstants
 import com.garfiec.librechat.core.data.endpoint.EndpointDispatch
 import com.garfiec.librechat.core.model.request.EphemeralAgent
+import com.garfiec.librechat.feature.chat.util.WebSearchRoute
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -35,8 +35,10 @@ class ChatRequestBuilder(
     }
 
     /**
-     * Builds an [EphemeralAgent] from the current UI state (selected MCP servers and
-     * enabled tools). Returns null when there is nothing to send.
+     * Builds an [EphemeralAgent] from the tools in use ([ModelSelectionState.effectiveTools] and
+     * [ModelSelectionState.effectiveMcpServerNames]). Under a spec that is the spec's own tools,
+     * sent explicitly as web does (the server ORs them in anyway), plus the chat's additions;
+     * under `hideBadgeRow`, the spec's alone. Returns null when there is nothing to send.
      */
     fun buildEphemeralAgent(): EphemeralAgent? {
         val state = stateProvider()
@@ -44,15 +46,18 @@ class ChatRequestBuilder(
         // ephemeral tools for agent runs. Mirror web's `showEphemeralBadges` (ChatForm.tsx)
         // and never serialize leftover UI selections on the agents endpoint.
         if (!state.showEphemeralTools) return null
-        val mcpServers = state.selectedMcpServerNames.toList().ifEmpty { null }
-        val enabledTools = state.enabledTools
-        val webSearchEnabled = state.modelParameters.webSearch
+        val mcpServers = state.effectiveMcpServerNames.toList().ifEmpty { null }
+        // Web search rides here only as LibreChat's search; the built-in one is a parameter.
+        val webSearchEnabled = state.webSearchRoute == WebSearchRoute.LIBRECHAT
+        val tools = state.selection.effectiveTools - ToolConstants.URL_CONTEXT
+        val enabledTools = if (webSearchEnabled) tools else tools - ToolConstants.WEB_SEARCH
         // The conversation's own toggle, sent only where it is offered: a model spec that
         // configures skills overrides it server-side, and without the capability or role the
         // server ignores it.
         val skillsOn = state.skillsToggle && state.isSkillsToolAvailable
+        val artifacts = state.activeSpec?.artifactsMode
 
-        val hasAnything = mcpServers != null || enabledTools.isNotEmpty() || webSearchEnabled || skillsOn
+        val hasAnything = mcpServers != null || enabledTools.isNotEmpty() || skillsOn || artifacts != null
         if (!hasAnything) return null
 
         return EphemeralAgent(
@@ -62,9 +67,18 @@ class ChatRequestBuilder(
             executeCode = if (ToolConstants.CODE_INTERPRETER in enabledTools || ToolConstants.EXECUTE_CODE in enabledTools) true else null,
             // Re-check availability rather than trusting the toggle alone: the flag can survive a
             // config/permission change that has since withdrawn memory, and the server would then
-            // silently drop the tools from a run the user believes is remembering.
-            memory = if (ToolConstants.MEMORY in enabledTools && state.isMemoryToolAvailable) true else null,
+            // silently drop the tools from a run the user believes is remembering. A spec's own
+            // memory is sent as it is: the server applies it either way.
+            memory = if (
+                ToolConstants.MEMORY in enabledTools &&
+                (state.isMemoryToolAvailable || ToolConstants.MEMORY in state.lockedTools)
+            ) {
+                true
+            } else {
+                null
+            },
             skills = if (skillsOn) true else null,
+            artifacts = artifacts,
         )
     }
 
@@ -77,20 +91,24 @@ class ChatRequestBuilder(
      */
     fun buildModelParams(): JsonObject? {
         val state = stateProvider()
-        val isAgent = state.selectedEndpoint == EndpointConstants.AGENTS
-        val agent = if (isAgent) state.agents.firstOrNull { it.id == state.selectedModel } else null
+        // The same target the options sheet renders from, so a control it shows is a key sent here.
+        // Its model is the agent's own on the agents endpoint, never the agent id `selectedModel` holds.
+        val target = state.parameterTarget
         return ModelParamPayload.build(
-            endpoint = state.selectedEndpoint,
-            provider = agent?.provider,
-            // The agent's own model, not `selectedModel` — that is the AGENT ID on this endpoint,
-            // and every model-keyed rule in the registry (Bedrock's variant dispatch, the Anthropic
-            // prompt-cache filter, Google's thinking-budget bounds) would resolve against a string
-            // no rule can match. The options sheet already passes the agent's model, so a mismatch
-            // here renders a control and then drops the value it produced.
-            model = agent?.model ?: state.selectedModel,
+            endpoint = target.endpoint,
+            provider = target.provider,
+            model = target.model,
             extendedEffortSupported = state.extendedEffortSupported,
-            params = state.modelParameters,
+            params = state.selection.sendParameters.copy(webSearch = state.webSearchRoute == WebSearchRoute.BUILT_IN),
             dropParamsMap = state.gates.dropParamsMap,
+            settingsEndpoint = target.settingsEndpoint,
+            settingsProvider = target.settingsProvider,
         ).takeIf { it.isNotEmpty() }
     }
+
+    /**
+     * The top-level `web_search` a send carries: the provider's built-in search, only when that is
+     * the search the control runs ([ChatUiState.webSearchRoute]).
+     */
+    fun builtInWebSearch(): Boolean = stateProvider().webSearchRoute == WebSearchRoute.BUILT_IN
 }

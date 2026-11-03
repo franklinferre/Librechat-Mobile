@@ -11,6 +11,7 @@ import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
+import com.garfiec.librechat.core.data.datastore.WebSearchPreference
 import com.garfiec.librechat.core.model.speech.TtsVoice
 import com.garfiec.librechat.feature.settings.screen.DeviceVoiceInfo
 
@@ -50,6 +51,11 @@ data class ChatSettingsUiState(
     val sttEndOfSpeech: Boolean = false,
     /** Whether the server has external STT (Whisper) configured — gates the External engine option. */
     val serverSttEnabled: Boolean = false,
+    /**
+     * Whether the server has TTS configured (`ttsExternal`). Gates the Server TTS source and the
+     * voices fetch, which a server without TTS answers with a 500. False until the config loads.
+     */
+    val serverTtsEnabled: Boolean = false,
     val ttsEngine: String = "",
     val ttsVoice: String = "",
     val ttsSpeechRate: Float = 1.0f,
@@ -68,6 +74,8 @@ data class ChatSettingsUiState(
     val starredModelsDisplay: StarredModelsDisplay = StarredModelsDisplay.GROUPED,
     // Mobile-only: open new chats on the last-used model instead of the server's prioritized spec
     val preferLastUsedModel: Boolean = false,
+    // Mobile-only: which web search the chat's one web-search control tries first
+    val webSearchFirst: WebSearchPreference = WebSearchPreference.LIBRECHAT_FIRST,
     // Mobile-only: what the chat floating top bar shows + how its bubble is aligned
     val chatHeaderContent: ChatHeaderContent = ChatHeaderContent.TITLE,
     val chatHeaderAlignment: ChatHeaderAlignment = ChatHeaderAlignment.LEFT,

@@ -40,8 +40,9 @@ import com.garfiec.librechat.core.network.api.UserApi
 import com.garfiec.librechat.core.network.client.AuthInterceptorPlugin
 import com.garfiec.librechat.core.network.client.CertificateTrustRegistry
 import com.garfiec.librechat.core.network.client.GatewayDetectionPlugin
-import com.garfiec.librechat.core.network.client.ImageCookieCredentials
 import com.garfiec.librechat.core.network.client.LibreChatHttpClient
+import com.garfiec.librechat.core.network.client.OpenIdCookiePlugin
+import com.garfiec.librechat.core.network.client.RefreshCookieCredentials
 import com.garfiec.librechat.core.network.client.ServerHeadersPlugin
 import com.garfiec.librechat.core.network.client.ServerHeadersProvider
 import com.garfiec.librechat.core.network.client.ServerUrlProvider
@@ -105,7 +106,7 @@ val networkModule = module {
             tokenManager = get(),
             serverUrlProvider = get(),
             redactor = get(),
-            imageCookieCredentials = get<ImageCookieCredentials>(),
+            refreshCookieCredentials = get<RefreshCookieCredentials>(),
             accountReadyGate = getOrNull(),
             switchGate = get(),
             serverHeadersProvider = get(),
@@ -122,6 +123,9 @@ val networkModule = module {
         HttpClient(engineFactory) {
             install(AuthInterceptorPlugin) {
                 this.tokenManager = tokenManager
+                this.serverUrlProvider = serverUrlProvider
+            }
+            install(OpenIdCookiePlugin) {
                 this.serverUrlProvider = serverUrlProvider
             }
             install(ServerHeadersPlugin) {
@@ -164,6 +168,9 @@ val networkModule = module {
             //
             // Not folded into ServerUrlReadyPlugin, which now does set the host: the host-scoped,
             // per-server header lookup belongs to ServerHeadersPlugin on all three clients.
+            install(OpenIdCookiePlugin) {
+                this.serverUrlProvider = serverUrlProvider
+            }
             install(ServerHeadersPlugin) {
                 this.serverHeadersProvider = serverHeadersProvider
                 this.serverUrlProvider = serverUrlProvider

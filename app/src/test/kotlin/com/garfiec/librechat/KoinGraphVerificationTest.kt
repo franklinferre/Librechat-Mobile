@@ -2,6 +2,7 @@ package com.garfiec.librechat
 
 import android.app.Application
 import android.content.Context
+import androidx.lifecycle.SavedStateHandle
 import com.garfiec.librechat.core.common.AppInfo
 import com.garfiec.librechat.core.common.ChannelPolicy
 import com.garfiec.librechat.core.common.DistributionChannel
@@ -15,8 +16,11 @@ import com.garfiec.librechat.core.common.network.NetworkConditionObserver
 import com.garfiec.librechat.core.common.network.RequestActivityTracker
 import com.garfiec.librechat.core.common.power.PowerStateObserver
 import com.garfiec.librechat.core.data.datastore.AccountRoster
+import com.garfiec.librechat.core.data.datastore.ArtifactLibraryConsentStore
 import com.garfiec.librechat.core.data.datastore.ConfigCacheDataStore
+import com.garfiec.librechat.core.data.datastore.ConversationWebSearchStore
 import com.garfiec.librechat.core.data.datastore.DateTimePrefsStore
+import com.garfiec.librechat.core.data.datastore.DrawerPinsStore
 import com.garfiec.librechat.core.data.datastore.PreferenceStore
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
@@ -33,6 +37,7 @@ import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.BackgroundTaskRepository
 import com.garfiec.librechat.core.data.repository.BalanceRepository
 import com.garfiec.librechat.core.data.repository.BannerRepository
+import com.garfiec.librechat.core.data.repository.BookmarksGate
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
@@ -63,6 +68,7 @@ import com.garfiec.librechat.core.data.repository.TagRepository
 import com.garfiec.librechat.core.data.repository.ToolFavoritesRepository
 import com.garfiec.librechat.core.data.repository.TraceRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
+import com.garfiec.librechat.core.data.repository.WebSearchReadinessRepository
 import com.garfiec.librechat.core.data.search.MessageSearchRepository
 import com.garfiec.librechat.core.data.share.ShareLinkControllerFactory
 import com.garfiec.librechat.core.data.update.AppInstallSource
@@ -145,6 +151,8 @@ class KoinGraphVerificationTest {
             // Android framework
             Context::class,
             Application::class,
+            // Supplied by a ViewModel's CreationExtras at resolution time, never declared.
+            SavedStateHandle::class,
             // core:common provides
             CoroutineDispatcher::class,
             CoroutineScope::class,
@@ -207,8 +215,11 @@ class KoinGraphVerificationTest {
             DateTimePrefsStore::class,
             SettingsDataStore::class,
             PreferenceStore::class,
+            DrawerPinsStore::class,
+            ArtifactLibraryConsentStore::class,
             SsoRiskDataStore::class,
             ThemeDataStore::class,
+            ConversationWebSearchStore::class,
             AgentRepository::class,
             AgentToolsRepository::class,
             ApiKeyRepository::class,
@@ -246,8 +257,10 @@ class KoinGraphVerificationTest {
             ToolFavoritesRepository::class,
             TraceRepository::class,
             UserRepository::class,
+            WebSearchReadinessRepository::class,
             ShareLinkControllerFactory::class,
             PermissionGate::class,
+            BookmarksGate::class,
             SessionTask::class,
             AttachmentWarmer::class,
             PrefetchStatusReporter::class,

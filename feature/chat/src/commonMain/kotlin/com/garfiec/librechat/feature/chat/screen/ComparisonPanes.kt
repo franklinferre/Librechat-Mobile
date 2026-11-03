@@ -16,7 +16,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.feature.chat.components.ComparisonDualPane
 import com.garfiec.librechat.feature.chat.components.ComparisonLane
 import com.garfiec.librechat.feature.chat.components.ComparisonPane
@@ -26,11 +25,15 @@ import com.garfiec.librechat.feature.chat.components.ComparisonTabBar
 import com.garfiec.librechat.feature.chat.components.MESSAGE_LIST_BOTTOM_GAP
 import com.garfiec.librechat.feature.chat.components.MessageList
 import com.garfiec.librechat.feature.chat.components.SecondaryMessageList
+import com.garfiec.librechat.feature.chat.components.StoppedReplyAction
 import com.garfiec.librechat.feature.chat.components.comparisonSyncLead
 import com.garfiec.librechat.feature.chat.components.rememberComparisonScrollSync
+import com.garfiec.librechat.feature.chat.resources.Res
+import com.garfiec.librechat.feature.chat.resources.action_keep_and_continue
 import com.garfiec.librechat.feature.chat.util.buildComparisonDisplayMessages
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Shared Compare Models layout for both platforms. Lays out the primary/secondary
@@ -82,6 +85,14 @@ internal fun ComparisonPanes(
         !comparisonState.primaryIsStreaming &&
         !comparisonState.secondaryIsStreaming
 
+    // A cut-short comparison reply is picked up one lane at a time: each pane keeps its own answer
+    // and continues it (ComparisonModeDelegate.keepAndContinue).
+    val keepAndContinueLabel = stringResource(Res.string.action_keep_and_continue)
+    val stoppedId = uiState.continuableReplyId?.takeIf { canBranch && uiState.canStartRun }
+    fun stoppedFor(agentId: String?) = stoppedId?.let { id ->
+        agentId?.let { agent -> StoppedReplyAction(id, keepAndContinueLabel) { viewModel.keepAndContinue(agent) } }
+    }
+
     val primaryDisplayMessages = remember(
         uiState.displayMessages,
         comparisonState.parallelMessageId,
@@ -101,35 +112,18 @@ internal fun ComparisonPanes(
         comparisonState.secondaryEndpoint,
         comparisonState.secondaryModel,
         uiState.agents,
-        comparisonState.secondarySpec,
+        uiState.laneBSpec,
         uiState.modelSpecs,
     )
-    val secondaryEndpoint = comparisonState.secondaryEndpoint ?: EndpointConstants.AGENTS
-    // Re-point the secondary bubble avatar at its own agent: the persisted parallel
-    // message only carries the primary's endpoint/iconURL. For an agents-endpoint
-    // secondary, resolve the agent's avatar; otherwise fall back to the endpoint icon.
-    val secondaryIconUrl = remember(
-        secondaryEndpoint,
-        comparisonState.secondaryModel,
-        uiState.agents,
-        uiState.serverUrl,
-    ) {
-        val model = comparisonState.secondaryModel
-        if (secondaryEndpoint == EndpointConstants.AGENTS && model != null) {
-            uiState.agents.find { it.id == model }?.avatarUrl?.let { url ->
-                if (url.startsWith("http")) url else "${uiState.serverUrl}$url"
-            }
-        } else {
-            null
-        }
-    }
+    // The persisted parallel message carries only the primary's endpoint/iconURL: pane B's bubbles
+    // take its own lane's avatar instead.
+    val laneBAvatar = uiState.avatars.laneB
     val secondaryDisplayMessages = remember(
         uiState.displayMessages,
         comparisonState.parallelMessageId,
         comparisonState.secondaryFinalContent,
         secondaryModelName,
-        secondaryEndpoint,
-        secondaryIconUrl,
+        laneBAvatar,
     ) {
         buildComparisonDisplayMessages(
             uiState.displayMessages,
@@ -137,8 +131,7 @@ internal fun ComparisonPanes(
             comparisonState.parallelMessageId,
             comparisonState.secondaryFinalContent,
             secondaryModelName,
-            secondaryEndpoint = secondaryEndpoint,
-            secondaryIconUrl = secondaryIconUrl,
+            secondaryAvatar = laneBAvatar,
         )
     }
 
@@ -202,16 +195,16 @@ internal fun ComparisonPanes(
                 onCopyMessage = onCopyMessage,
                 onFeedback = viewModel::submitFeedback,
                 feedbackEnabled = uiState.gates.feedbackEnabled,
-                onContinue = { viewModel.continueGeneration() },
                 canResubmit = uiState.canStartRun,
+                stoppedReply = stoppedFor(comparisonState.primaryAgentId),
                 onReadAloud = viewModel::readAloud,
                 onFork = viewModel::showForkOptions,
                 currentlyReadingMessageId = uiState.currentlyReadingMessageId,
-                editingMessageId = uiState.editingMessageId,
-                editingText = uiState.editingText,
+                editing = uiState.editing,
                 onEditTextChange = viewModel::onEditTextChanged,
-                onEditSaveAndSubmit = viewModel::submitEdit,
-                onEditSaveOnly = viewModel::saveEditOnly,
+                onEditPartTextChange = viewModel::onEditPartTextChanged,
+                onEditSave = viewModel::saveEdit,
+                onEditRerun = viewModel::rerunEdit,
                 onEditCancel = viewModel::cancelEditing,
                 baseUrl = uiState.serverUrl,
                 fontSizeMultiplier = fontSizeMultiplier,
@@ -219,7 +212,7 @@ internal fun ComparisonPanes(
                 onRefresh = viewModel::refreshMessages,
                 userAvatarUrl = uiState.userAvatarUrl,
                 userName = uiState.userName,
-                selectedEndpoint = uiState.selectedEndpoint,
+                streamingAvatar = uiState.avatars.streaming,
                 streamingSenderName = senderName,
                 showImageDescriptions = showImageDescriptions,
                 chatLayoutStyle = chatLayoutStyle,
@@ -267,7 +260,7 @@ internal fun ComparisonPanes(
                 error = null,
                 baseUrl = uiState.serverUrl,
                 fontSizeMultiplier = fontSizeMultiplier,
-                selectedEndpoint = secondaryEndpoint,
+                streamingAvatar = uiState.avatars.laneB,
                 streamingSenderName = secondaryModelName,
                 showImageDescriptions = showImageDescriptions,
                 chatLayoutStyle = chatLayoutStyle,
@@ -280,6 +273,7 @@ internal fun ComparisonPanes(
                 listState = secondaryListState,
                 syncHold = syncHold,
                 extraEndSpace = extraEndSpace,
+                stoppedReply = stoppedFor(comparisonState.secondaryAgentId),
                 modifier = Modifier.fillMaxSize(),
             )
         }

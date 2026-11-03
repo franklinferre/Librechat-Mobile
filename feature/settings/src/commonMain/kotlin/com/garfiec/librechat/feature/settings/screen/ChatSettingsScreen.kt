@@ -41,6 +41,7 @@ import com.garfiec.librechat.core.data.datastore.InlineArtifactPrefs
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
+import com.garfiec.librechat.core.data.datastore.WebSearchPreference
 import com.garfiec.librechat.core.ui.components.AdaptiveDivider
 import com.garfiec.librechat.core.ui.components.AdaptiveGroupedPage
 import com.garfiec.librechat.core.ui.components.AdaptiveOutlinedButton
@@ -114,6 +115,7 @@ fun ChatSettingsContent(
     chatLayoutViewModel: ChatLayoutSettingsViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val artifactLibraries by viewModel.artifactLibraries.collectAsStateWithLifecycle()
     val contextUsage by contextUsageViewModel.uiState.collectAsStateWithLifecycle()
     val chatLayout by chatLayoutViewModel.uiState.collectAsStateWithLifecycle()
     var openDialog by remember { mutableStateOf<ChatSettingDialog?>(null) }
@@ -157,6 +159,7 @@ fun ChatSettingsContent(
                         latexRenderer = uiState.latexRenderer,
                         starredModelsDisplay = uiState.starredModelsDisplay,
                         preferLastUsedModel = uiState.preferLastUsedModel,
+                        webSearchFirst = uiState.webSearchFirst,
                         chatHeaderContent = uiState.chatHeaderContent,
                         chatHeaderAlignment = uiState.chatHeaderAlignment,
                         onAutoScrollChange = viewModel::setAutoScrollEnabled,
@@ -183,8 +186,10 @@ fun ChatSettingsContent(
                             prefs.enabledCount,
                             InlineArtifactPrefs.FIELD_COUNT,
                         ),
+                        librariesSummary = artifactLibrariesSummary(artifactLibraries),
                         onOpenArtifactViewerDialog = { openDialog = ChatSettingDialog.ARTIFACT_VIEWER },
                         onOpenRenderInlineDialog = { openDialog = ChatSettingDialog.RENDER_INLINE },
+                        onOpenLibrariesDialog = { openDialog = ChatSettingDialog.ARTIFACT_LIBRARIES },
                     )
                 }
             }
@@ -337,6 +342,19 @@ fun ChatSettingsContent(
             )
         }
 
+        if (openDialog == ChatSettingDialog.WEB_SEARCH_FIRST) {
+            RadioSelectionDialog(
+                title = stringResource(Res.string.web_search_first_title),
+                description = stringResource(Res.string.web_search_first_desc),
+                options = WebSearchPreference.entries,
+                selected = uiState.webSearchFirst,
+                onSave = saveAndClose(viewModel::setWebSearchFirst),
+                onDismiss = dismissDialog,
+                optionLabel = { webSearchFirstLabel(it) },
+                optionDescription = { webSearchFirstDescription(it) },
+            )
+        }
+
         if (openDialog == ChatSettingDialog.CHAT_HEADER) {
             ChatHeaderSettingsDialog(
                 content = uiState.chatHeaderContent,
@@ -380,6 +398,14 @@ fun ChatSettingsContent(
             )
         }
 
+        if (openDialog == ChatSettingDialog.ARTIFACT_LIBRARIES) {
+            ArtifactLibrariesDialog(
+                choices = artifactLibraries,
+                onDecisionChange = viewModel::setArtifactLibraryDecision,
+                onDismiss = dismissDialog,
+            )
+        }
+
         // Fork settings dialog
         if (uiState.showForkSettingsDialog) {
             ForkSettingsDialog(
@@ -415,10 +441,9 @@ fun ChatSettingsContent(
                 deviceVoiceName = uiState.ttsDeviceVoiceName,
                 cachingEnabled = uiState.ttsCaching,
                 ttsSource = uiState.ttsSource,
+                serverTtsEnabled = uiState.serverTtsEnabled,
                 availableEngines = listOf(TTS_DEFAULT_OPTION, "ElevenLabs", "OpenAI"),
-                availableVoices = uiState.availableVoices.map { it.name }.ifEmpty {
-                    listOf(TTS_DEFAULT_OPTION, "Alloy", "Echo", "Fable", "Onyx", "Nova", "Shimmer")
-                },
+                availableVoices = uiState.availableVoices.map { it.name },
                 availableDeviceVoices = uiState.availableDeviceVoices,
                 isPreviewPlaying = uiState.isTtsPreviewPlaying,
                 onPreviewDevice = viewModel::previewDeviceTts,

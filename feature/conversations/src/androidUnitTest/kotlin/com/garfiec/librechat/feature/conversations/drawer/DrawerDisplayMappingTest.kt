@@ -4,6 +4,7 @@ import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.config.ModelSpec
 import com.garfiec.librechat.core.model.config.ModelSpecs
+import com.garfiec.librechat.core.model.media.ProviderId
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import kotlin.time.Instant
@@ -18,7 +19,7 @@ class DrawerDisplayMappingTest {
             ModelSpec(name = "second", label = "Second Assistant"),
         ))
 
-        val data = convo.toDrawerDisplayData(null, emptyMap(), specs)
+        val data = convo.toDrawerDisplayData(null, emptyMap(), "", specs)
 
         assertThat(data.modelLabel).isEqualTo("Second Assistant")
         assertThat(data.model).isEqualTo("internal-model")
@@ -29,7 +30,7 @@ class DrawerDisplayMappingTest {
         val convo = Conversation(conversationId = "c1", model = "internal-model", spec = "curated-spec")
         val specs = ModelSpecs(list = listOf(ModelSpec(name = "curated-spec", label = "   ")))
 
-        assertThat(convo.toDrawerDisplayData(null, emptyMap(), specs).modelLabel).isEqualTo("curated-spec")
+        assertThat(convo.toDrawerDisplayData(null, emptyMap(), "", specs).modelLabel).isEqualTo("curated-spec")
     }
 
     @Test
@@ -37,7 +38,7 @@ class DrawerDisplayMappingTest {
         val specs = ModelSpecs(list = listOf(ModelSpec(name = "other", label = "Other Assistant")))
         for (spec in listOf(null, "unknown")) {
             val convo = Conversation(conversationId = "c1", model = "raw-model", spec = spec)
-            assertThat(convo.toDrawerDisplayData(null, emptyMap(), specs).modelLabel).isEqualTo("raw-model")
+            assertThat(convo.toDrawerDisplayData(null, emptyMap(), "", specs).modelLabel).isEqualTo("raw-model")
         }
     }
 
@@ -52,7 +53,7 @@ class DrawerDisplayMappingTest {
             "OpenRouter" to EndpointConfig(iconURL = "https://config-icon.example.com/icon.png"),
         )
 
-        val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = configs)
+        val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = configs, serverUrl = "")
 
         assertThat(data.endpointIconUrl).isEqualTo("https://convo-icon.example.com/icon.png")
     }
@@ -68,7 +69,7 @@ class DrawerDisplayMappingTest {
             "OpenRouter" to EndpointConfig(iconURL = "https://config-icon.example.com/icon.png"),
         )
 
-        val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = configs)
+        val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = configs, serverUrl = "")
 
         assertThat(data.endpointIconUrl).isEqualTo("https://config-icon.example.com/icon.png")
     }
@@ -84,7 +85,7 @@ class DrawerDisplayMappingTest {
             "OpenRouter" to EndpointConfig(iconURL = null),
         )
 
-        val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = configs)
+        val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = configs, serverUrl = "")
 
         assertThat(data.endpointIconUrl).isNull()
     }
@@ -100,6 +101,7 @@ class DrawerDisplayMappingTest {
         val data = convo.toDrawerDisplayData(
             activeConversationId = null,
             endpointConfigs = emptyMap(),
+            serverUrl = "",
         )
 
         assertThat(data.endpointIconUrl).isNull()
@@ -118,7 +120,7 @@ class DrawerDisplayMappingTest {
             updatedAt = Instant.parse("2026-07-19T12:00:00Z"),
         )
 
-        val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = emptyMap())
+        val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = emptyMap(), serverUrl = "")
 
         assertThat(data.updatedAt).isEqualTo(Instant.parse("2026-07-19T12:00:00Z"))
     }
@@ -127,8 +129,39 @@ class DrawerDisplayMappingTest {
     fun updatedAtNullSurvivesMapping() {
         val convo = Conversation(conversationId = "c1", updatedAt = null)
 
-        val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = emptyMap())
+        val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = emptyMap(), serverUrl = "")
 
         assertThat(data.updatedAt).isNull()
+    }
+
+    @Test
+    fun aRelativeIconJoinsTheServer() {
+        val convo = Conversation(conversationId = "c1", endpoint = "openAI", iconURL = "/images/spec.png")
+
+        val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = emptyMap(), serverUrl = "https://srv")
+
+        assertThat(data.endpointIconUrl).isEqualTo("https://srv/images/spec.png")
+        assertThat(data.iconEndpoint).isEqualTo("openAI")
+    }
+
+    @Test
+    fun aCustomEndpointDrawsTheProviderTheServerResolved() {
+        val configs = mapOf("My Router" to EndpointConfig(type = "custom", providerId = "openrouter"))
+        val convo = Conversation(conversationId = "c1", endpoint = "My Router")
+
+        val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = configs, serverUrl = "")
+
+        assertThat(data.iconProvider).isEqualTo(ProviderId.OPENROUTER)
+        assertThat(data.endpointIconUrl).isNull()
+    }
+
+    @Test
+    fun aProviderNameTheConfigDoesNotListLeavesTheEndpoint() {
+        val convo = Conversation(conversationId = "c1", endpoint = "anthropic", iconURL = "groq")
+
+        val data = convo.toDrawerDisplayData(activeConversationId = null, endpointConfigs = emptyMap(), serverUrl = "")
+
+        assertThat(data.iconEndpoint).isEqualTo("anthropic")
+        assertThat(data.iconProvider).isEqualTo(ProviderId.ANTHROPIC)
     }
 }

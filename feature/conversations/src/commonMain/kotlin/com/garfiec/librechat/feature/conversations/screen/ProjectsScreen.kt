@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -36,7 +37,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -49,8 +49,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -68,12 +71,14 @@ import com.garfiec.librechat.core.ui.components.AdaptiveOutlinedTextField
 import com.garfiec.librechat.core.ui.components.AdaptiveScaffold
 import com.garfiec.librechat.core.ui.components.AdaptiveSnackbarHost
 import com.garfiec.librechat.core.ui.components.EmptyState
+import com.garfiec.librechat.core.ui.components.UnderBarsPullToRefreshBox
 import com.garfiec.librechat.core.ui.components.UpToTwoColumns
 import com.garfiec.librechat.core.ui.components.topbar.AdaptiveTopBar
 import com.garfiec.librechat.core.ui.components.topbar.AdaptiveTopBarSpec
 import com.garfiec.librechat.core.ui.components.topbar.BarIcons
 import com.garfiec.librechat.core.ui.components.topbar.BarNavigation
 import com.garfiec.librechat.core.ui.components.topbar.BarTitle
+import com.garfiec.librechat.core.ui.components.topbar.MaterialBarStyle
 import com.garfiec.librechat.core.ui.datetime.LocalDateTimeFormat
 import com.garfiec.librechat.core.ui.datetime.LocalRelativeTimeReference
 import com.garfiec.librechat.core.ui.datetime.resolve
@@ -90,6 +95,7 @@ import com.garfiec.librechat.feature.conversations.resources.project_edit
 import com.garfiec.librechat.feature.conversations.resources.project_new
 import com.garfiec.librechat.feature.conversations.resources.project_sort_activity
 import com.garfiec.librechat.feature.conversations.resources.project_sort_created
+import com.garfiec.librechat.feature.conversations.resources.project_sort_custom
 import com.garfiec.librechat.feature.conversations.resources.project_sort_label
 import com.garfiec.librechat.feature.conversations.resources.project_sort_name
 import com.garfiec.librechat.feature.conversations.resources.project_unassigned
@@ -171,6 +177,7 @@ fun ProjectsScreen(
                     navigation = BarNavigation(BarIcons.Back, stringResource(Res.string.back), onNavigateBack),
                     title = BarTitle(stringResource(Res.string.projects_title)),
                 ),
+                materialStyle = MaterialBarStyle(translucent = true),
             )
         },
         floatingActionButton = {
@@ -189,10 +196,11 @@ fun ProjectsScreen(
             }
         },
     ) { innerPadding ->
-        PullToRefreshBox(
+        UnderBarsPullToRefreshBox(
             isRefreshing = uiState.isRefreshing,
             onRefresh = { viewModel.refresh() },
-            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            barPadding = innerPadding,
+            modifier = Modifier.fillMaxSize(),
         ) {
             val minCardWidth = ProjectCardMinWidth * LocalDensity.current.fontScale
             LazyVerticalGrid(
@@ -200,7 +208,7 @@ fun ProjectsScreen(
                 columns = remember(minCardWidth) { UpToTwoColumns(minCardWidth) },
                 modifier = Modifier.fillMaxSize(),
                 // Bottom room so the last card scrolls clear of the FAB.
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
+                contentPadding = innerPadding + PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -329,6 +337,7 @@ private val ProjectSort.label: StringResource
         ProjectSort.ACTIVITY -> Res.string.project_sort_activity
         ProjectSort.CREATED -> Res.string.project_sort_created
         ProjectSort.NAME -> Res.string.project_sort_name
+        ProjectSort.CUSTOM -> Res.string.project_sort_custom
     }
 
 @Composable
@@ -456,17 +465,16 @@ internal fun ProjectCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                val description = project.description?.trim().orEmpty()
-                if (description.isNotEmpty()) {
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
+                // Every slot keeps its height when empty, so cards in a grid row line up.
+                Text(
+                    text = project.description?.trim().orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    minLines = 2,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
                 Row(
                     modifier = Modifier.padding(top = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -479,6 +487,8 @@ internal fun ProjectCard(
                         ),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     if (activity != null) {
                         Text(
@@ -487,6 +497,7 @@ internal fun ProjectCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
                     }
                 }
@@ -496,10 +507,11 @@ internal fun ProjectCard(
     }
 }
 
-/** First-load stand-in, sized like a card with a description, so the grid doesn't jump on arrival. */
+/** First-load stand-in that mirrors the card's slots, so the grid doesn't jump on arrival. */
 @Composable
 private fun ProjectCardPlaceholder() {
     val block = MaterialTheme.colorScheme.surfaceContainerHighest
+    val typography = MaterialTheme.typography
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -509,10 +521,22 @@ private fun ProjectCardPlaceholder() {
     ) {
         Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(block))
         Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.fillMaxWidth(0.5f).height(16.dp).clip(RoundedCornerShape(4.dp)).background(block))
-            Box(Modifier.fillMaxWidth(0.9f).height(12.dp).clip(RoundedCornerShape(4.dp)).background(block))
-            Box(Modifier.fillMaxWidth(0.3f).height(12.dp).clip(RoundedCornerShape(4.dp)).background(block))
+        Column(modifier = Modifier.weight(1f)) {
+            PlaceholderLine(block, typography.titleMedium, barHeight = 16.dp, widthFraction = 0.5f)
+            Spacer(Modifier.height(4.dp))
+            PlaceholderLine(block, typography.bodyMedium, barHeight = 12.dp, widthFraction = 0.9f)
+            PlaceholderLine(block, typography.bodyMedium, barHeight = 12.dp, widthFraction = 0.6f)
+            Spacer(Modifier.height(8.dp))
+            PlaceholderLine(block, typography.labelMedium, barHeight = 12.dp, widthFraction = 0.3f)
         }
+    }
+}
+
+/** One text line's slot at [style]'s line height, with a bar centred in it. */
+@Composable
+private fun PlaceholderLine(color: Color, style: TextStyle, barHeight: Dp, widthFraction: Float) {
+    val lineHeight = with(LocalDensity.current) { style.lineHeight.toDp() }
+    Box(Modifier.fillMaxWidth().height(lineHeight), contentAlignment = Alignment.CenterStart) {
+        Box(Modifier.fillMaxWidth(widthFraction).height(barHeight).clip(RoundedCornerShape(4.dp)).background(color))
     }
 }

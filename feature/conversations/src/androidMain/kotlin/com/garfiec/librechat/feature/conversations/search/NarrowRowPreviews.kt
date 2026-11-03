@@ -100,17 +100,13 @@ private fun DrawerProjectsHost() {
         onSearchQueryChange = {},
         onNewChat = {},
         onConversationClick = {},
-        onAgentsClick = {},
-        onFilesClick = {},
-        onSkillsClick = {},
-        onSchedulesClick = {},
-        footerContent = { dragSelection ->
+        onWorkspaceClick = {},
+        footerContent = {
             Spacer(modifier = Modifier.height(8.dp))
             DrawerFooterItem(
                 icon = Icons.Default.Settings,
                 label = stringResource(Res.string.settings),
                 onClick = {},
-                dragSelection = dragSelection,
             )
         },
         projects = listOf(
@@ -176,15 +172,17 @@ private fun ConversationRowsHost() {
                 "anthropic",
                 "claude-sonnet-4-5",
                 now - 2.hours,
-                isBookmarked = true,
+                isFavorite = true,
             ),
             onClick = {},
             onActionsClick = {},
+            bookmarksEnabled = true,
         )
         ConversationItem(
-            data = ConversationDisplayData("b", "Refactor the sync worker", "azureOpenAI", null, now - 3.days, isBookmarked = false),
+            data = ConversationDisplayData("b", "Refactor the sync worker", "azureOpenAI", null, now - 3.days, isFavorite = false),
             onClick = {},
             onActionsClick = {},
+            bookmarksEnabled = true,
         )
     }
 }

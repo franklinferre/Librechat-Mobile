@@ -31,10 +31,10 @@ import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.model.FeedbackRating
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.MinimalFeedback
+import com.garfiec.librechat.core.model.media.IconSource
 import com.garfiec.librechat.core.ui.components.AvatarImage
 import com.garfiec.librechat.core.ui.components.BubbleShape
-import com.garfiec.librechat.core.ui.components.endpointIconPainter
-import com.garfiec.librechat.core.ui.components.isMonochromeEndpointIcon
+import com.garfiec.librechat.core.ui.components.EndpointAvatar
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
 import kotlinx.coroutines.delay
@@ -53,22 +53,15 @@ actual fun MessageBubble(
     onRegenerate: (() -> Unit)?,
     onCopy: (() -> Unit)?,
     onFeedback: ((MinimalFeedback?) -> Unit)?,
-    onContinue: (() -> Unit)?,
     onReadAloud: (() -> Unit)?,
     onFork: (() -> Unit)?,
     baseUrl: String,
     fontSizeMultiplier: Float,
     isReading: Boolean,
     currentFeedback: FeedbackRating?,
-    isEditing: Boolean,
-    editText: String,
-    onEditTextChange: ((String) -> Unit)?,
-    onEditSaveAndSubmit: (() -> Unit)?,
-    onEditSaveOnly: (() -> Unit)?,
-    onEditCancel: (() -> Unit)?,
+    editSession: MessageEditSession?,
     userAvatarUrl: String?,
     userName: String?,
-    selectedEndpoint: String?,
     showImageDescriptions: Boolean,
     showActionsInitially: Boolean,
     searchQuery: String?,
@@ -80,6 +73,7 @@ actual fun MessageBubble(
     chatLayoutStyle: String,
     showAvatars: Boolean,
     showBubbles: Boolean,
+    avatar: IconSource?,
 ) {
     if (chatLayoutStyle == ChatLayoutConstants.TWO_SIDED) {
         TwoSidedMessageBubble(
@@ -92,7 +86,6 @@ actual fun MessageBubble(
             onRegenerate = onRegenerate,
             onCopy = onCopy,
             onFeedback = onFeedback,
-            onContinue = onContinue,
             onReadAloud = onReadAloud,
             onFork = onFork,
             baseUrl = baseUrl,
@@ -100,15 +93,9 @@ actual fun MessageBubble(
             useKatex = useKatex,
             isReading = isReading,
             currentFeedback = currentFeedback,
-            isEditing = isEditing,
-            editText = editText,
-            onEditTextChange = onEditTextChange,
-            onEditSaveAndSubmit = onEditSaveAndSubmit,
-            onEditSaveOnly = onEditSaveOnly,
-            onEditCancel = onEditCancel,
+            editSession = editSession,
             userAvatarUrl = userAvatarUrl,
             userName = userName,
-            selectedEndpoint = selectedEndpoint,
             showImageDescriptions = showImageDescriptions,
             showActionsInitially = showActionsInitially,
             searchQuery = searchQuery,
@@ -118,6 +105,7 @@ actual fun MessageBubble(
             onFocusedOccurrencePosition = onFocusedOccurrencePosition,
             showAvatars = showAvatars,
             showBubbles = showBubbles,
+            avatar = avatar,
         )
     } else {
         ThreadMessageBubble(
@@ -130,7 +118,6 @@ actual fun MessageBubble(
             onRegenerate = onRegenerate,
             onCopy = onCopy,
             onFeedback = onFeedback,
-            onContinue = onContinue,
             onReadAloud = onReadAloud,
             onFork = onFork,
             baseUrl = baseUrl,
@@ -138,15 +125,9 @@ actual fun MessageBubble(
             useKatex = useKatex,
             isReading = isReading,
             currentFeedback = currentFeedback,
-            isEditing = isEditing,
-            editText = editText,
-            onEditTextChange = onEditTextChange,
-            onEditSaveAndSubmit = onEditSaveAndSubmit,
-            onEditSaveOnly = onEditSaveOnly,
-            onEditCancel = onEditCancel,
+            editSession = editSession,
             userAvatarUrl = userAvatarUrl,
             userName = userName,
-            selectedEndpoint = selectedEndpoint,
             showImageDescriptions = showImageDescriptions,
             showActionsInitially = showActionsInitially,
             searchQuery = searchQuery,
@@ -156,6 +137,7 @@ actual fun MessageBubble(
             onFocusedOccurrencePosition = onFocusedOccurrencePosition,
             showAvatars = showAvatars,
             showBubbles = showBubbles,
+            avatar = avatar,
         )
     }
 }
@@ -173,7 +155,6 @@ private fun ThreadMessageBubble(
     onRegenerate: (() -> Unit)?,
     onCopy: (() -> Unit)?,
     onFeedback: ((MinimalFeedback?) -> Unit)?,
-    onContinue: (() -> Unit)?,
     onReadAloud: (() -> Unit)?,
     onFork: (() -> Unit)?,
     baseUrl: String,
@@ -181,15 +162,9 @@ private fun ThreadMessageBubble(
     useKatex: Boolean,
     isReading: Boolean,
     currentFeedback: FeedbackRating?,
-    isEditing: Boolean,
-    editText: String,
-    onEditTextChange: ((String) -> Unit)?,
-    onEditSaveAndSubmit: (() -> Unit)?,
-    onEditSaveOnly: (() -> Unit)?,
-    onEditCancel: (() -> Unit)?,
+    editSession: MessageEditSession?,
     userAvatarUrl: String?,
     userName: String?,
-    selectedEndpoint: String?,
     showImageDescriptions: Boolean,
     showActionsInitially: Boolean,
     searchQuery: String?,
@@ -199,6 +174,7 @@ private fun ThreadMessageBubble(
     onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)?,
     showAvatars: Boolean,
     showBubbles: Boolean,
+    avatar: IconSource?,
     modifier: Modifier = Modifier,
 ) {
     val isUser = message.isCreatedByUser
@@ -247,19 +223,22 @@ private fun ThreadMessageBubble(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (showAvatars) {
-                val resolvedEndpoint = message.endpoint ?: selectedEndpoint
-                AvatarImage(
-                    imageUrl = if (isUser) userAvatarUrl else message.iconURL,
-                    fallbackText = if (isUser) {
-                        userName ?: stringResource(Res.string.sender_you)
-                    } else {
-                        message.sender ?: stringResource(Res.string.sender_assistant)
-                    },
-                    fallbackIconPainter = if (!isUser && message.iconURL == null) endpointIconPainter(resolvedEndpoint) else null,
-                    showPersonIcon = isUser && userAvatarUrl == null,
-                    tintIcon = if (!isUser && message.iconURL == null) isMonochromeEndpointIcon(resolvedEndpoint) else false,
-                    size = 28.dp,
-                )
+                if (isUser) {
+                    AvatarImage(
+                        imageUrl = userAvatarUrl,
+                        fallbackText = userName ?: stringResource(Res.string.sender_you),
+                        showPersonIcon = userAvatarUrl == null,
+                        size = 28.dp,
+                    )
+                } else {
+                    EndpointAvatar(
+                        imageUrl = avatar?.imageUrl,
+                        endpointName = avatar?.endpointName,
+                        provider = avatar?.provider,
+                        fallbackText = message.sender ?: stringResource(Res.string.sender_assistant),
+                        size = 28.dp,
+                    )
+                }
                 Spacer(modifier = Modifier.width(8.dp))
             }
             Text(
@@ -319,13 +298,9 @@ private fun ThreadMessageBubble(
         ) {
             MessageContentAndActions(
                 message = message,
+                avatar = avatar,
                 isUser = isUser,
-                isEditing = isEditing,
-                editText = editText,
-                onEditTextChange = onEditTextChange,
-                onEditSaveAndSubmit = onEditSaveAndSubmit,
-                onEditSaveOnly = onEditSaveOnly,
-                onEditCancel = onEditCancel,
+                editSession = editSession,
                 baseUrl = baseUrl,
                 fontSizeMultiplier = fontSizeMultiplier,
                 useKatex = useKatex,
@@ -343,7 +318,6 @@ private fun ThreadMessageBubble(
                 onRegenerate = onRegenerate,
                 onCopy = onCopy,
                 onFeedback = onFeedback,
-                onContinue = onContinue,
                 onReadAloud = onReadAloud,
                 onFork = onFork,
                 isReading = isReading,
@@ -369,7 +343,6 @@ private fun TwoSidedMessageBubble(
     onRegenerate: (() -> Unit)?,
     onCopy: (() -> Unit)?,
     onFeedback: ((MinimalFeedback?) -> Unit)?,
-    onContinue: (() -> Unit)?,
     onReadAloud: (() -> Unit)?,
     onFork: (() -> Unit)?,
     baseUrl: String,
@@ -377,15 +350,9 @@ private fun TwoSidedMessageBubble(
     useKatex: Boolean,
     isReading: Boolean,
     currentFeedback: FeedbackRating?,
-    isEditing: Boolean,
-    editText: String,
-    onEditTextChange: ((String) -> Unit)?,
-    onEditSaveAndSubmit: (() -> Unit)?,
-    onEditSaveOnly: (() -> Unit)?,
-    onEditCancel: (() -> Unit)?,
+    editSession: MessageEditSession?,
     userAvatarUrl: String?,
     userName: String?,
-    selectedEndpoint: String?,
     showImageDescriptions: Boolean,
     showActionsInitially: Boolean,
     searchQuery: String?,
@@ -395,6 +362,7 @@ private fun TwoSidedMessageBubble(
     onFocusedOccurrencePosition: ((LayoutCoordinates, Rect) -> Unit)?,
     showAvatars: Boolean,
     showBubbles: Boolean,
+    avatar: IconSource?,
     modifier: Modifier = Modifier,
 ) {
     val isUser = message.isCreatedByUser
@@ -462,12 +430,11 @@ private fun TwoSidedMessageBubble(
     ) {
         // Agent avatar on left
         if (!isUser && showAvatars) {
-            val resolvedEndpoint = message.endpoint ?: selectedEndpoint
-            AvatarImage(
-                imageUrl = message.iconURL,
+            EndpointAvatar(
+                imageUrl = avatar?.imageUrl,
+                endpointName = avatar?.endpointName,
+                provider = avatar?.provider,
                 fallbackText = message.sender ?: stringResource(Res.string.sender_assistant),
-                fallbackIconPainter = if (message.iconURL == null) endpointIconPainter(resolvedEndpoint) else null,
-                tintIcon = if (message.iconURL == null) isMonochromeEndpointIcon(resolvedEndpoint) else false,
                 size = 28.dp,
             )
             Spacer(modifier = Modifier.width(6.dp))
@@ -524,13 +491,9 @@ private fun TwoSidedMessageBubble(
             // Message content
             MessageContentAndActions(
                 message = message,
+                avatar = avatar,
                 isUser = isUser,
-                isEditing = isEditing,
-                editText = editText,
-                onEditTextChange = onEditTextChange,
-                onEditSaveAndSubmit = onEditSaveAndSubmit,
-                onEditSaveOnly = onEditSaveOnly,
-                onEditCancel = onEditCancel,
+                editSession = editSession,
                 baseUrl = baseUrl,
                 fontSizeMultiplier = fontSizeMultiplier,
                 useKatex = useKatex,
@@ -548,7 +511,6 @@ private fun TwoSidedMessageBubble(
                 onRegenerate = onRegenerate,
                 onCopy = onCopy,
                 onFeedback = onFeedback,
-                onContinue = onContinue,
                 onReadAloud = onReadAloud,
                 onFork = onFork,
                 isReading = isReading,

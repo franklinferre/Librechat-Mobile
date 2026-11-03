@@ -3,10 +3,12 @@ package com.garfiec.librechat.feature.conversations.di
 import android.app.Application
 import android.content.Context
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
+import com.garfiec.librechat.core.data.datastore.DrawerPinsStore
 import com.garfiec.librechat.core.data.datastore.PreferenceStore
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.AgentRepository
+import com.garfiec.librechat.core.data.repository.BookmarksGate
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
@@ -46,7 +48,10 @@ class ConversationsModuleVerificationTest {
                 SettingsDataStore::class,
                 MessageSearchRepository::class,
                 PreferenceStore::class,
+                DrawerPinsStore::class,
                 SearchCapabilityRepository::class,
+                // BookmarksViewModel's gate, from the data module.
+                BookmarksGate::class,
             ),
         )
     }

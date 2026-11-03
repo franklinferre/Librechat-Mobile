@@ -7,8 +7,11 @@ import com.garfiec.librechat.core.common.identity.SessionManager
 import com.garfiec.librechat.core.data.datastore.AccountRegistry
 import com.garfiec.librechat.core.data.datastore.AccountRoster
 import com.garfiec.librechat.core.data.datastore.AccountScopedPrefsPurger
+import com.garfiec.librechat.core.data.datastore.ArtifactLibraryConsentStore
 import com.garfiec.librechat.core.data.datastore.ConfigCacheDataStore
+import com.garfiec.librechat.core.data.datastore.ConversationWebSearchStore
 import com.garfiec.librechat.core.data.datastore.DateTimePrefsStore
+import com.garfiec.librechat.core.data.datastore.DrawerPinsStore
 import com.garfiec.librechat.core.data.datastore.PreferenceStore
 import com.garfiec.librechat.core.data.datastore.RoleCacheDataStore
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
@@ -44,6 +47,7 @@ import com.garfiec.librechat.core.data.repository.BalanceRepository
 import com.garfiec.librechat.core.data.repository.BalanceRepositoryImpl
 import com.garfiec.librechat.core.data.repository.BannerRepository
 import com.garfiec.librechat.core.data.repository.BannerRepositoryImpl
+import com.garfiec.librechat.core.data.repository.BookmarksGate
 import com.garfiec.librechat.core.data.repository.ChatRepository
 import com.garfiec.librechat.core.data.repository.ChatRepositoryImpl
 import com.garfiec.librechat.core.data.repository.ConfigRepository
@@ -89,6 +93,7 @@ import com.garfiec.librechat.core.data.repository.SearchRepository
 import com.garfiec.librechat.core.data.repository.SearchRepositoryImpl
 import com.garfiec.librechat.core.data.repository.ServerRepository
 import com.garfiec.librechat.core.data.repository.ServerRepositoryImpl
+import com.garfiec.librechat.core.data.repository.ServerSessionRevoker
 import com.garfiec.librechat.core.data.repository.ShareChangeSignal
 import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.ShareRepositoryImpl
@@ -98,6 +103,7 @@ import com.garfiec.librechat.core.data.repository.SpeechRepository
 import com.garfiec.librechat.core.data.repository.SpeechRepositoryImpl
 import com.garfiec.librechat.core.data.repository.SubagentRepository
 import com.garfiec.librechat.core.data.repository.SubagentRepositoryImpl
+import com.garfiec.librechat.core.data.repository.TagChangeSignal
 import com.garfiec.librechat.core.data.repository.TagRepository
 import com.garfiec.librechat.core.data.repository.TagRepositoryImpl
 import com.garfiec.librechat.core.data.repository.ToolFavoritesRepository
@@ -106,6 +112,7 @@ import com.garfiec.librechat.core.data.repository.TraceRepository
 import com.garfiec.librechat.core.data.repository.TraceRepositoryImpl
 import com.garfiec.librechat.core.data.repository.UserRepository
 import com.garfiec.librechat.core.data.repository.UserRepositoryImpl
+import com.garfiec.librechat.core.data.repository.WebSearchReadinessRepository
 import com.garfiec.librechat.core.data.search.LocalSearchActivity
 import com.garfiec.librechat.core.data.search.MessageScanEngine
 import com.garfiec.librechat.core.data.search.MessageSearchRepository
@@ -155,6 +162,7 @@ val dataModule = module {
     single { get<LibreChatDatabase>().artifactShortcutDao() }
     single { get<LibreChatDatabase>().serverDao() }
     single { get<LibreChatDatabase>().prefetchWatermarkDao() }
+    single { get<LibreChatDatabase>().projectOrderDao() }
 
     // --- Message search index ---
     single { SearchIndexState(get()) }
@@ -257,6 +265,7 @@ val dataModule = module {
             draftDao = get(),
             tagDao = get(),
             prefetchWatermarkDao = get(),
+            projectOrderDao = get(),
             ioDispatcher = get(KoinQualifiers.IO),
             searchIndexMaintenance = get(),
         )
@@ -302,6 +311,7 @@ val dataModule = module {
     } bind ServerHeadersProvider::class
     singleOf(::ConfigCacheDataStore)
     singleOf(::RoleCacheDataStore)
+    singleOf(::ConversationWebSearchStore)
     single {
         DateTimePrefsStore(
             dataStore = get(),
@@ -318,8 +328,26 @@ val dataModule = module {
         )
     }
     single { PreferenceStore(dataStore = get(), channelPolicy = get()) }
+    // Eager: the drawer's pins should be read before the tablet sidebar's first frame.
+    single(createdAtStart = true) {
+        DrawerPinsStore(preferences = get(), appScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope))
+    }
+    // Eager: an artifact importing a flagged library waits on the stored answers before rendering.
+    single(createdAtStart = true) {
+        ArtifactLibraryConsentStore(preferences = get(), appScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope))
+    }
 
     // --- Repositories (special wiring) ---
+
+    single {
+        ServerSessionRevoker(
+            authApi = get(),
+            tokenManager = get(),
+            refreshCookieCredentials = get(),
+            roster = get(),
+            serverHeadersProvider = get(),
+        )
+    }
 
     single<AuthRepository> {
         AuthRepositoryImpl(
@@ -334,6 +362,7 @@ val dataModule = module {
             sessionManager = get(),
             accountSwitcher = get(),
             switchGate = get(),
+            serverSessionRevoker = get(),
         )
     }
 
@@ -489,6 +518,8 @@ val dataModule = module {
             dispatcher = get(KoinQualifiers.Default),
             searchIndexMaintenance = get(),
             shareChanges = get(),
+            tagRepository = get(),
+            tagChanges = get(),
         )
     }
 
@@ -525,12 +556,26 @@ val dataModule = module {
             configApi = get(),
             configCache = get(),
             dispatcher = get(KoinQualifiers.Default),
+            serverDataStore = get(),
         )
     } bind ConfigRepository::class
     singleOf(::FileRepositoryImpl) bind FileRepository::class
     singleOf(::AgentRepositoryImpl) bind AgentRepository::class
     singleOf(::AgentToolsRepositoryImpl) bind AgentToolsRepository::class
-    singleOf(::TagRepositoryImpl) bind TagRepository::class
+    singleOf(::WebSearchReadinessRepository)
+    singleOf(::TagChangeSignal)
+    single<TagRepository> {
+        TagRepositoryImpl(
+            tagsApi = get(),
+            tagDao = get(),
+            conversationsApi = get(),
+            conversationDao = get(),
+            activeAccountProvider = get(),
+            changes = get(),
+            applicationScope = get<CoroutineScope>(KoinQualifiers.ApplicationScope),
+        )
+    }
+    singleOf(::BookmarksGate)
     singleOf(::SearchRepositoryImpl) bind SearchRepository::class
     singleOf(::KeyRepositoryImpl) bind KeyRepository::class
     singleOf(::ApiKeyRepositoryImpl) bind ApiKeyRepository::class

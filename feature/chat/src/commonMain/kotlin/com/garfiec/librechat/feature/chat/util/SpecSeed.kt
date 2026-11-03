@@ -61,14 +61,34 @@ internal fun SpecSeed.toChoice(): ModelChoice = ModelChoice.Spec(spec, endpoint,
 internal fun ModelChoice.Companion.restore(endpoint: String, model: String?, spec: String?): ModelChoice =
     if (spec != null && model != null) ModelChoice.Spec(spec, endpoint, model) else ModelChoice.Raw(endpoint, model)
 
+/**
+ * The pair this spec opens on, by `preset.endpoint` alone, as upstream's `resolveModelSpecEndpoint`
+ * (`packages/data-provider/src/models.ts`) reads it: an agents spec runs its `agent_id`, any other
+ * its `model`, and a spec with no endpoint opens nothing. The server writes an endpoint it infers
+ * from `agent_id` into the served config (`materializeModelSpecEndpoints`), so no inference here;
+ * a stray `agent_id` on another endpoint is ignored, as the server ignores it.
+ */
 internal fun ModelSpec.toSeed(prioritized: Boolean = false): SpecSeed? {
     if (name.isBlank()) return null
     val preset = preset ?: return null
-    val agentId = preset.agentId?.takeIf { it.isNotBlank() }
-    if (agentId != null) return SpecSeed(EndpointConstants.AGENTS, agentId, prioritized, name)
     val endpoint = preset.endpoint?.takeIf { it.isNotBlank() } ?: return null
-    val model = preset.model?.takeIf { it.isNotBlank() } ?: return null
+    val model = (if (endpoint == EndpointConstants.AGENTS) preset.agentId else preset.model)
+        ?.takeIf { it.isNotBlank() } ?: return null
     return SpecSeed(endpoint, model, prioritized, name)
+}
+
+/**
+ * A stored pick (last-used, a model shortcut) reopened against the live config: the spec it names
+ * on that spec's current pair, as web's `getDefaultModelSpec` reopens `LAST_CONVO_SETUP.spec`, while
+ * the server offers one by that name; else the raw pair. A spec an admin moved to another model is
+ * still the user's pick, so it follows the spec rather than falling back to the old raw model.
+ *
+ * Only for picks. A loaded conversation or preset keeps [offeredOn]: its spec and pair were sent
+ * together, so a moved spec there is a different selection.
+ */
+internal fun ModelSpecs?.reopenedPick(endpoint: String, model: String, spec: String?): ModelChoice {
+    val seed = spec?.let { name -> this?.list.orEmpty().firstOrNull { it.name == name }?.toSeed() }
+    return seed?.toChoice() ?: ModelChoice.Raw(endpoint, model)
 }
 
 /**
@@ -130,6 +150,32 @@ internal fun ModelChoice.inferredFor(tier0: Pair<String, String>?, specs: ModelS
     return ModelChoice.restore(endpoint, model, specs.uniqueSpecFor(endpoint, model))
 }
 
+/** A start-chat entry point's pair: an agent card's agent, or a model shortcut's pair and the spec it was recorded from. */
+internal data class StartChatPick(val endpoint: String, val model: String, val spec: String?, val shortcut: Boolean)
+
+/**
+ * What a start-chat entry point opens on once the spec config is known, or null when it opens
+ * nothing. An agent card opens its agent, with the selector off too, as on web. An enforced server
+ * refuses a send without a spec, so a raw pair adopts the spec when exactly one opens on it;
+ * otherwise the send preflight asks.
+ *
+ * A model shortcut reopens the spec it was recorded from, on that spec's current pair, as a
+ * last-used pick does ([reopenedPick]). Without one (a raw pick, or one recorded before shortcuts
+ * kept their spec) its raw pair opens only where the picker lists that endpoint: a start-chat link
+ * wins over the server's spec, so it must not open a raw model an admin hid. There the one spec on
+ * the pair opens instead, or nothing when none or several do. Under `enforce` it takes the one
+ * spec on its pair as any entry point does, and otherwise opens the raw pair for the send
+ * preflight to ask.
+ */
+internal fun StartChatPick.resolvedAgainst(specs: ModelSpecs?, modelSelect: Boolean): ModelChoice? {
+    val pair = endpoint to model
+    if (!shortcut) return ModelChoice.Raw(endpoint, model).inferredFor(pair, specs)
+    val reopened = specs.reopenedPick(endpoint, model, spec)
+    if (reopened is ModelChoice.Spec) return reopened
+    if (specs.requiresSpec || specs.showsRawEndpoint(endpoint, modelSelect)) return reopened.inferredFor(pair, specs)
+    return specs.uniqueSpecFor(endpoint, model)?.let { ModelChoice.Spec(it, endpoint, model) }
+}
+
 /**
  * The one spec that opens on [endpoint] and [model], for an entry point that names only the raw
  * pair (an agent card, a model shortcut) on a server that [requiresSpec]. Null when no spec or
@@ -141,6 +187,37 @@ internal fun ModelSpecs?.uniqueSpecFor(endpoint: String, model: String): String?
         .filter { it.endpoint == endpoint && it.model == model }
         .singleOrNull()
         ?.spec
+
+/**
+ * The spec a reopened comparison's second lane was sent with, read back from its ephemeral agent
+ * id. The server saves no spec for the added convo; the id's sender segment is
+ * `modelLabel ?? spec.label ?? modelDisplayLabel` (`added.ts`, left out when empty), and the
+ * client never sends a `modelLabel` for lane B, so a spec lane's sender is its label. The one
+ * spec on [endpoint] and [model] with that label wins. Failing that, an enforced server, which
+ * only a spec lane can have come from, takes the one spec on the pair ([uniqueSpecFor]); any other
+ * server reopens the raw pair, since a raw lane with that pair is just as likely.
+ *
+ * A sender equal to the endpoint's [displayLabel] (its `modelDisplayLabel`) is also what a raw lane
+ * on that endpoint saves, so outside `enforce` it names no spec and the lane reopens raw: a wrong
+ * raw reopen loses only the preset, while a wrong spec reopen sends the spec's name and preset unasked.
+ * Until the endpoint's config has loaded ([displayLabelKnown] false) any sender might be that label,
+ * so the lane reopens raw meanwhile, and the next read decides once it arrives.
+ */
+internal fun ModelSpecs?.laneBSpecFor(
+    endpoint: String,
+    model: String,
+    sender: String?,
+    displayLabel: String? = null,
+    displayLabelKnown: Boolean = true,
+): String? {
+    val ambiguous = sender != null && !requiresSpec && (!displayLabelKnown || sender == displayLabel)
+    val byLabel = sender?.takeUnless { ambiguous }?.let { label ->
+        this?.list.orEmpty().singleOrNull { spec ->
+            spec.label == label && spec.toSeed()?.let { it.endpoint == endpoint && it.model == model } == true
+        }
+    }
+    return byLabel?.name ?: uniqueSpecFor(endpoint, model).takeIf { requiresSpec }
+}
 
 /**
  * The spec rows the picker lists, ascending by `order` with unordered specs after them in list

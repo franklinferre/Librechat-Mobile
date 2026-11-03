@@ -25,9 +25,12 @@ The canonical API for version comparisons lives in
   (`TZ=UTC git log -1 --date=format-local:%Y-%m-%d --format=%cd <landing-commit>` — NOT `%cs`,
   which renders per-committer timezones and is non-monotonic on upstream's history). Use for
   features synced ahead of any tag (partial syncs). Fails CLOSED on null `detected` — note the
-  commit map only covers commits up to the app's pinned submodule commit, so a server built
-  from a LATER commit resolves to null and hides date-gated features until the next
-  sync/regeneration.
+  commit map only covers commits up to the app's pinned submodule commit. A server built from a
+  LATER commit is placed by `UnmappedBuildDetection`: at its tag when `buildInfo.branch` names
+  one, else AT the pin (DEV, the pin's version, no commit date) when `buildInfo.buildDate` is
+  after the pin. That is a lower bound, so features landed after the pin stay hidden here (and
+  read UNKNOWN, not ABSENT, in `featureSupport`) until the next sync/regeneration; a server with
+  neither signal still resolves to null.
 
 - `BackendVersion.featureSupport(detected, minVersion, landedDate)` — the THREE-state form:
   `PRESENT` / `ABSENT` / `UNKNOWN`. `supportsFeature` is exactly `featureSupport(…) == PRESENT`, so
@@ -42,7 +45,8 @@ The canonical API for version comparisons lives in
 
   **That null case is the gate's real failure mode, not an edge case.** A self-hosted server
   tracking upstream `dev`/`latest` drifts past the pin within days, so the population most likely
-  to HAVE a just-landed feature is the population that resolves to null. Gate on `supportsFeature`
+  to HAVE a just-landed feature is the population the map cannot classify (null, or placed only AT
+  the pin by `UnmappedBuildDetection`). Gate on `supportsFeature`
   only when the client would otherwise call a route the server may not have *without being asked
   to* — suppressing such a call is a genuine fail-safe. Do NOT gate on it when the server has
   already announced the capability (an SSE frame, a status field, a `/api/config` flag): the
@@ -295,7 +299,7 @@ from `backendTargetVersion` in the root `version.properties` by core/common's
   --date=format-local:%Y-%m-%d` around it) and apply the day-granularity rule above — the literal
   landing date is the right choice only when a same-day predecessor being treated as post-landing is
   harmless.
-- **v0.8.8 target (2026-09-30):** synced to upstream release commit 6a1d30ca (`package.json` `v0.8.8`; the tag was not yet published). The sync added two version gates, both with rows above: Background Tasks (probe-and-latch, `landedDate` 2026-09-25 from e32e6b54 #16348) and the thinkingDisplay `updates` option (PRESENT only, fail-closed, `landedDate` 2026-09-29, the day after 40bb16ed #16460 landed, so no same-day predecessor is offered it). Skill in-place file edits are offered only when the server returns a `fileId` and the skill is `inline`, and MCP start failures are read from the response. Both are self-proving announcements, so they have no row. `interface.agentSelectorLimit` is decoded but has no mobile consumer, so there is nothing to gate. The Running drawer group calls `GET /api/agents/chat/active`, which predates the v0.8.4 minimum, so it is ungated.
+- **v0.8.8 target (2026-09-30):** synced to upstream release commit 6a1d30ca (`package.json` `v0.8.8`; the tag was not yet published). The sync added two version gates, both with rows above: Background Tasks (probe-and-latch, `landedDate` 2026-09-25 from e32e6b54 #16348) and the thinkingDisplay `updates` option (PRESENT only, fail-closed, `landedDate` 2026-09-29, the day after 40bb16ed #16460 landed, so no same-day predecessor is offered it). Skill in-place file edits are offered only when the server returns a `fileId` and the skill is `inline`, and MCP start failures are read from the response. Both are self-proving announcements, so they have no row. `interface.agentSelectorLimit` is decoded but has no mobile consumer, so there is nothing to gate. The Running drawer group calls `GET /api/agents/chat/active`, which predates the v0.8.4 minimum, so it is ungated. Message editing (#579) is ungated for the same reason: the `index` branch of `PUT /api/messages/:conversationId/:messageId` predates v0.7.8 and `editedContent` landed by v0.8.0-rc1, both below the v0.8.4 minimum. The one range-sensitive behaviour — v0.8.4 and v0.8.7 reading `text` out of `editedContent` regardless of its `type` — is handled by never resubmitting a THINK edit (`resubmittablePartIndex`) rather than by a gate, so there is no row to retire.
 - **v0.8.8 tag (2026-10-01):** the tag published at e8f3be08, 14 commits past 6a1d30ca. Re-pinned there and regenerated `BackendCommitMap`. None of the 14 needs a new gate: they are a 2FA-management rate limit (a 429 whose `message` the 2FA settings already show), web-only tool-approval, MCP OAuth and re-render fixes, server-side history and edit-matching fixes, LibreOffice previews paused server-side, a CI change, and dependency bumps. Among those bumps, `@librechat/agents` 3.9.8 → 4.0.1 is a major version, but its only source changes are Bedrock reasoning replay (server-to-LLM input) and subagent start-failure logging; no streamed event shape changed. Both `landedDate`s are kept, as the earlier rc2 and rc4 date gates were after their tags.
 
 ## Guidelines for adding a new gate

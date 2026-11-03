@@ -1,17 +1,25 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
+import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
 import com.garfiec.librechat.core.common.result.Result
+import com.garfiec.librechat.core.data.endpoint.EndpointDispatch
 import com.garfiec.librechat.core.data.repository.ChatRepository
+import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.StreamEvent
+import com.garfiec.librechat.core.model.error.UserKeyError
 import com.garfiec.librechat.core.model.response.ChatAbortResponse
 import com.garfiec.librechat.feature.chat.util.AbortFrameFixtures
+import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ConversationMetaState
 import com.garfiec.librechat.feature.chat.viewmodel.MessagesState
+import com.garfiec.librechat.feature.chat.viewmodel.ModelChoice
+import com.garfiec.librechat.feature.chat.viewmodel.ModelSelectionState
+import com.garfiec.librechat.feature.chat.viewmodel.QueuedMessage
 import com.garfiec.librechat.feature.chat.viewmodel.StreamingHandle
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
@@ -92,6 +100,14 @@ class StreamingManagerEndStreamTest {
         return delegate to flow
     }
 
+    /** A queued send's spec, sent to [choice]; nothing else about it matters here. */
+    private fun queuedTurn(choice: ModelChoice) = QueuedMessage(
+        localId = "q1",
+        text = "hi",
+        choice = choice,
+        dispatch = EndpointDispatch(endpointType = null, key = null, modelDisplayLabel = null),
+    )
+
     /** The realistic wire shape: content parts present, no text. See AbortFrameFixtures. */
     private fun abortedFinal() = AbortFrameFixtures.persistedAbortFrame()
 
@@ -126,6 +142,34 @@ class StreamingManagerEndStreamTest {
             verify(exactly = 0) { host.reloadConversation(any()) }
             verify { comparisonDelegate.endStreaming(clearContent = false) }
             verify(atLeast = 1) { queueDelegate.pause() }
+            events.close()
+            advanceUntilIdle()
+        }
+
+    @Test
+    fun `a local stop of a resumed stream brings back the reply's saved partial`() =
+        runTest(StandardTestDispatcher()) {
+            coEvery { chatRepository.abortChat("conv-1", any(), any()) } returns Result.Success(ChatAbortResponse())
+            val partial = message("r1", parentId = "u1").copy(unfinished = true)
+            val messages = listOf(message("u1", isUser = true), partial)
+            val state = streamingState().let {
+                it.copy(content = it.content.copy(messages = messages, displayMessages = buildActiveMessagePath(messages)))
+            }
+            val events = Channel<StreamEvent>(Channel.UNLIMITED)
+            val (delegate, flow) = delegateWith(this, state)
+            delegate.launchStream(events.receiveAsFlow())
+
+            events.send(StreamEvent.Sync(aggregatedContent = emptyList(), responseMessageId = "r1"))
+            runCurrent()
+            assertThat(flow.value.displayMessages.map { it.message.messageId }).containsExactly("u1")
+
+            delegate.stopGeneration()
+            advanceTimeBy(15_001)
+            runCurrent()
+
+            assertThat(flow.value.isStreaming).isFalse()
+            assertThat(flow.value.displayMessages.map { it.message.messageId }).containsExactly("u1", "r1").inOrder()
+            verify(exactly = 0) { host.reloadConversation(any()) }
             events.close()
             advanceUntilIdle()
         }
@@ -292,6 +336,113 @@ class StreamingManagerEndStreamTest {
         runCurrent()
 
         verify(exactly = 0) { host.unsendTurn(any()) }
+
+        events.close()
+        delegate.reset()
+        advanceUntilIdle()
+    }
+
+    /**
+     * The server sends `no_user_key` as a bare `{type}`; the snackbar still has to say which key is
+     * missing and open that endpoint's sheet, so the error names the endpoint the turn was sent to.
+     */
+    @Test
+    fun `a key error without an endpoint names the endpoint the turn was sent to`() =
+        runTest(StandardTestDispatcher()) {
+            val events = Channel<StreamEvent>(Channel.UNLIMITED)
+            val state = streamingState().copy(
+                selection = ModelSelectionState(choice = ModelChoice.Raw("OpenRouter", "meta/llama")),
+            )
+            val (delegate, _) = delegateWith(this, state)
+            delegate.beginStreaming(isEdit = false, optimisticUserMessageId = "u1")
+            delegate.launchStream(events.receiveAsFlow())
+
+            events.send(StreamEvent.Error(message = """{"type":"no_user_key"}"""))
+            runCurrent()
+
+            verify(exactly = 1) { host.emitUserKeyError(UserKeyError.NoUserKey("OpenRouter")) }
+
+            events.close()
+            delegate.reset()
+            advanceUntilIdle()
+        }
+
+    @Test
+    fun `an agent turn's key error names the agent's provider`() = runTest(StandardTestDispatcher()) {
+        val events = Channel<StreamEvent>(Channel.UNLIMITED)
+        val state = streamingState().copy(
+            selection = ModelSelectionState(
+                choice = ModelChoice.Raw(EndpointConstants.AGENTS, "agent_1"),
+                agents = listOf(Agent(id = "agent_1", provider = "anthropic")),
+            ),
+        )
+        val (delegate, _) = delegateWith(this, state)
+        delegate.beginStreaming(isEdit = false, optimisticUserMessageId = "u1")
+        delegate.launchStream(events.receiveAsFlow())
+
+        events.send(StreamEvent.Error(message = """{"type":"invalid_user_key"}"""))
+        runCurrent()
+
+        verify(exactly = 1) { host.emitUserKeyError(UserKeyError.InvalidUserKey("anthropic")) }
+
+        events.close()
+        delegate.reset()
+        advanceUntilIdle()
+    }
+
+    /**
+     * A queued or drained send carries its own spec, and the composer may have moved on since: the
+     * error names the endpoint the turn went to, not the live selection.
+     */
+    @Test
+    fun `a queued turn's key error names the queued endpoint, not the live selection`() =
+        runTest(StandardTestDispatcher()) {
+            val events = Channel<StreamEvent>(Channel.UNLIMITED)
+            val state = streamingState().copy(
+                selection = ModelSelectionState(choice = ModelChoice.Raw("anthropic", "claude-sonnet")),
+            )
+            val (delegate, _) = delegateWith(this, state)
+            delegate.beginStreaming(
+                isEdit = false,
+                optimisticUserMessageId = "u1",
+                turnSpec = queuedTurn(ModelChoice.Raw("OpenRouter", "meta/llama")),
+            )
+            delegate.launchStream(events.receiveAsFlow())
+
+            events.send(StreamEvent.Error(message = """{"type":"no_user_key"}"""))
+            runCurrent()
+
+            verify(exactly = 1) { host.emitUserKeyError(UserKeyError.NoUserKey("OpenRouter")) }
+
+            events.close()
+            delegate.reset()
+            advanceUntilIdle()
+        }
+
+    @Test
+    fun `a queued agent turn's key error names the queued agent's provider`() = runTest(StandardTestDispatcher()) {
+        val events = Channel<StreamEvent>(Channel.UNLIMITED)
+        val state = streamingState().copy(
+            selection = ModelSelectionState(
+                choice = ModelChoice.Raw(EndpointConstants.AGENTS, "agent_live"),
+                agents = listOf(
+                    Agent(id = "agent_live", provider = "anthropic"),
+                    Agent(id = "agent_queued", provider = "OpenRouter"),
+                ),
+            ),
+        )
+        val (delegate, _) = delegateWith(this, state)
+        delegate.beginStreaming(
+            isEdit = false,
+            optimisticUserMessageId = "u1",
+            turnSpec = queuedTurn(ModelChoice.Raw(EndpointConstants.AGENTS, "agent_queued")),
+        )
+        delegate.launchStream(events.receiveAsFlow())
+
+        events.send(StreamEvent.Error(message = """{"type":"no_user_key"}"""))
+        runCurrent()
+
+        verify(exactly = 1) { host.emitUserKeyError(UserKeyError.NoUserKey("OpenRouter")) }
 
         events.close()
         delegate.reset()

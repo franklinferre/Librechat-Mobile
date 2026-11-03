@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.model.Attachment
+import com.garfiec.librechat.core.model.media.IconSource
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.util.MessageNode
 import com.garfiec.librechat.feature.chat.util.withPreviews
@@ -48,7 +49,8 @@ fun SecondaryMessageList(
     error: String? = null,
     baseUrl: String = "",
     fontSizeMultiplier: Float = 1.0f,
-    selectedEndpoint: String? = null,
+    /** The streaming reply's avatar, resolved like each node's [MessageNode.avatar]. */
+    streamingAvatar: IconSource? = null,
     streamingSenderName: String = "Assistant",
     showImageDescriptions: Boolean = true,
     chatLayoutStyle: String = ChatLayoutConstants.THREAD,
@@ -65,6 +67,8 @@ fun SecondaryMessageList(
     syncHold: () -> Boolean = { false },
     /** Reading room past the last line, as in [MessageList]. */
     extraEndSpace: Dp = 0.dp,
+    /** The cut-short reply's chip, as in [MessageList]. */
+    stoppedReply: StoppedReplyAction? = null,
 ) {
     val extraEndPx = with(LocalDensity.current) { extraEndSpace.toPx() }
     val follower = rememberTailFollowerState()
@@ -164,13 +168,19 @@ fun SecondaryMessageList(
                         fontSizeMultiplier = fontSizeMultiplier,
                         userAvatarUrl = userAvatarUrl,
                         userName = userName,
-                        selectedEndpoint = selectedEndpoint,
                         showImageDescriptions = showImageDescriptions,
                         chatLayoutStyle = chatLayoutStyle,
                         showAvatars = showAvatars,
                         showBubbles = showBubbles,
+                        avatar = node.avatar,
                         useKatex = useKatex,
                     )
+                    if (stoppedReply?.messageId == node.message.messageId) {
+                        StoppedReplyFooter(
+                            action = stoppedReply,
+                            modifier = Modifier.streamingContentColumnPadding(chatLayoutStyle, showAvatars, showBubbles),
+                        )
+                    }
                     }
                     }
                 }
@@ -192,9 +202,8 @@ fun SecondaryMessageList(
                             StreamingMessageBubble(
                                 streamingContent = streamingContent,
                                 senderName = streamingSenderName,
-                                senderIconUrl = null,
+                                avatar = streamingAvatar,
                                 fontSizeMultiplier = fontSizeMultiplier,
-                                selectedEndpoint = selectedEndpoint,
                                 chatLayoutStyle = chatLayoutStyle,
                                 showAvatars = showAvatars,
                                 showBubbles = showBubbles,
@@ -216,6 +225,8 @@ fun SecondaryMessageList(
                                     baseUrl = baseUrl,
                                     streamingAttachments = streamingWorkspace.inline,
                                     sandboxStarting = toolCall.id in sandboxStartingToolCallIds,
+                                    isLatestStep = toolCall.id == renderedToolCalls.lastOrNull()?.id,
+                                    replyLength = streamingContent.length,
                                 )
                             }
                         }
@@ -236,6 +247,16 @@ fun SecondaryMessageList(
                     }
                 }
             }
+            ScrollToBottomButton(
+                listState = listState,
+                follower = follower,
+                extraEndPx = extraEndPx,
+                // Compare's panes don't record the glass backdrop (see MessageList's recordsGlassBackdrop).
+                backdrop = null,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = scrollToBottomButtonPadding(bottomContentPadding)),
+            )
         }
     }
 }

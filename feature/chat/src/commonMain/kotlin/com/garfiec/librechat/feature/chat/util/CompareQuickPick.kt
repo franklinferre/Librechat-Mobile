@@ -7,6 +7,8 @@ import com.garfiec.librechat.core.model.config.ModelSpec
 import com.garfiec.librechat.core.model.config.ModelSpecs
 import com.garfiec.librechat.core.model.config.displayLabel
 import com.garfiec.librechat.core.model.endpoint.KeyState
+import com.garfiec.librechat.core.model.endpoint.endpointDisplayName
+import com.garfiec.librechat.core.model.media.IconSource
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.FavoritesDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.filterModelsByEndpoint
 
@@ -21,6 +23,8 @@ data class CompareQuickPick(
     val starred: Boolean,
     /** The spec this row picks; null for a raw model or agent. */
     val spec: String? = null,
+    /** A spec row's icon, unless the spec hides it in menus. */
+    val icon: IconSource? = null,
 )
 
 /**
@@ -28,11 +32,13 @@ data class CompareQuickPick(
  * user starred (pin order kept), or, with nothing starred, the first models (then agents) the
  * server offers, so the pane is never an empty box. With a query it is the full selector's
  * matching over every agent and model, ranked as one list. Endpoints still waiting on the user's
- * API key are left out: the full list greys them out behind "Set API Key", one tap away behind
+ * API key are left out: the full list greys them out behind "Add key", one tap away behind
  * "Browse all models".
  *
  * [specs] (the picker's visible spec rows) lead the list, as in the full selector. Raw models and
- * agents follow only where [modelSpecs] lists them and a send to them would be accepted.
+ * agents follow only where [modelSpecs] lists them, and never under `enforce`. The server refuses
+ * a primary with no spec there; it checks only the primary, but Compare holds the second model to
+ * the same rule, as the send preflight does.
  */
 @Suppress("LongParameterList")
 fun compareQuickPicks(
@@ -49,6 +55,7 @@ fun compareQuickPicks(
     endpointKeyStates: Map<String, KeyState> = emptyMap(),
     specs: List<ModelSpec> = emptyList(),
     modelSpecs: ModelSpecs? = null,
+    serverUrl: String = "",
     limit: Int = QUICK_PICK_LIMIT,
 ): List<CompareQuickPick> {
     val rawSendable = !modelSpecs.requiresSpec
@@ -60,7 +67,7 @@ fun compareQuickPicks(
         .takeIf { rawSendable && modelSpecs.showsRawEndpoint(EndpointConstants.AGENTS, modelSelect) }
         .orEmpty()
         .associateBy { it.id }
-    fun sourceOf(endpoint: String) = endpointConfigs[endpoint]?.modelDisplayLabel ?: endpoint
+    fun sourceOf(endpoint: String) = endpointDisplayName(endpoint, endpointConfigs[endpoint])
     fun modelPick(endpoint: String, model: String) = CompareQuickPick(
         endpoint = endpoint,
         model = model,
@@ -88,6 +95,7 @@ fun compareQuickPicks(
             source = if (seed.endpoint == EndpointConstants.AGENTS) agentCaption else sourceOf(seed.endpoint),
             starred = spec.name in favoriteSpecNames,
             spec = spec.name,
+            icon = spec.menuIconSource(agents, serverUrl, endpointConfigs),
         )
     }
 

@@ -41,16 +41,12 @@ import com.garfiec.librechat.core.model.Banner
 import com.garfiec.librechat.core.ui.components.BannerDisplay
 import com.garfiec.librechat.core.ui.components.PlatformBackHandler
 import com.garfiec.librechat.core.ui.glass.rememberGlassStyle
-import com.garfiec.librechat.feature.agents.navigation.AgentMarketplace
 import com.garfiec.librechat.feature.auth.navigation.AddAccountServerUrl
 import com.garfiec.librechat.feature.chat.navigation.NewChat
 import com.garfiec.librechat.feature.chat.navigation.isPlainLanding
 import com.garfiec.librechat.feature.conversations.navigation.Projects
 import com.garfiec.librechat.feature.conversations.navigation.Search
-import com.garfiec.librechat.feature.files.navigation.Files
-import com.garfiec.librechat.feature.schedules.navigation.SchedulesList
 import com.garfiec.librechat.feature.settings.navigation.SettingsTabbed
-import com.garfiec.librechat.feature.skills.navigation.SkillsList
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -232,18 +228,10 @@ fun TabletLayout(
                             onSettingsClick = {
                                 navigator.navigate(SettingsTabbed)
                             },
-                            onAgentsClick = {
-                                navigator.navigate(AgentMarketplace)
+                            onWorkspaceClick = { destination ->
+                                navigator.navigate(destination.route())
                             },
-                            onFilesClick = {
-                                navigator.navigate(Files)
-                            },
-                            onSkillsClick = {
-                                navigator.navigate(SkillsList)
-                            },
-                            onSchedulesClick = {
-                                navigator.navigate(SchedulesList)
-                            },
+                            currentWorkspace = navigator.currentRoute.workspaceDestination(),
                             onOpenProjectsIndex = {
                                 navigator.navigate(Projects)
                             },

@@ -7,6 +7,7 @@ import com.garfiec.librechat.core.model.usage.ContextUsageTotals
 import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
 import com.garfiec.librechat.feature.chat.util.CatalogSkill
+import com.garfiec.librechat.feature.chat.util.SpecTools
 import com.garfiec.librechat.feature.chat.util.ToolDecisionDraft
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
@@ -110,6 +111,7 @@ class ComparisonWrites internal constructor(state: ChatUiState) {
 }
 
 class ComparisonHandle(root: ChatStateHandle) : DelegateHandle(root) {
+    val stateFlow: StateFlow<ChatUiState> get() = root.stateFlow
     fun update(block: ComparisonWrites.() -> Unit) =
         root.update { ComparisonWrites(this).apply(block).applyTo(this) }
 }
@@ -210,6 +212,20 @@ class ConversationActionsHandle(root: ChatStateHandle) : DelegateHandle(root) {
     val stateFlow: StateFlow<ChatUiState> get() = root.stateFlow
     fun update(block: ConversationActionsWrites.() -> Unit) =
         root.update { ConversationActionsWrites(this).apply(block).applyTo(this) }
+}
+
+// ── ChatBookmarksDelegate ─────────────────────────────────────────────────
+class BookmarksWrites internal constructor(state: ChatUiState) {
+    var bookmarks: ChatBookmarksState = state.bookmarks
+    var error: String? = state.error
+    internal fun applyTo(s: ChatUiState) = s.copy(bookmarks = bookmarks, error = error)
+}
+
+class BookmarksHandle(root: ChatStateHandle) : DelegateHandle(root) {
+    /** Read-only observation of the full state (the checklist follows the open chat and its gate). */
+    val stateFlow: StateFlow<ChatUiState> get() = root.stateFlow
+    fun update(block: BookmarksWrites.() -> Unit) =
+        root.update { BookmarksWrites(this).apply(block).applyTo(this) }
 }
 
 // ── SendCompletionDelegate ────────────────────────────────────────────────
@@ -485,6 +501,7 @@ class QueueOrchestrationWrites internal constructor(state: ChatUiState) {
     var choice: ModelChoice = state.selection.choice
     var enabledTools: Set<String> = state.selection.enabledTools
     var selectedMcpServerNames: Set<String> = state.selection.selectedMcpServerNames
+    var specTools: SpecTools? = state.selection.specTools
     var modelParameters: ModelParameters = state.selection.modelParameters
     var skillsToggle: Boolean = state.selection.skillsToggle
     var error: String? = state.error
@@ -499,6 +516,7 @@ class QueueOrchestrationWrites internal constructor(state: ChatUiState) {
             choice = choice,
             enabledTools = enabledTools,
             selectedMcpServerNames = selectedMcpServerNames,
+            specTools = specTools,
             modelParameters = modelParameters,
             skillsToggle = skillsToggle,
         ),

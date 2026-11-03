@@ -1,10 +1,7 @@
 package com.garfiec.librechat.feature.chat.components
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,11 +11,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
@@ -26,7 +19,6 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,23 +41,23 @@ import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.MinimalFeedback
 import com.garfiec.librechat.core.model.PendingAction
-import com.garfiec.librechat.core.ui.components.AdaptiveFloatingActionButton
+import com.garfiec.librechat.core.model.media.IconSource
 import com.garfiec.librechat.core.ui.glass.LocalGlassBackdrop
 import com.garfiec.librechat.core.ui.glass.glassBackdropSource
 import com.garfiec.librechat.core.ui.theme.isSurfaceDark
 import com.garfiec.librechat.feature.chat.resources.*
-import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.util.MessageNode
+import com.garfiec.librechat.feature.chat.util.hasEditablePart
 import com.garfiec.librechat.feature.chat.util.withPreviews
 import com.garfiec.librechat.feature.chat.viewmodel.ActiveToolCall
 import com.garfiec.librechat.feature.chat.viewmodel.JumpFlash
+import com.garfiec.librechat.feature.chat.viewmodel.MessageEditingState
 import com.garfiec.librechat.feature.chat.viewmodel.SearchFocusRequest
 import com.garfiec.librechat.feature.chat.viewmodel.SearchMatch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import org.jetbrains.compose.resources.stringResource
 import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,12 +87,13 @@ fun MessageList(
      * then its activity groups have already chosen to collapse and nothing re-opens them.
      */
     justSettledMessageId: String? = null,
-    onContinue: (messageId: String) -> Unit = {},
     /**
      * False hides the actions that start a run (edit, regenerate, continue): Compare setup sends
      * nothing until it ends, so they would do nothing.
      */
     canResubmit: Boolean = true,
+    /** The cut-short reply's chip ([StoppedReplyFooter]), under that reply; null shows none. */
+    stoppedReply: StoppedReplyAction? = null,
     /**
      * Hides every message action except Copy and branch switching, whatever callbacks are passed.
      */
@@ -108,11 +101,15 @@ fun MessageList(
     onReadAloud: (messageId: String) -> Unit = {},
     onFork: (messageId: String) -> Unit = {},
     currentlyReadingMessageId: String? = null,
-    editingMessageId: String? = null,
-    editingText: String = "",
+    /**
+     * Which message is being edited, with its drafts and their baselines. One value rather than an
+     * id beside them, so the two cannot disagree about which row the drafts belong to.
+     */
+    editing: MessageEditingState = MessageEditingState(),
     onEditTextChange: (String) -> Unit = {},
-    onEditSaveAndSubmit: () -> Unit = {},
-    onEditSaveOnly: () -> Unit = {},
+    onEditPartTextChange: (Int, String) -> Unit = { _, _ -> },
+    onEditSave: () -> Unit = {},
+    onEditRerun: () -> Unit = {},
     onEditCancel: () -> Unit = {},
     baseUrl: String = "",
     fontSizeMultiplier: Float = 1.0f,
@@ -120,7 +117,8 @@ fun MessageList(
     onRefresh: () -> Unit = {},
     userAvatarUrl: String? = null,
     userName: String? = null,
-    selectedEndpoint: String? = null,
+    /** The streaming reply's avatar, resolved like each node's [MessageNode.avatar]. */
+    streamingAvatar: IconSource? = null,
     streamingSenderName: String = "Assistant",
     showImageDescriptions: Boolean = true,
     chatLayoutStyle: String = ChatLayoutConstants.THREAD,
@@ -220,18 +218,6 @@ fun MessageList(
     var listHasFocus by remember { mutableStateOf(false) }
 
     val isNearBottom = rememberIsNearBottom(listState, extraEndPx)
-
-    val showScrollToBottom by remember {
-        derivedStateOf {
-            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            // The LIST's own count, not the hand-computed [totalItemCount] above: that one omits
-            // the trailing office-preview and human-review-pause items, so with one of those off
-            // screen the last visible index equals it and the FAB — the only cue that the thread
-            // scrolls further — is suppressed exactly when it is needed.
-            val rendered = listState.layoutInfo.totalItemsCount
-            rendered > 0 && lastVisibleItem < rendered - 1
-        }
-    }
 
     // ── Auto-scroll behavior ──────────────────────────────────────────
     //
@@ -507,7 +493,7 @@ fun MessageList(
                     // slot reuse from handing it a user bubble's composition, or the reverse.
                     val role = when {
                         !node.message.isCreatedByUser -> "assistant"
-                        wakeups.wakeupOf(node, isEditing = editingMessageId == node.message.messageId) != null -> "system"
+                        wakeups.wakeupOf(node, isEditing = editing.editingMessageId == node.message.messageId) != null -> "system"
                         else -> "user"
                     }
                     "${chatLayoutStyle}_$role"
@@ -537,10 +523,36 @@ fun MessageList(
                     LocalSearchFocusNonce provides if (isCurrent) searchFocusRequest?.requestId ?: 0L else 0L,
                     LocalSuppressGroupAutoCollapse provides (node.message.messageId == justSettledMessageId),
                     LocalFeedbackEnabled provides (!isStreaming && !readOnly),
-                    LocalResubmitEnabled provides resubmit,
                     LocalExpansionScope provides expansionScope(ExpansionPane.PRIMARY, node.message.parentMessageId),
                 ) {
-                val systemEvent = wakeups.wakeupOf(node, isEditing = editingMessageId == node.message.messageId)
+                // Built here, where the message is in hand: whether a rerun is possible, and
+                // whether the changes can ride it, are both questions about THIS message's parts
+                // and parent. Null on every other row (see MessageEditSession).
+                // Memoized: the artifact check parses markdown, and this subtree recomposes on
+                // every streaming flush. Everything else in this file that scans content parts is
+                // wrapped the same way.
+                val editable = remember(node.message.content, node.message.text) {
+                    hasEditablePart(node.message)
+                }
+                val editSession = if (editing.editingMessageId == node.message.messageId) {
+                    rememberMessageEditSession(
+                        message = node.message,
+                        // The edited message is on the active path, so its parent is too — no need
+                        // for the whole tree to resolve the turn a rerun would replay.
+                        displayed = displayMessages,
+                        editing = editing,
+                        saveAllowed = !isStreaming && !readOnly,
+                        canStartRun = resubmit,
+                        onTextChange = onEditTextChange,
+                        onPartTextChange = onEditPartTextChange,
+                        onSave = onEditSave,
+                        onRerun = onEditRerun,
+                        onCancel = onEditCancel,
+                    )
+                } else {
+                    null
+                }
+                val systemEvent = wakeups.wakeupOf(node, isEditing = editing.editingMessageId == node.message.messageId)
                 if (systemEvent != null) {
                     SystemEventRow(
                         display = systemEvent,
@@ -554,7 +566,7 @@ fun MessageList(
                             onSiblingNavigation(node.treeParentKey, newIndex)
                         },
                         onCopy = { onCopyMessage(node.message.messageId) },
-                        onEdit = if (resubmit) {
+                        onEdit = if (resubmit && editable) {
                             { onEditMessage(node.message.messageId) }
                         } else {
                             null
@@ -574,7 +586,7 @@ fun MessageList(
                         onSiblingNavigation(node.treeParentKey, newIndex)
                     },
                     showActionsInitially = lastNavigatedParentKey == node.treeParentKey,
-                    onEdit = if (resubmit) {
+                    onEdit = if (resubmit && editable) {
                         { onEditMessage(node.message.messageId) }
                     } else {
                         null
@@ -590,30 +602,20 @@ fun MessageList(
                     } else {
                         null
                     },
-                    onContinue = if (resubmit && !node.message.isCreatedByUser) {
-                        { onContinue(node.message.messageId) }
-                    } else {
-                        null
-                    },
                     onReadAloud = if (readOnly) null else ({ onReadAloud(node.message.messageId) }),
                     onFork = if (readOnly) null else ({ onFork(node.message.messageId) }),
                     baseUrl = baseUrl,
                     fontSizeMultiplier = fontSizeMultiplier,
                     isReading = currentlyReadingMessageId == node.message.messageId,
                     currentFeedback = node.message.feedback?.rating,
-                    isEditing = editingMessageId == node.message.messageId,
-                    editText = if (editingMessageId == node.message.messageId) editingText else "",
-                    onEditTextChange = onEditTextChange,
-                    onEditSaveAndSubmit = onEditSaveAndSubmit,
-                    onEditSaveOnly = onEditSaveOnly,
-                    onEditCancel = onEditCancel,
+                    editSession = editSession,
                     userAvatarUrl = userAvatarUrl,
                     userName = userName,
-                    selectedEndpoint = selectedEndpoint,
                     showImageDescriptions = showImageDescriptions,
                     chatLayoutStyle = chatLayoutStyle,
                     showAvatars = showAvatars,
                     showBubbles = showBubbles,
+                    avatar = node.avatar,
                     useKatex = useKatex,
                     searchQuery = searchQuery,
                     isSearchMatch = isMatch,
@@ -635,6 +637,12 @@ fun MessageList(
                         null
                     },
                 )
+                if (resubmit && stoppedReply?.messageId == node.message.messageId) {
+                    StoppedReplyFooter(
+                        action = stoppedReply,
+                        modifier = Modifier.streamingContentColumnPadding(chatLayoutStyle, showAvatars, showBubbles),
+                    )
+                }
                 }
                 }
             }
@@ -656,9 +664,8 @@ fun MessageList(
                         StreamingMessageBubble(
                             streamingContent = streamingContent,
                             senderName = streamingSenderName,
-                            senderIconUrl = null,
+                            avatar = streamingAvatar,
                             fontSizeMultiplier = fontSizeMultiplier,
-                            selectedEndpoint = selectedEndpoint,
                             chatLayoutStyle = chatLayoutStyle,
                             showAvatars = showAvatars,
                             showBubbles = showBubbles,
@@ -685,6 +692,8 @@ fun MessageList(
                                 streamingAttachments = streamingWorkspace.inline,
                                 showImageDescriptions = showImageDescriptions,
                                 sandboxStarting = toolCall.id in sandboxStartingToolCallIds,
+                                isLatestStep = toolCall.id == renderedToolCalls.lastOrNull()?.id,
+                                replyLength = streamingContent.length,
                             )
                         }
                     }
@@ -759,37 +768,15 @@ fun MessageList(
             }
         }
 
-        // Scroll-to-bottom FAB
-        AnimatedVisibility(
-            visible = showScrollToBottom,
+        ScrollToBottomButton(
+            listState = listState,
+            follower = follower,
+            extraEndPx = extraEndPx,
+            backdrop = LocalGlassBackdrop.current.takeIf { recordsGlassBackdrop },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                // Float the FAB just above the input bar, tracking the same inset as the content.
-                .padding(bottom = scrollToBottomPadding ?: (bottomContentPadding - 30.dp).coerceAtLeast(16.dp)),
-            enter = fadeIn(),
-            exit = fadeOut(),
-        ) {
-            AdaptiveFloatingActionButton(
-                onClick = {
-                    follower.userScrolledUp = false
-                    coroutineScope.launch {
-                        if (totalItemCount > 0) {
-                            listState.animateScrollToTail(totalItemCount - 1, extraEndPx)
-                        }
-                    }
-                },
-                small = true,
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
-                backdrop = LocalGlassBackdrop.current.takeIf { recordsGlassBackdrop },
-            ) {
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = stringResource(Res.string.cd_scroll_to_bottom),
-                )
-            }
-        }
+                .padding(bottom = scrollToBottomPadding ?: scrollToBottomButtonPadding(bottomContentPadding)),
+        )
     }
 }
 

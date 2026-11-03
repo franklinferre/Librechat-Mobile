@@ -18,6 +18,7 @@ import com.garfiec.librechat.feature.chat.util.deepestPersistedSnapshot
 import com.garfiec.librechat.feature.chat.util.estimateContextUsage
 import com.garfiec.librechat.feature.chat.util.estimateDetail
 import com.garfiec.librechat.feature.chat.util.latestExchangeTokens
+import com.garfiec.librechat.feature.chat.util.modelCatalogKey
 import com.garfiec.librechat.feature.chat.util.persistedContextUsage
 import com.garfiec.librechat.feature.chat.util.usageOver
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
@@ -275,16 +276,19 @@ class ContextProjectionDelegate(
 
     /**
      * The gauge's denominator: an explicit per-conversation override, then the agent's own
-     * `model_parameters.maxContextTokens`, then token-config (web's `useTokenLimits` order).
+     * `model_parameters.maxContextTokens`, then the active spec's preset, then token-config (web's
+     * `useTokenLimits` order). The spec step matters where the parameters don't hold the preset's
+     * value, such as a reopened spec chat that stored none.
      */
     private suspend fun resolveWindow(state: ChatUiState, endpoint: String, model: String?): Int? {
         state.modelParameters.maxContextTokens?.takeIf { it > 0 }?.let { return it }
         agentFor(state)?.maxContextTokens?.let { return it }
+        state.activeSpec?.preset?.maxContextTokens?.takeIf { it > 0 }?.let { return it }
         if (model == null) return null
         // token-config is memoized on the singleton repository, so this hits the network at most
         // once per session even though each chat gets its own ViewModel.
         val config = endpointTokenRepository.getTokenConfig().getOrNull() ?: return null
-        return config[endpoint]?.get(model)?.context?.takeIf { it > 0 }
+        return config[modelCatalogKey(endpoint, config)]?.get(model)?.context?.takeIf { it > 0 }
     }
 
     /**
@@ -330,6 +334,7 @@ class ContextProjectionDelegate(
         val model: String?,
         val enabled: Boolean,
         val maxContextOverride: Int?,
+        val specWindow: Int?,
     ) {
         constructor(state: ChatUiState) : this(
             conversationId = state.conversationId,
@@ -339,6 +344,7 @@ class ContextProjectionDelegate(
             model = state.selectedModel,
             enabled = state.contextUsageEnabled,
             maxContextOverride = state.modelParameters.maxContextTokens,
+            specWindow = state.activeSpec?.preset?.maxContextTokens,
         )
 
         val tailId: String? get() = branch.lastOrNull()?.message?.messageId

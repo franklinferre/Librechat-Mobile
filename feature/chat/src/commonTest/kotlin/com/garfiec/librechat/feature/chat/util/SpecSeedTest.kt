@@ -7,6 +7,7 @@ import com.garfiec.librechat.core.model.config.InterfaceConfig
 import com.garfiec.librechat.core.model.config.ModelSpec
 import com.garfiec.librechat.core.model.config.ModelSpecs
 import com.garfiec.librechat.core.model.config.StartupConfig
+import com.garfiec.librechat.feature.chat.viewmodel.ModelChoice
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,7 +30,7 @@ class SpecSeedTest {
         resolveDefaultModelSpec(config?.modelSpecs, config?.interfaceConfig?.modelSelect ?: true, lastSpec)
 
     private fun agent(id: String, isDefault: Boolean = false, softDefault: Boolean = false) =
-        ModelSpec(name = id, preset = Preset(agentId = id), isDefault = isDefault, softDefault = softDefault)
+        ModelSpec(name = id, preset = Preset(endpoint = "agents", agentId = id), isDefault = isDefault, softDefault = softDefault)
 
     private fun model(name: String, endpoint: String?, model: String?) =
         ModelSpec(name = name, preset = Preset(endpoint = endpoint, model = model))
@@ -185,6 +186,34 @@ class SpecSeedTest {
     }
 
     @Test
+    fun the_preset_endpoint_decides_the_pair_as_on_the_server() {
+        // A stray agent_id on another endpoint is ignored: the server resolves `preset.endpoint` first.
+        assertEquals(
+            SpecSeed("openAI", "gpt-4.1", prioritized = false, spec = "stray"),
+            ModelSpec(name = "stray", preset = Preset(endpoint = "openAI", model = "gpt-4.1", agentId = "agent_x")).toSeed(),
+        )
+        assertEquals(
+            SpecSeed(EndpointConstants.AGENTS, "agent_x", prioritized = false, spec = "writer"),
+            ModelSpec(name = "writer", preset = Preset(endpoint = "agents", model = "gpt-4o", agentId = "agent_x")).toSeed(),
+        )
+        // The server writes an inferred endpoint into the served config, so one that arrives
+        // without an endpoint was an explicit `endpoint: null`, which opens nothing.
+        assertNull(ModelSpec(name = "no_endpoint", preset = Preset(agentId = "agent_x")).toSeed())
+        assertNull(ModelSpec(name = "blank_agent", preset = Preset(endpoint = "agents", agentId = "")).toSeed())
+    }
+
+    @Test
+    fun a_reopened_pick_follows_its_spec_to_the_current_pair() {
+        val specs = ModelSpecs(list = listOf(model("fast", "openAI", "gpt-4.1"), model("bare", "openAI", null)))
+        assertEquals(ModelChoice.Spec("fast", "openAI", "gpt-4.1"), specs.reopenedPick("openAI", "gpt-4o", "fast"))
+        assertEquals(ModelChoice.Spec("fast", "openAI", "gpt-4.1"), specs.reopenedPick("openAI", "gpt-4.1", "fast"))
+        assertEquals(ModelChoice.Raw("openAI", "gpt-4o"), specs.reopenedPick("openAI", "gpt-4o", "gone"))
+        assertEquals(ModelChoice.Raw("openAI", "gpt-4o"), specs.reopenedPick("openAI", "gpt-4o", "bare"))
+        assertEquals(ModelChoice.Raw("openAI", "gpt-4o"), specs.reopenedPick("openAI", "gpt-4o", null))
+        assertEquals(ModelChoice.Raw("openAI", "gpt-4o"), (null as ModelSpecs?).reopenedPick("openAI", "gpt-4o", "fast"))
+    }
+
+    @Test
     fun a_last_spec_the_server_no_longer_lists_is_ignored() {
         val specs = arrayOf(model("first", "openAI", "a"), model("second", "openAI", "b"))
         assertEquals("first", resolve(config(*specs, prioritize = true), lastSpec = "gone")?.spec)
@@ -210,6 +239,63 @@ class SpecSeedTest {
         assertNull(specs.uniqueSpecFor("openAI", "gpt-4.1"))
         assertNull(specs.uniqueSpecFor("openAI", "gpt-4o"))
         assertNull((null as ModelSpecs?).uniqueSpecFor("openAI", "gpt-4.1"))
+    }
+
+    @Test
+    fun a_reopened_lane_b_finds_its_spec_by_label_on_its_pair() {
+        val fast = model("fast", "openAI", "gpt-4.1").copy(label = "Fast")
+        val careful = model("careful", "openAI", "gpt-4.1").copy(label = "Careful")
+        val elsewhere = model("careful-4o", "openAI", "gpt-4o").copy(label = "Careful")
+        val specs = ModelSpecs(list = listOf(fast, careful, elsewhere))
+
+        assertEquals("careful", specs.laneBSpecFor("openAI", "gpt-4.1", "Careful"))
+        assertEquals("careful-4o", specs.laneBSpecFor("openAI", "gpt-4o", "Careful"))
+        // No label match (a display label, or none) reopens raw where a raw lane was possible.
+        assertNull(specs.laneBSpecFor("openAI", "gpt-4o", "OpenAI"))
+        assertNull(specs.laneBSpecFor("openAI", "gpt-4o", null))
+        assertNull((null as ModelSpecs?).laneBSpecFor("openAI", "gpt-4.1", "Careful"))
+    }
+
+    @Test
+    fun under_enforce_an_unmatched_lane_b_takes_the_one_spec_on_its_pair() {
+        val careful = model("careful-4o", "openAI", "gpt-4o").copy(label = "Careful")
+        val enforced = ModelSpecs(
+            list = listOf(careful, model("a", "openAI", "gpt-4.1"), model("b", "openAI", "gpt-4.1")),
+            enforce = true,
+        )
+
+        assertEquals("careful-4o", enforced.laneBSpecFor("openAI", "gpt-4o", null))
+        assertEquals("careful-4o", enforced.laneBSpecFor("openAI", "gpt-4o", "OpenAI"))
+        // Two specs on the pair and no label to tell them apart: the user picks.
+        assertNull(enforced.laneBSpecFor("openAI", "gpt-4.1", null))
+        // A label two specs on the pair share is no better.
+        val twins = ModelSpecs(
+            list = listOf(model("a", "openAI", "gpt-4.1").copy(label = "Same"), model("b", "openAI", "gpt-4.1").copy(label = "Same")),
+            enforce = true,
+        )
+        assertNull(twins.laneBSpecFor("openAI", "gpt-4.1", "Same"))
+    }
+
+    @Test
+    fun a_lane_b_sender_equal_to_its_endpoint_display_label_reopens_raw() {
+        // A raw lane on `Acme` saves the endpoint's modelDisplayLabel as its sender, which a spec
+        // labelled "Acme" on the same pair would also save: the sender names no spec.
+        val acme = model("acme-spec", "Acme", "acme-1").copy(label = "Acme")
+        val specs = ModelSpecs(list = listOf(acme))
+
+        assertNull(specs.laneBSpecFor("Acme", "acme-1", "Acme", displayLabel = "Acme"))
+        // A label the endpoint does not display is still the spec's own.
+        assertEquals("acme-spec", specs.laneBSpecFor("Acme", "acme-1", "Acme", displayLabel = "Acme Corp"))
+        assertEquals("acme-spec", specs.laneBSpecFor("Acme", "acme-1", "Acme", displayLabel = null))
+        // Under enforce only a spec lane can have been sent, so the label match stands.
+        val enforced = specs.copy(enforce = true)
+        assertEquals("acme-spec", enforced.laneBSpecFor("Acme", "acme-1", "Acme", displayLabel = "Acme"))
+        // Before the endpoint's config has loaded its label is unknown, so any sender may be it.
+        assertNull(specs.laneBSpecFor("Acme", "acme-1", "Acme", displayLabel = null, displayLabelKnown = false))
+        assertEquals(
+            "acme-spec",
+            enforced.laneBSpecFor("Acme", "acme-1", "Acme", displayLabel = null, displayLabelKnown = false),
+        )
     }
 
     @Test

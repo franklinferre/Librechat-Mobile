@@ -35,6 +35,20 @@ All impls take constructor parameters (api, dao, mapper, dispatcher) wired via K
 
 ### Account-keyed token store (`CommonTokenDataStore`)
 
+Sessions now persist as one versioned encrypted/Keychain value per slot
+(`acct:<accountId>:session_credentials`, bare `session_credentials` while staging). It contains the
+access token, refresh token and optional opaque OpenID marker. `SecureSessionRecords` reads legacy
+access/refresh keys only when the record is absent; a successful write verifies the replacement before
+removing legacy keys. A present invalid record never falls back to older credentials.
+
+OpenID refresh snapshots its complete cookie bundle and epoch under `stateMutex`, releases the lock
+for the POST, and commits the full replacement only while that slot's epoch is unchanged. Request
+snapshots read bearer and marker together, from memory for the active slot (`cachedAuth`, updated
+wherever the slot is written): on iOS a storage read is a Keychain IPC. Normal login/2FA replaces
+the session without OpenID markers. All staging, account resolution and teardown paths handle the
+whole record.
+
+
 Tokens are namespaced by account (`acct:<accountId>:access_token`) and several accounts' tokens are
 retained at rest at once (multi-account, issue #179). Concurrency uses four cooperating pieces, not a
 single refresh mutex:
@@ -275,6 +289,21 @@ sequence number, read-modify-write inside `dataStore.edit` under `NonCancellable
   nowhere else to live (cert pinning, detected backend version, a user-chosen label) belongs here. It
   carries only the headers today; see the natural-primary-key bullet before adding a column.
 
+### Custom project order (`project_order`) — Switchboard-only
+LibreChat stores no project order, so the drawer's drag-to-reorder order lives here, keyed by
+`(accountId, projectId)` and purged with the account by `AccountDataPurger`.
+- `ProjectRepository.listAllProjectsInCustomOrder` fetches every page and applies it
+  (`ProjectOrdering`): saved projects by slot, never-placed ones after, oldest first. With nothing
+  saved the server's order (latest activity) is kept, and that first load is what gets saved.
+- Only an unfiltered, complete list saves back (it is also what prunes projects deleted elsewhere);
+  a search, or a fetch cut off by the page cap (`AllProjects.isComplete`), never does.
+- The read-arrange-write and `saveProjectOrder` share one `Mutex`, so a load can't write the order a
+  drop just replaced. `saveProjectOrder` takes the account captured at the drop, not the active one.
+- `saveProjectOrder` bumps `orderRevision` (the Custom sort reloads on it), not `revision`: nothing
+  changed on the server.
+- If upstream ships ordering, drop the table with an `@DeleteTable` AutoMigrationSpec and read the
+  server's order; nothing else references it.
+
 ### Message search index (`message_search` + `messages_fts`)
 Offline full-text search over cached messages. FTS4 + `unicode61` (the only full-text setup both
 drivers have; no FTS5 on Android's framework SQLite), external-content over a narrow side table.
@@ -284,9 +313,15 @@ drivers have; no FTS5 on Android's framework SQLite), external-content over a na
   (`searchTextOf`: content parts flattened like the server's Meilisearch plugin, TEXT + THINK +
   STEER, capped at 128k chars).
 - **Write messages only through `MessageDao.upsertAllIndexed`** (or `replaceAllForConversation` /
-  `updateText`, which use it). It indexes in the same transaction and skips side rows whose
-  `updatedAt` hasn't moved, since any update re-tokenizes the row. `MessageWritePairingTest` fails a
-  raw `upsert`/`upsertAll` outside the DAO package.
+  `updateText` / `upsertReindexed`, which use it or index themselves). It indexes in the same
+  transaction and skips side rows whose `updatedAt` hasn't moved, since any update re-tokenizes the
+  row. `MessageWritePairingTest` fails a raw `upsert`/`upsertAll` outside the DAO package.
+- **That `updatedAt` dedupe is only valid for writes that carry the server's value.** It reads an
+  unchanged `updatedAt` as unchanged text, which holds for a fetch (the server bumps it on every
+  write) and fails for an edit applied locally: a read-modify-write keeps the old value, so the
+  dedupe hits and the index keeps matching the text the user just replaced. Local edits therefore go
+  through `updateText` (flat text) or `upsertReindexed` (one content part), both of which write the
+  side row unconditionally. A future local mutation of message text needs the same treatment.
 - **Deletes need nothing**: the side table's FK (the DB's first) cascades, and the cascade fires the
   FTS delete trigger. Room turns `foreign_keys` on in its generated `onOpen`.
 - **Unclaimed rows (`accountId IS NULL`) are never indexed.** Side rows copy the parent's stamped

@@ -28,6 +28,8 @@
     <string name="pdf_password_incorrect">암호가 올바르지 않습니다. 다시 시도하세요.</string>
     <string name="pdf_password_show">암호 표시</string>
     <string name="pdf_password_hide">암호 숨기기</string>
+    <string name="cd_show_secret">표시</string>
+    <string name="cd_hide_secret">숨기기</string>
     <string name="pdf_password_confirm">복호화 후 업로드</string>
     <string name="pdf_password_cancel">취소</string>
     <string name="param_thinking_between_tools_description">Effort 매개변수로 제어되는 적응형 사고를 활성화합니다. 이 모델은 사고를 완전히 끌 수 없습니다. 끄면 가장 낮은 설정이 사용되어 확장 사고를 건너뛰고 도구 호출 사이의 짧은 메모만 남깁니다. 꺼져 있는 동안 Effort는 High로 제한됩니다.</string>
@@ -146,6 +148,8 @@
     <string name="param_label_prompt_caching">프롬프트 캐싱</string>
     <string name="param_label_reasoning_effort">추론 노력</string>
     <string name="param_label_reasoning_summary">추론 요약</string>
+    <string name="param_label_reasoning_mode">추론 모드</string>
+    <string name="param_label_reasoning_context">추론 컨텍스트</string>
     <string name="param_label_reasoning_visibility">추론 표시</string>
     <string name="param_label_region">리전</string>
     <string name="param_label_resend_files">파일 다시 보내기</string>
@@ -171,6 +175,10 @@
     <string name="param_option_auto">자동</string>
     <string name="param_option_concise">간결</string>
     <string name="param_option_detailed">상세</string>
+    <string name="param_option_standard">표준</string>
+    <string name="param_option_pro">Pro</string>
+    <string name="param_option_current_turn">현재 턴</string>
+    <string name="param_option_all_turns">모든 턴</string>
     <string name="param_option_summarized">요약</string>
     <string name="param_option_omitted">생략</string>
     <string name="param_option_updates">업데이트</string>
@@ -197,6 +205,8 @@
     <string name="param_desc_frequency_penalty">지금까지의 텍스트에서 나타난 빈도에 따라 토큰에 페널티를 줍니다.</string>
     <string name="param_desc_url_context">언급한 URL(및 YouTube)을 모델이 가져와 근거로 사용합니다.</string>
     <string name="param_desc_reasoning_summary">응답에서 추론 요약을 표시하는 방식입니다.</string>
+    <string name="param_desc_reasoning_mode">Responses API 전용: 추론 모드를 선택합니다. Pro는 지원하는 모델에서 확장 추론을 켭니다.</string>
+    <string name="param_desc_reasoning_context">Responses API 전용: 모델이 이전 추론을 얼마나 재사용할지입니다.</string>
     <string name="param_desc_prompt_cache_duration">프롬프트 캐시가 유지되는 시간입니다(Anthropic). 프롬프트 캐싱이 켜져 있을 때 적용됩니다.</string>
     <string name="param_desc_thinking_level">모델이 수행하는 사고의 양을 조절합니다.</string>
     <string name="param_desc_reasoning_effort">모델이 수행하는 추론의 양을 조절합니다.</string>
@@ -285,4 +295,30 @@
     <string name="acl_error_owner_protected">소유자의 액세스 권한은 변경할 수 없습니다.</string>
     <string name="acl_error_generic">액세스 권한을 업데이트하지 못했습니다. 다시 시도하세요.</string>
     <string name="acl_error_load">액세스 권한이 있는 사람을 불러오지 못했습니다.</string>
+    <string name="bookmarks">북마크</string>
+    <string name="bookmark_new">새 북마크</string>
+    <string name="bookmark_edit">북마크 편집</string>
+    <string name="bookmark_name">이름</string>
+    <string name="bookmark_description">설명</string>
+    <string name="bookmark_description_hint">선택 사항</string>
+    <string name="bookmark_add_to_chat">이 채팅에 추가</string>
+    <string name="bookmark_create">만들기</string>
+    <string name="bookmark_save">저장</string>
+    <string name="bookmark_saving">저장 중…</string>
+    <string name="bookmark_cancel">취소</string>
+    <string name="bookmark_error_blank">이름을 입력하세요</string>
+    <string name="bookmark_error_duplicate">같은 이름의 북마크가 이미 있습니다</string>
+    <string name="bookmark_error_reserved">'Saved'는 즐겨찾기용으로 예약되어 있습니다. 다른 이름을 선택하세요.</string>
+    <string name="bookmark_char_counter">%1$d/%2$d</string>
+    <string name="bookmarks_none_yet">아직 북마크가 없습니다</string>
+    <string name="bookmarks_no_match">'%1$s'와(과) 일치하는 북마크가 없습니다</string>
+    <string name="search_bookmarks">북마크 검색</string>
+    <string name="cd_bookmarked">추가됨</string>
+    <string name="cd_not_bookmarked">추가 안 됨</string>
+    <plurals name="bookmark_chat_count">
+        <item quantity="other">채팅 %1$d개</item>
+    </plurals>
+    <plurals name="bookmark_error_too_long">
+        <item quantity="other">%1$d자 이하로 입력하세요</item>
+    </plurals>
 </resources>

@@ -57,6 +57,7 @@ import com.garfiec.librechat.core.model.ContentType
 import com.garfiec.librechat.core.model.FeedbackRating
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.MinimalFeedback
+import com.garfiec.librechat.core.model.media.IconSource
 import com.garfiec.librechat.core.ui.components.AdaptiveDropdownMenu
 import com.garfiec.librechat.core.ui.theme.isSurfaceDark
 import com.garfiec.librechat.feature.chat.resources.*
@@ -85,13 +86,6 @@ private const val DISABLED_ALPHA = 0.38f
  * entered. Disabled rather than hidden: removing the buttons reflows the action row mid-stream.
  */
 internal val LocalFeedbackEnabled = compositionLocalOf { true }
-
-/**
- * False while nothing may start a run (Compare setup). [MessageList] hides the entry points that
- * would; an inline edit already open keeps Save and Cancel but disables Save & Submit, which the
- * ViewModel would refuse with nothing shown.
- */
-internal val LocalResubmitEnabled = compositionLocalOf { true }
 
 /**
  * Shared action buttons row for message bubbles (copy, edit, regenerate, feedback, read aloud, fork).
@@ -254,6 +248,12 @@ private fun ActionOverflowMenu(actions: List<MessageAction>) {
 
 private val ACTION_BUTTON_SIZE = 40.dp
 
+/** [SelectionContainer] when [enabled]; the content alone otherwise. See the call site for why. */
+@Composable
+private fun SelectionScope(enabled: Boolean, content: @Composable () -> Unit) {
+    if (enabled) SelectionContainer(content = content) else content()
+}
+
 /**
  * Shared message content rendering and action buttons, used by both layout styles on both platforms.
  * Renders: edit mode OR (files + content parts + markdown fallback) + action row with sibling nav.
@@ -262,13 +262,11 @@ private val ACTION_BUTTON_SIZE = 40.dp
 @Composable
 internal fun MessageContentAndActions(
     message: Message,
+    /** The reply's resolved avatar ([com.garfiec.librechat.feature.chat.util.MessageNode.avatar]), for its segment headers. */
+    avatar: IconSource?,
     isUser: Boolean,
-    isEditing: Boolean,
-    editText: String,
-    onEditTextChange: ((String) -> Unit)?,
-    onEditSaveAndSubmit: (() -> Unit)?,
-    onEditSaveOnly: (() -> Unit)?,
-    onEditCancel: (() -> Unit)?,
+    /** Non-null only on the message being edited; see [MessageEditSession]. */
+    editSession: MessageEditSession?,
     baseUrl: String,
     fontSizeMultiplier: Float,
     useKatex: Boolean,
@@ -286,7 +284,6 @@ internal fun MessageContentAndActions(
     onRegenerate: (() -> Unit)?,
     onCopy: (() -> Unit)?,
     onFeedback: ((MinimalFeedback?) -> Unit)?,
-    onContinue: (() -> Unit)?,
     onReadAloud: (() -> Unit)?,
     onFork: (() -> Unit)?,
     isReading: Boolean,
@@ -322,9 +319,18 @@ internal fun MessageContentAndActions(
         )
     }
 
-    if (isEditing && onEditTextChange != null && onEditSaveAndSubmit != null && onEditSaveOnly != null && onEditCancel != null) {
+    // A message edited part by part keeps its normal rendering and swaps a field in for each
+    // editable part (see PartContent below), so its tool cards and images stay readable while the
+    // user types. Only the flat-text shape replaces the whole body with one field.
+    //
+    // Read off the session rather than recomputed from the message: `editShapeOf(message)` here and
+    // the delegate's own routing are two derivations of one fact, and a message that changed under
+    // the open editor could make them disagree — the flat-text branch would then render an empty
+    // field over live per-part drafts.
+    val editingParts = editSession != null && editSession.partDrafts.isNotEmpty()
+    if (editSession != null && !editingParts) {
         // Show the attached files above the edit field so it's clear they're
-        // retained on save & submit (the resubmit carries message.files).
+        // retained on a rerun (the resubmit carries message.files).
         val messageFiles = message.files
         if (!messageFiles.isNullOrEmpty()) {
             MessageFiles(
@@ -334,13 +340,7 @@ internal fun MessageContentAndActions(
                 modifier = Modifier.padding(bottom = 4.dp),
             )
         }
-        InlineEditInput(
-            text = editText,
-            onTextChange = onEditTextChange,
-            onSaveAndSubmit = onEditSaveAndSubmit,
-            onSaveOnly = onEditSaveOnly,
-            onCancel = onEditCancel,
-        )
+        InlineEditInput(session = editSession)
     } else {
         // Single Column root so this branch emits from one source (and the quote chips,
         // files, content, and office previews stack the same as before).
@@ -362,7 +362,12 @@ internal fun MessageContentAndActions(
         val workspace = remember(effectiveAttachments) { partitionWorkspaceChanges(effectiveAttachments) }
         val inlineAttachments = workspace.inline
         ProvideMarkdownMedia(effectiveAttachments, baseUrl) {
-            SelectionContainer {
+            // Unwrapped while the parts editor is open: it puts a text field in place of each
+            // editable part, and a text field must never sit inside a SelectionContainer (the
+            // registrar fights its own selection handling). The read-only parts lose selection for
+            // the duration, which is the lesser cost — the flat-text editor avoids the question by
+            // replacing this whole branch.
+            SelectionScope(enabled = !editingParts) {
                 Column {
                     // Verbatim excerpts the user referenced on this turn (v0.8.7), above the user's
                     // text. Created on web and via Android's selection-toolbar "Add to chat".
@@ -465,6 +470,25 @@ internal fun MessageContentAndActions(
                         @Composable
                         fun PartContent(entry: IndexedContentPart, hideAttachments: Boolean = false) {
                             val part = entry.part
+                            // An editable part under an open editor becomes a field in place. The
+                            // drafts are keyed by this same raw content index, which is what the
+                            // server's indexed write addresses.
+                            val session = if (editingParts) editSession else null
+                            val draft = session?.partDrafts?.get(entry.index)
+                            if (session != null && draft != null) {
+                                MessageEditField(
+                                    value = draft,
+                                    onValueChange = { session.onPartTextChange(entry.index, it) },
+                                    enabled = !session.saving,
+                                    label = if (part.type == ContentType.THINK) {
+                                        Res.string.edit_part_thoughts
+                                    } else {
+                                        Res.string.edit_part_response
+                                    },
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                )
+                                return
+                            }
                             val focusedInPart =
                                 if (isCurrentSearchMatch) searchFocusedOccurrence - partOffsets[entry.index] else -1
                             when (part.type) {
@@ -497,6 +521,17 @@ internal fun MessageContentAndActions(
                             }
                         }
 
+                        // A multi-agent reply gathers its sources in one panel ahead of the lanes, as
+                        // upstream's ParallelContent does; each Compare pane has its own lane's.
+                        if (hasParallelGroupIds(contentParts)) {
+                            DisableSelection {
+                                SourcesPanel(
+                                    attachments = inlineAttachments,
+                                    stateKey = message.messageId,
+                                    modifier = Modifier.padding(bottom = 8.dp),
+                                )
+                            }
+                        }
                         segments.forEach { segment ->
                             key(segment.key) {
                                 // A traversal group so the attribution header is read immediately before
@@ -507,8 +542,7 @@ internal fun MessageContentAndActions(
                                         SegmentAuthorHeader(
                                             author = author,
                                             messageSender = message.sender,
-                                            messageIconUrl = message.iconURL,
-                                            messageEndpoint = message.endpoint,
+                                            messageAvatar = avatar,
                                         )
                                     }
                                     segment.groups.forEach { group ->
@@ -528,11 +562,28 @@ internal fun MessageContentAndActions(
                                                     val groupFailed = remember(inlineAttachments, group) {
                                                         activityGroupFailed(group, inlineAttachments)
                                                     }
+                                                    // A field the user cannot reach is worse than
+                                                    // no field: a reply whose only editable part is
+                                                    // its reasoning would otherwise open the editor
+                                                    // on a collapsed group and show just a footer.
+                                                    val holdsEditedPart = editingParts &&
+                                                        group.entries.any { it.index in editSession.partDrafts }
+                                                    val searchHeader = remember(group, inlineAttachments) {
+                                                        searchGroupHeader(group, inlineAttachments)
+                                                    }
+                                                    // The searches' image, shopping and place results,
+                                                    // which their cards leave out inside a group.
+                                                    val groupVerticals = remember(group, inlineAttachments) {
+                                                        val ids = group.groupedToolCallIds().toSet()
+                                                        collectAttachmentSearchVerticals(
+                                                            inlineAttachments.filter { it.toolCallId in ids },
+                                                        )
+                                                    }
                                                     ActivityGroup(
                                                         group = group,
                                                         failed = groupFailed,
                                                         stateKey = "${message.messageId}:${group.key}",
-                                                        autoExpand = group.key == focusedGroupKey,
+                                                        autoExpand = group.key == focusedGroupKey || holdsEditedPart,
                                                         autoExpandKey = LocalSearchFocusNonce.current,
                                                         hoistedAttachments = {
                                                             // Required: the inline path gets this from
@@ -545,8 +596,14 @@ internal fun MessageContentAndActions(
                                                                     baseUrl = baseUrl,
                                                                     modifier = Modifier.padding(top = 4.dp),
                                                                 )
+                                                                SearchVerticalsSection(
+                                                                    verticals = groupVerticals,
+                                                                    stateKey = "${message.messageId}:${group.key}",
+                                                                    modifier = Modifier.padding(top = 8.dp),
+                                                                )
                                                             }
                                                         },
+                                                        searchHeader = searchHeader,
                                                     ) {
                                                         group.entries.forEach { entry ->
                                                             key(entry.index) {
@@ -644,6 +701,19 @@ internal fun MessageContentAndActions(
                             onManage = LocalOpenMemories.current,
                         )
                     }
+
+                    // ONE footer for the whole message, not one per field: the actions apply to
+                    // every changed part together (Save walks them in order, Rerun carries at most
+                    // one), and a row under each field would say otherwise.
+                    //
+                    // LAST in the column, and outside the content-parts branch. Outside, because a
+                    // message that loses its `content[]` under an open editor takes the flat-text
+                    // render path and would otherwise have no Cancel. Last, because the workspace,
+                    // office-preview and memory sections above are part of the message being
+                    // edited — an action row before them reads as belonging to a different turn.
+                    if (editingParts) {
+                        MessageEditActions(session = editSession)
+                    }
                 }
             }
         }
@@ -651,7 +721,7 @@ internal fun MessageContentAndActions(
 
     // Action row: sibling nav + message actions (tap-to-reveal)
     val hasActions = siblingCount > 1 || onEdit != null || onRegenerate != null ||
-        onCopy != null || onFeedback != null || onContinue != null ||
+        onCopy != null || onFeedback != null ||
         onReadAloud != null || onFork != null
     if (hasActions) {
         AnimatedVisibility(

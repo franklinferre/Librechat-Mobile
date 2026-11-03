@@ -27,7 +27,14 @@ Material 3 theme and shared Compose components used across all feature modules. 
   owner locked, people search. Stateless over `AclState` (`:core:model` `acl/`), driven by
   `:core:data` `AclController(AclPolicy)`. Shared links use it; the agent and skill editors still
   carry their own copies until they migrate.
+- `BookmarkPickerSheet` / `BookmarkEditorSheet` (`components/bookmarks/`) - The per-chat bookmark
+  checklist and the bookmark create/edit sheet, used by the drawer, project chats and the chat
+  screen. The checklist renders a `BookmarkPickerUiState`; `:core:data` `BookmarkPickerController`
+  drives it (each tap saves at once). The editor validates with `:core:model` `BookmarkNameRules`.
 - `AvatarImage` - User/agent/model avatar with Coil image loading and fallback.
+- `EndpointIcon` / `EndpointAvatar` - Endpoint and reply-avatar icons: an image `iconURL`, else the
+  provider art the user's server serves at `{server}/assets/` (read from `LocalServerUrl`), else a
+  monogram tile. No third-party logo is bundled; see `feature/chat/CLAUDE.md` "Brand art".
 - `ConfirmationDialog` - Reusable confirm/cancel dialog.
 - `DiscardChangesDialog` - "Discard changes?" for leaving an editor with unsaved edits. Every
   full-screen editor (agent, skill, schedule, prompt, role skills) uses it the same way: the ViewModel
@@ -37,6 +44,11 @@ Material 3 theme and shared Compose components used across all feature modules. 
   A sheet editor (the memory sheet) uses the `AdaptiveModalBottomSheet(interceptDismiss = dirty)`
   overload instead: while it is true, swipe, scrim, handle tap and back leave the sheet up and call
   `onDismissRequest`, which raises the dialog; the sheet closes when the caller drops it.
+  Both overloads take `secure`: while true the sheet stays out of screenshots and the recents
+  snapshot (Android `FLAG_SECURE`: the M3 sheet's own window, or the activity window for the glass
+  sheet, ref-counted so a flag set elsewhere survives). Set it while a `SecretTextField` is revealed.
+  iOS has no equivalent; re-mask on ON_PAUSE there. Not ON_STOP: iOS stops drawing when the scene
+  enters the background, so a re-mask at ON_STOP never reaches the app-switcher snapshot.
 - `ModelIcon` - Endpoint-specific model icons.
 - `EndpointBadge` - Colored badge showing the AI provider.
 - `SearchBar` - Reusable search input field.
@@ -48,6 +60,10 @@ Material 3 theme and shared Compose components used across all feature modules. 
 ### Autofill helpers
 - `Modifier.excludeFromAutofill()` (`components/ExcludeFromAutofill.kt`): for masked fields holding a
   secret that isn't the login (API keys, tokens, PDF passwords). Android only.
+- `SecretTextField` (`components/SecretTextField.kt`): the field for such a secret. Masked, trailing
+  show/hide button, `excludeFromAutofill`, password keyboard. Reveal is hoisted (`revealed` +
+  `onRevealedChange`) so the caller can re-mask on ON_PAUSE and knows when a secret is on screen. Use
+  it rather than a new reveal toggle; the PDF password and gateway-header value fields do.
 - `KeyboardOptions.withIosTextContentType()` (`components/IosTextContentType.kt`): iOS
   `textContentType` roles (`.username`, `.newPassword`, `.oneTimeCode`); a no-op on Android.
 
@@ -179,6 +195,14 @@ the controls bullet below.
   `UINavigationBar` on iOS 26+, and a simulated glass bar elsewhere. Every bar icon is a `BarIcon`
   from `BarIcons` (Material vector + SF Symbol); `BarIconsSymbolTest` in `:shared` iosTest fails on a
   symbol UIKit does not know. Use `AdaptiveScaffold` for screens with an adaptive bar or FAB.
+- **Scrolling under the bars.** A list screen that should show its content through the status bar
+  and top bar passes `MaterialBarStyle(translucent = true)` (Material draws a fading surface scrim,
+  like the chat top bar, instead of a solid container; glass bars are translucent already), wraps
+  the list in `UnderBarsPullToRefreshBox(barPadding = innerPadding)` rather than padding it, and
+  adds `innerPadding` to the list's `contentPadding`. States that don't scroll (empty, error,
+  loading) still pad themselves. In Material, `belowBar` sits inside the scrim, so give it a
+  transparent container (`AdaptiveTabRow(containerColor = …)`); in glass it floats below the
+  bar's scrim, as before.
 - **Native bars sit above the whole Compose canvas**, so a Compose surface meant to cover them (the
   drawer, a sheet or dialog scrim) draws *under* them. Such surfaces call `CoversNativeBars(active)`;
   the bar hides while any are up. `AdaptiveModalBottomSheet`, `AdaptiveAlertDialog` and
@@ -210,7 +234,9 @@ the controls bullet below.
 - **Controls look like iOS in glass mode**, drawn in Compose: `AdaptiveSwitch` (with `AdaptiveSwitchPlaceholder`, the bare off track in each style, for a value not known yet), `AdaptiveRadioButton`
   (a checkmark), `AdaptiveCheckbox`, `AdaptiveDivider` (inset hairline), `AdaptiveButton` (flat
   capsule) and `AdaptiveOutlinedButton`/`AdaptiveFilledTonalButton` (borderless capsule on
-  `GlassControlColors.fill`, accent label unless the caller picked a colour),
+  `GlassControlColors.fill`, accent label unless the caller picked a colour), `AdaptiveTextButton`
+  (the iOS plain button: no fill, capsule press shape; raw `TextButton` is not banned yet, it has
+  ~100 call sites and renders the same in Material),
   `AdaptiveOutlinedTextField` (iOS rounded filled field; the chat composer keeps its own field),
   `AdaptiveSegmentedChoice` and `AdaptiveTabRow` (the liquid segmented control in glass; the tab
   row takes a `backdrop` only in a bar slot), `AdaptivePillChoice` (a full-width sliding-pill
@@ -280,8 +306,9 @@ at 95%), `formatCost` with its platform currency actuals, and `SampleContextMode
 - `PdfDocumentHolder` - Owns the `PdfRenderer`/fd; mutex-serialized on-demand `renderPage` with
   dimension caps and a page-count bound. Created from bytes, closed by the owning composable.
 - `PdfPageContent` - One page rendered when it scrolls into a LazyColumn window and recycled when
-  it scrolls out. Shared by `:feature:chat`'s viewer (adds per-page pinch-zoom via the modifier
-  slot) and `:feature:files`' preview (adds page labels). Fix render/recycle logic HERE, not in the
+  it scrolls out; a width change (a zoom) keeps drawing the old bitmap until the new one lands, and
+  leaves it to the GC. Shared by `:feature:chat`'s viewer (document-wide zoom: it lays pages out
+  wider, so they re-render sharp) and `:feature:files`' preview (adds page labels). Fix render/recycle logic HERE, not in the
   feature copies — there are none.
 
 ## Rules

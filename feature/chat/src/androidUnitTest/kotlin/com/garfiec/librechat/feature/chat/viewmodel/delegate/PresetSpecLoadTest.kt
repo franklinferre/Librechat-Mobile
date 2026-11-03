@@ -7,7 +7,9 @@ import com.garfiec.librechat.core.data.repository.PromptRepository
 import com.garfiec.librechat.core.model.Preset
 import com.garfiec.librechat.core.model.config.ModelSpec
 import com.garfiec.librechat.core.model.config.ModelSpecs
+import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
+import com.garfiec.librechat.feature.chat.util.SpecTools
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ModelChoice
@@ -99,6 +101,36 @@ class PresetSpecLoadTest {
     }
 
     @Test
+    fun `a preset opening another spec drops the tools added on the first`() = runTest {
+        val other = ModelSpec(name = "other", preset = Preset(endpoint = "openAI", model = "gpt-4o"))
+
+        val selection = loadPreset(
+            Preset(presetId = "p1", spec = "other"),
+            ModelSpecs(list = listOf(fast, other)),
+            state = ModelSelectionState(
+                choice = ModelChoice.Spec("fast", "openAI", "gpt-4.1"),
+                specTools = SpecTools("fast", added = setOf("file_search")),
+            ),
+        )
+
+        assertThat(selection.selectedSpec).isEqualTo("other")
+        assertThat(selection.specTools).isNull()
+    }
+
+    @Test
+    fun `a preset keeping the spec keeps the tools added on it`() = runTest {
+        val added = SpecTools("fast", added = setOf("file_search"))
+
+        val selection = loadPreset(
+            Preset(presetId = "p1", temperature = 0.4),
+            ModelSpecs(list = listOf(fast)),
+            state = ModelSelectionState(choice = ModelChoice.Spec("fast", "openAI", "gpt-4.1"), specTools = added),
+        )
+
+        assertThat(selection.specTools).isEqualTo(added)
+    }
+
+    @Test
     fun `a preset carrying only parameters keeps the selected spec`() = runTest {
         val spec = ModelChoice.Spec("fast", "openAI", "gpt-4.1")
 
@@ -109,5 +141,90 @@ class PresetSpecLoadTest {
         )
 
         assertThat(selection.choice).isEqualTo(spec)
+    }
+
+    @Test
+    fun `a preset over an active spec replaces the spec's parameters`() = runTest {
+        val deep = ModelSpec(
+            name = "deep",
+            preset = Preset(endpoint = "openAI", model = "gpt-4.1", temperature = 0.9, topPSnake = 0.5),
+        )
+        val spec = ModelChoice.Spec("deep", "openAI", "gpt-4.1")
+
+        val selection = loadPreset(
+            Preset(presetId = "p1", endpoint = "openAI", model = "gpt-4o", temperature = 0.2),
+            ModelSpecs(list = listOf(deep)),
+            state = ModelSelectionState(choice = spec, modelParameters = ModelParameters.DEFAULT.copy(temperature = 0.9f, topP = 0.5f)),
+        )
+
+        assertThat(selection.modelParameters).isEqualTo(ModelParameters.DEFAULT.copy(temperature = 0.2f))
+    }
+
+    @Test
+    fun `a preset opening a spec layers its own values over the spec's preset`() = runTest {
+        val deep = ModelSpec(
+            name = "deep",
+            preset = Preset(endpoint = "openAI", model = "gpt-4.1", temperature = 0.9, reasoningEffort = "high"),
+        )
+
+        val selection = loadPreset(
+            Preset(presetId = "p1", spec = "deep", temperature = 0.2, verbosity = "low"),
+            ModelSpecs(list = listOf(deep)),
+        )
+
+        assertThat(selection.selectedSpec).isEqualTo("deep")
+        assertThat(selection.modelParameters).isEqualTo(
+            ModelParameters.DEFAULT.copy(
+                temperature = 0.2f,
+                dynamicValues = mapOf("reasoning_effort" to "high", "verbosity" to "low"),
+            ),
+        )
+    }
+
+    @Test
+    fun `under enforce a parameter-only preset keeps the spec's parameters`() = runTest {
+        val deep = ModelSpec(name = "deep", preset = Preset(endpoint = "openAI", model = "gpt-4.1", temperature = 0.9))
+        val shown = ModelParameters.DEFAULT.copy(temperature = 0.9f, webSearch = true)
+
+        val selection = loadPreset(
+            Preset(presetId = "p1", temperature = 0.2, topPSnake = 0.3),
+            ModelSpecs(list = listOf(deep), enforce = true),
+            state = ModelSelectionState(choice = ModelChoice.Spec("deep", "openAI", "gpt-4.1"), modelParameters = shown),
+        )
+
+        assertThat(selection.selectedSpec).isEqualTo("deep")
+        assertThat(selection.modelParameters).isEqualTo(shown)
+    }
+
+    @Test
+    fun `under enforce a preset naming a spec opens on that spec's parameters alone`() = runTest {
+        val deep = ModelSpec(
+            name = "deep",
+            preset = Preset(endpoint = "openAI", model = "gpt-4.1", temperature = 0.9, reasoningEffort = "high"),
+        )
+        val quick = ModelSpec(name = "quick", preset = Preset(endpoint = "openAI", model = "gpt-4o", temperature = 0.2))
+
+        val selection = loadPreset(
+            Preset(presetId = "p1", spec = "deep", temperature = 0.2, verbosity = "low"),
+            ModelSpecs(list = listOf(deep, quick), enforce = true),
+            state = ModelSelectionState(choice = ModelChoice.Spec("quick", "openAI", "gpt-4o")),
+        )
+
+        assertThat(selection.selectedSpec).isEqualTo("deep")
+        assertThat(selection.modelParameters).isEqualTo(
+            ModelParameters.DEFAULT.copy(temperature = 0.9f, dynamicValues = mapOf("reasoning_effort" to "high")),
+        )
+    }
+
+    @Test
+    fun `under enforce a preset that leaves the spec loads its own values`() = runTest {
+        val selection = loadPreset(
+            Preset(presetId = "p1", endpoint = "openAI", model = "gpt-4o", temperature = 0.2),
+            ModelSpecs(list = listOf(fast), enforce = true),
+            state = ModelSelectionState(choice = ModelChoice.Spec("fast", "openAI", "gpt-4.1")),
+        )
+
+        assertThat(selection.selectedSpec).isNull()
+        assertThat(selection.modelParameters.temperature).isEqualTo(0.2f)
     }
 }

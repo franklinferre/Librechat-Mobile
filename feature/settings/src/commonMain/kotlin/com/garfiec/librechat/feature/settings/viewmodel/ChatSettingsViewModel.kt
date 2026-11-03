@@ -3,21 +3,30 @@ package com.garfiec.librechat.feature.settings.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.garfiec.librechat.core.data.datastore.ArtifactDisplayMode
+import com.garfiec.librechat.core.data.datastore.ArtifactLibraryConsentStore
+import com.garfiec.librechat.core.data.datastore.ArtifactLibraryConsentStore.Decision
+import com.garfiec.librechat.core.data.datastore.ArtifactLibraryConsentStore.Subject
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.ChatHeaderAlignment
 import com.garfiec.librechat.core.data.datastore.ChatHeaderContent
 import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.data.datastore.DuringRunAction
+import com.garfiec.librechat.core.data.datastore.FlaggedArtifactLibraries
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.PreferenceStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
 import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
+import com.garfiec.librechat.core.data.datastore.WebSearchPreference
 import com.garfiec.librechat.core.model.speech.TtsVoice
 import com.garfiec.librechat.feature.settings.viewmodel.delegate.SpeechSettingsFactory
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /** Backs the Chat tab: display and behaviour preferences, artifacts, speech, and fork mode. */
 // TooManyFunctions: the members are one-line forwarders to controllers, one per setting, so the
@@ -27,6 +36,7 @@ class ChatSettingsViewModel(
     settingsDataStore: SettingsDataStore,
     preferenceStore: PreferenceStore,
     speechSettingsFactory: SpeechSettingsFactory,
+    private val libraryConsent: ArtifactLibraryConsentStore,
 ) : ViewModel() {
 
     /** Raw state for everything not driven by DataStore flows. */
@@ -48,13 +58,43 @@ class ChatSettingsViewModel(
     /** The single public UI state that merges DataStore preferences with imperative state. */
     val uiState: StateFlow<ChatSettingsUiState> = prefsController.uiState
 
+    /**
+     * Each flagged artifact library with its device-wide answer ([Decision.ASK] when each artifact
+     * asks). Null until the stored answers are read.
+     */
+    val artifactLibraries: StateFlow<List<ArtifactLibraryChoice>?> = libraryConsent.snapshot
+        .map { snapshot ->
+            snapshot?.let {
+                FlaggedArtifactLibraries.SUBJECTS.map { subject ->
+                    val decision = when (it.remembered(subject)) {
+                        true -> Decision.ALLOW
+                        false -> Decision.DECLINE
+                        null -> Decision.ASK
+                    }
+                    ArtifactLibraryChoice(subject, decision)
+                }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     init {
-        speechDelegate.loadVoices()
+        // Also loads the server voices, once the config says the server has TTS.
         speechDelegate.loadSpeechConfig()
         speechDelegate.loadDeviceVoices()
     }
 
     // ── Chat preferences ───────────────────────────────────────────
+
+    /** [Decision.ASK] drops the remembered answer; an answer given once in an artifact holds until restart. */
+    fun setArtifactLibraryDecision(subject: Subject, decision: Decision) {
+        viewModelScope.launch {
+            when (decision) {
+                Decision.ALLOW -> libraryConsent.remember(subject, allow = true)
+                Decision.DECLINE -> libraryConsent.remember(subject, allow = false)
+                Decision.ASK -> libraryConsent.forget(subject)
+            }
+        }
+    }
 
     fun setChatFontSize(size: ChatFontSize) {
         prefsController.setChatFontSize(size)
@@ -98,6 +138,10 @@ class ChatSettingsViewModel(
 
     fun setPreferLastUsedModel(prefer: Boolean) {
         prefsController.setPreferLastUsedModel(prefer)
+    }
+
+    fun setWebSearchFirst(first: WebSearchPreference) {
+        prefsController.setWebSearchFirst(first)
     }
 
     fun setShowSiteIcons(show: Boolean) {
@@ -187,3 +231,6 @@ class ChatSettingsViewModel(
         speechDelegate.release()
     }
 }
+
+/** A flagged artifact library and what applies to it on this device. */
+data class ArtifactLibraryChoice(val subject: Subject, val decision: Decision)

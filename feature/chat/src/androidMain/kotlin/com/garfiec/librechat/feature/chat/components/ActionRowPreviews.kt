@@ -1,7 +1,9 @@
 package com.garfiec.librechat.feature.chat.components
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,12 +15,15 @@ import com.garfiec.librechat.core.model.Prompt
 import com.garfiec.librechat.core.model.background.BackgroundTaskDelivery
 import com.garfiec.librechat.core.model.background.BackgroundTaskStatus
 import com.garfiec.librechat.core.model.background.BackgroundTaskSummary
+import com.garfiec.librechat.core.model.config.ModelSpec
+import com.garfiec.librechat.core.model.media.IconSource
 import com.garfiec.librechat.core.model.response.UploadRoute
 import com.garfiec.librechat.core.model.ui.UiStyle
 import com.garfiec.librechat.core.ui.components.rememberListDragSelection
 import com.garfiec.librechat.core.ui.preview.PreviewNarrowScreens
 import com.garfiec.librechat.core.ui.theme.LibreChatTheme
 import com.garfiec.librechat.feature.chat.prompts.PromptVersionItem
+import com.garfiec.librechat.feature.chat.util.KeyHint
 import com.garfiec.librechat.feature.chat.viewmodel.BackgroundTasksUiState
 import com.garfiec.librechat.feature.chat.viewmodel.PendingUploadFile
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PickedFile
@@ -58,14 +63,6 @@ private fun SetApiKeyHeaderGlassPreview() = PreviewSurface(UiStyle.LIQUID_GLASS)
 @PreviewNarrowScreens
 @Composable
 private fun PromptVersionsPreview() = PreviewSurface(UiStyle.MATERIAL) { PromptVersionsHost() }
-
-@PreviewNarrowScreens
-@Composable
-private fun InlineEditMaterialPreview() = PreviewSurface(UiStyle.MATERIAL) { InlineEditHost() }
-
-@PreviewNarrowScreens
-@Composable
-private fun InlineEditGlassPreview() = PreviewSurface(UiStyle.LIQUID_GLASS) { InlineEditHost() }
 
 @Composable
 private fun PreviewSurface(style: UiStyle, content: @Composable () -> Unit) {
@@ -119,6 +116,7 @@ private fun FeedbackActionsHost() {
     FeedbackActions(submitEnabled = true, onCancel = {}, onSubmit = {}, modifier = Modifier.padding(horizontal = 24.dp))
 }
 
+/** Groups and a spec row that need a key, a long name among them, beside one that doesn't. */
 @Composable
 private fun SetApiKeyHeaderHost() {
     val dragSelection = rememberListDragSelection()
@@ -131,8 +129,34 @@ private fun SetApiKeyHeaderHost() {
             iconUrl = null,
             onToggle = {},
             dragSelection = dragSelection,
-            needsKey = true,
+            keyHint = KeyHint.NEEDS_KEY,
         )
+        EndpointGroupHeader(
+            endpointName = "OpenRouter",
+            displayLabel = "OpenRouter Community Models",
+            modelCount = 318,
+            isExpanded = false,
+            iconUrl = null,
+            onToggle = {},
+            dragSelection = dragSelection,
+            keyHint = KeyHint.EXPIRED,
+        )
+        LazyColumn(Modifier.heightIn(max = 120.dp)) {
+            item {
+                SpecListItem(
+                    spec = ModelSpec(
+                        name = "research",
+                        label = "Deep Research Assistant",
+                        description = "Long-form answers with citations from the web.",
+                    ),
+                    icon = IconSource(endpointName = "anthropic", imageUrl = null),
+                    isSelected = false,
+                    onClick = {},
+                    dragSelection = dragSelection,
+                    keyHint = KeyHint.NEEDS_KEY,
+                )
+            }
+        }
         EndpointGroupHeader(
             endpointName = "openAI",
             displayLabel = "OpenAI",
@@ -159,17 +183,4 @@ private fun PromptVersionsHost() {
         PromptVersionItem(prompt = prompt, versionNumber = 3, isProduction = true, onSetProduction = {})
         PromptVersionItem(prompt = prompt.copy(id = "p1"), versionNumber = 2, isProduction = false, onSetProduction = {})
     }
-}
-
-@Composable
-private fun InlineEditHost() {
-    var text by remember { mutableStateOf("Can you rewrite this so it reads more formally?") }
-    InlineEditInput(
-        text = text,
-        onTextChange = { text = it },
-        onSaveAndSubmit = {},
-        onSaveOnly = {},
-        onCancel = {},
-        modifier = Modifier.padding(horizontal = 16.dp),
-    )
 }

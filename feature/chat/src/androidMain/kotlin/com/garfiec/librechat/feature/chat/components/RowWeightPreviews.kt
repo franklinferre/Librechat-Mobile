@@ -104,22 +104,15 @@ private fun SenderBubble(message: Message, layout: String) {
         onRegenerate = {},
         onCopy = {},
         onFeedback = {},
-        onContinue = null,
         onReadAloud = {},
         onFork = {},
         baseUrl = "",
         fontSizeMultiplier = 1f,
         isReading = false,
         currentFeedback = null,
-        isEditing = false,
-        editText = "",
-        onEditTextChange = null,
-        onEditSaveAndSubmit = null,
-        onEditSaveOnly = null,
-        onEditCancel = null,
+        editSession = null,
         userAvatarUrl = null,
         userName = PREVIEW_USER_NAME,
-        selectedEndpoint = null,
         showImageDescriptions = false,
         showActionsInitially = false,
         searchQuery = null,
@@ -182,8 +175,9 @@ private fun DisclosureLabelsHost() = RowWeightThreadContent {
         MemoryArtifactsSection(
             artifacts = listOf(MemoryArtifact(title = "travel_preferences", content = "Prefers window seats.")),
         )
-        WebSearchSourcesCard(
-            results = listOf(
+        WebSearchCard(
+            phase = WebSearchPhase.COMPLETE,
+            sources = listOf(
                 WebSearchResult(
                     title = "Walt Disney World Resort: park hours and rope drop times",
                     url = "https://disneyworld.disney.go.com/calendars",

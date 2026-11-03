@@ -20,7 +20,17 @@
     <string name="new_chat">New Chat</string>
     <string name="load_preset">Load Preset</string>
     <string name="save_as_preset">Save as Preset</string>
-    <string name="save_and_submit">Save &amp; Submit</string>
+    <string name="saving">Saving…</string>
+    <string name="rerun">Rerun</string>
+    <string name="update_and_rerun">Update &amp; Rerun</string>
+    <string name="edit_part_response">Response</string>
+    <string name="edit_part_thoughts">Thoughts</string>
+    <string name="edit_status_part_empty">A part of the message cannot be empty.</string>
+    <string name="edit_status_save_before_rerun">Save your changes before rerunning.</string>
+    <string name="edit_status_unsaved_changes">Unsaved changes.</string>
+    <string name="edit_status_rerun_discards_changes">Rerun regenerates this reply and discards your changes.</string>
+    <string name="edit_status_rerun_needs_user_turn">Rerunning needs a user message to replay.</string>
+    <string name="notice_message_save_failed">Could not save your edit.</string>
     <string name="preset_name_label">Preset name</string>
     <string name="code">Code</string>
     <string name="preview">Preview</string>
@@ -78,9 +88,13 @@
     <string name="title_edit_keep_editing">Keep editing</string>
     <string name="cd_more_options">More options</string>
     <string name="cd_temporary_chat">Temporary chat</string>
-    <string name="temporary_chat_banner">Temporary chat: this conversation won't be saved to your history</string>
+    <string name="temporary_chat_title">Temporary chat</string>
+    <string name="temporary_chat_subtitle">This conversation won't be saved to your history</string>
     <string name="cd_scroll_to_bottom">Scroll to bottom</string>
     <string name="cd_select_model">Select model</string>
+    <string name="cd_starter_send">Send</string>
+    <string name="cd_starter_edit">Edit before sending</string>
+    <string name="starters_try_asking">Try asking</string>
     <string name="cd_librechat">LID.IA</string>
     <string name="cd_comparison_enabled">Comparison enabled</string>
 
@@ -219,8 +233,15 @@
     <string name="tool_model">Model</string>
     <string name="tool_model_parameters">Model Parameters</string>
     <string name="tool_model_parameters_desc">Adjust temperature, tokens, and more</string>
+    <string name="param_set_by_spec">This model's settings are set by the server and can't be changed here.</string>
+    <string name="tool_set_by_spec">Turned on for this model by the server</string>
     <string name="tool_web_search">Web Search</string>
     <string name="tool_web_search_desc">Search the web for information</string>
+    <string name="web_search_librechat">LibreChat search</string>
+    <string name="web_search_checking">Checking LibreChat search…</string>
+    <string name="web_search_built_in">%1$s's built-in search</string>
+    <string name="web_search_built_in_plain">Built-in search</string>
+    <string name="web_search_set_by_spec">%1$s, turned on for this model by the server</string>
     <string name="web_searched">Searched the web</string>
     <string name="tool_url_context">URL Context</string>
     <string name="tool_url_context_desc">Let the model read URLs and YouTube you reference</string>
@@ -273,8 +294,12 @@
     <string name="audio_decode_failed">Failed to decode audio</string>
 
     <!-- Citation -->
-    <string name="citation_number">Citation %1$d</string>
-    <string name="cd_open_citation_url">Open citation URL</string>
+    <string name="citation_sources_title">Sources</string>
+    <string name="cd_citation">Source: %1$s</string>
+    <plurals name="cd_citation_more">
+        <item quantity="one">Source: %1$s and %2$d more</item>
+        <item quantity="other">Source: %1$s and %2$d more</item>
+    </plurals>
 
     <!-- Fork options -->
     <string name="fork_conversation">Fork Conversation</string>
@@ -364,8 +389,12 @@
     <string name="cd_unpin_favorite">Unpin favorite</string>
     <string name="cd_collapse_section">Collapse %1$s</string>
     <string name="cd_expand_section">Expand %1$s</string>
-    <string name="set_api_key_action">Set API Key</string>
-    <string name="cd_set_api_key">Configure API key for %1$s</string>
+    <string name="set_api_key_action">Add key</string>
+    <string name="cd_set_api_key">Add a key for %1$s</string>
+    <!-- Under an endpoint or spec name in the model picker when its key is missing. -->
+    <string name="model_selector_needs_key">Needs your key</string>
+    <!-- Same place, in the minute before the server deletes an expired key. -->
+    <string name="model_selector_key_expired">Key expired</string>
 
     <!-- Preset picker -->
     <string name="select_preset">Select Preset</string>
@@ -480,15 +509,24 @@
     <string name="dialog_title_fill_variables">Fill in Variables</string>
 
     <!-- Comparison mode -->
-    <string name="continue_with_response">Continue with this response</string>
+    <string name="keep_this_answer">Keep this answer</string>
+    <string name="reply_stopped">Stopped</string>
+    <string name="action_continue_reply">Continue</string>
+    <string name="action_keep_and_continue">Keep and continue</string>
 
     <!-- Provider Keys chat-time errors. -->
     <string name="provider_keys_chat_error_no_key">No key found. Please provide a key and try again.</string>
-    <!-- {0} = endpoint name, {1} = expiredAt (server-locale string, NOT ISO) -->
+    <!-- {0} = endpoint name, {1} = expiry date and time, already formatted in the user's locale -->
     <string name="provider_keys_chat_error_expired">Provided key for %1$s expired at %2$s. Please provide a new key and try again.</string>
     <string name="provider_keys_chat_error_invalid">Invalid key provided. Please provide a valid key and try again.</string>
-    <!-- Snackbar action label that deep-links to Settings → Provider Keys -->
-    <string name="provider_keys_chat_error_cta">Open key settings</string>
+    <string name="provider_keys_chat_error_no_key_for">No key found for %1$s. Please provide a key and try again.</string>
+    <string name="provider_keys_chat_error_invalid_for">Invalid key provided for %1$s. Please provide a valid key and try again.</string>
+    <!-- {0} = expiry date and time, already formatted in the user's locale; the server sent no endpoint -->
+    <string name="provider_keys_chat_error_expired_no_label">Provided key expired at %1$s. Please provide a new key and try again.</string>
+    <string name="provider_keys_chat_error_no_base_url">No base URL found. Please provide one and try again.</string>
+    <string name="provider_keys_chat_error_no_base_url_for">No base URL found for %1$s. Please provide one and try again.</string>
+    <string name="provider_keys_chat_error_invalid_base_url">The base URL you provided targets a restricted address. Please use a valid external URL and try again.</string>
+    <string name="provider_keys_chat_error_invalid_base_url_for">The base URL you provided for %1$s targets a restricted address. Please use a valid external URL and try again.</string>
 
     <!-- Snackbar shown when queued follow-up messages are discarded because the user switched accounts -->
     <string name="queued_messages_dropped_account_switch">Queued messages discarded after switching accounts</string>
@@ -496,7 +534,9 @@
     <!-- Send block reasons (shown in error snackbar when send can't proceed) -->
     <string name="send_block_select_agent">Select an agent before sending your message.</string>
     <string name="send_block_select_model">Select a model before sending your message.</string>
+    <string name="send_block_select_second_model">Pick model B from the list before sending.</string>
     <string name="send_block_agents_unavailable">Agents aren't available on this server. Please pick a different model.</string>
+    <string name="send_block_api_key_required">Add your API key for %1$s to send messages.</string>
     <string name="send_block_agent_not_available">The selected agent isn't available on this server. Please pick a different agent.</string>
     <string name="send_block_model_not_available">The selected model isn't available on this server. Please pick a different model.</string>
     <string name="send_block_model_load_failed">Couldn't load the selected model yet. Please try again or pick a different model.</string>
@@ -712,6 +752,9 @@
     <string name="notice_continue_response_failed">Failed to continue with selected response</string>
     <string name="notice_favorites_limit">You can pin up to %1$d favorites.</string>
     <string name="notice_favorites_update_failed">Could not update favorites.</string>
+    <string name="notice_bookmark_update_failed">Couldn't update bookmarks. Try again.</string>
+    <string name="notice_bookmark_create_failed">Couldn't create the bookmark. Try again.</string>
+    <string name="notice_bookmarks_load_failed">Couldn't load this chat's bookmarks</string>
     <string name="notice_upload_failed">Failed to upload %1$s: %2$s</string>
     <string name="notice_upload_failed_unknown">Failed to upload %1$s: Unknown error</string>
     <string name="notice_upload_unreadable">Failed to upload %1$s: Could not read file</string>
@@ -804,6 +847,17 @@
     <string name="stt_speak_now">Speak now…</string>
     <string name="stt_recognition_unavailable">Speech recognition is not available on this device</string>
     <string name="artifact_preview_failed">Failed to load preview</string>
+    <string name="artifact_library_title">Load %1$s?</string>
+    <string name="artifact_library_unmaintained">This artifact uses %1$s, a library that is no longer maintained.</string>
+    <string name="artifact_library_deprecated">This artifact uses %1$s, a library its authors have deprecated.</string>
+    <string name="artifact_library_vulnerable">This artifact uses %1$s, a library with a known security advisory.</string>
+    <string name="artifact_library_sandbox">It runs sandboxed, with no access to your files or account. Like any artifact, it can load images from the web.</string>
+    <string name="artifact_library_remember">Remember for %1$s</string>
+    <string name="artifact_library_load">Load</string>
+    <string name="artifact_library_skip">Don't load</string>
+    <string name="artifact_library_declined">Not loaded: %1$s</string>
+    <string name="artifact_library_allowed">Loaded: %1$s</string>
+    <string name="artifact_library_change">Change</string>
     <string name="cd_mcp_server_enabled">%1$s MCP server enabled</string>
     <string name="cd_code_block">Code block</string>
     <string name="cd_code_block_language">%1$s code block</string>
@@ -811,7 +865,7 @@
     <string name="cd_attached_image">Attached image</string>
     <string name="model_selector_search">Search models…</string>
     <string name="model_selector_my_agents">My Agents</string>
-    <string name="model_selector_spec_only_note">This server only accepts the options listed above.</string>
+    <string name="model_selector_spec_only_top_note">Only the server's model specs can be sent; greyed models are for reference.</string>
     <string name="agent_handoff_to">Agent %1$s</string>
     <string name="agent_handoff_run">Run: %1$s</string>
     <string name="sibling_position">Response %1$d of %2$d</string>
@@ -861,4 +915,39 @@
     <string name="shared_chat_load_failed">Couldn’t load this shared chat</string>
     <string name="shared_chat_user">User</string>
     <string name="shared_chat_file_failed">Couldn’t open this file</string>
+
+    <!-- Web and file search sources -->
+    <string name="web_searching">Searching the web</string>
+    <string name="web_searching_again">Searching the web again</string>
+    <string name="web_search_processing">Processing results</string>
+    <string name="web_search_reading">Reading results</string>
+    <string name="web_search_details">Search details</string>
+    <string name="web_search_query">Query</string>
+    <string name="web_search_images">Image results</string>
+    <string name="web_search_shopping">Shopping results</string>
+    <string name="web_search_places">Places</string>
+    <string name="files_searching">Searching your files</string>
+    <string name="searching_web_and_files">Searching web and files</string>
+    <string name="searched_web_and_files">Searched web and files</string>
+    <string name="search_cancelled">Cancelled</string>
+    <string name="sources_tab_all">All</string>
+    <string name="sources_tab_news">News</string>
+    <string name="sources_tab_images">Images</string>
+    <string name="sources_tab_files">Files</string>
+    <string name="sources_agent_files">Agent Files</string>
+    <string name="sources_agent_file">Source Document</string>
+    <string name="web_search_load_images">Load images</string>
+    <string name="cd_open_cited_file">Open %1$s</string>
+    <plurals name="web_search_sources">
+        <item quantity="one">%1$d source</item>
+        <item quantity="other">%1$d sources</item>
+    </plurals>
+    <plurals name="sources_more">
+        <item quantity="one">+%1$d source</item>
+        <item quantity="other">+%1$d sources</item>
+    </plurals>
+    <plurals name="files_more">
+        <item quantity="one">+%1$d file</item>
+        <item quantity="other">+%1$d files</item>
+    </plurals>
 </resources>

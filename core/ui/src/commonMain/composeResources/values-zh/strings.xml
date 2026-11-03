@@ -28,6 +28,8 @@
     <string name="pdf_password_incorrect">密码错误，请重试。</string>
     <string name="pdf_password_show">显示密码</string>
     <string name="pdf_password_hide">隐藏密码</string>
+    <string name="cd_show_secret">显示</string>
+    <string name="cd_hide_secret">隐藏</string>
     <string name="pdf_password_confirm">解密并上传</string>
     <string name="pdf_password_cancel">取消</string>
     <string name="param_thinking_between_tools_description">启用由“努力程度”参数控制的自适应思考。此模型无法完全关闭思考：关闭此项会使用其最低设置，跳过扩展思考，仅在工具调用之间保留简短笔记。关闭时，努力程度上限为“高”。</string>
@@ -146,6 +148,8 @@
     <string name="param_label_prompt_caching">提示缓存</string>
     <string name="param_label_reasoning_effort">推理强度</string>
     <string name="param_label_reasoning_summary">推理摘要</string>
+    <string name="param_label_reasoning_mode">推理模式</string>
+    <string name="param_label_reasoning_context">推理上下文</string>
     <string name="param_label_reasoning_visibility">推理可见性</string>
     <string name="param_label_region">区域</string>
     <string name="param_label_resend_files">重新发送文件</string>
@@ -171,6 +175,10 @@
     <string name="param_option_auto">自动</string>
     <string name="param_option_concise">简洁</string>
     <string name="param_option_detailed">详细</string>
+    <string name="param_option_standard">标准</string>
+    <string name="param_option_pro">Pro</string>
+    <string name="param_option_current_turn">当前轮次</string>
+    <string name="param_option_all_turns">所有轮次</string>
     <string name="param_option_summarized">摘要</string>
     <string name="param_option_omitted">省略</string>
     <string name="param_option_updates">进度更新</string>
@@ -197,6 +205,8 @@
     <string name="param_desc_frequency_penalty">根据令牌在文本中出现的频率进行惩罚。</string>
     <string name="param_desc_url_context">让模型获取你引用的 URL（及 YouTube）并以其为依据。</string>
     <string name="param_desc_reasoning_summary">推理摘要在回复中的呈现方式。</string>
+    <string name="param_desc_reasoning_mode">仅限 Responses API：选择推理模式。Pro 会在支持的模型上开启扩展推理。</string>
+    <string name="param_desc_reasoning_context">仅限 Responses API：模型复用多少先前的推理。</string>
     <string name="param_desc_prompt_cache_duration">提示缓存的保留时长（Anthropic）。在启用提示缓存时生效。</string>
     <string name="param_desc_thinking_level">控制模型的思考量。</string>
     <string name="param_desc_reasoning_effort">控制模型的推理量。</string>
@@ -285,4 +295,30 @@
     <string name="acl_error_owner_protected">无法更改所有者的访问权限。</string>
     <string name="acl_error_generic">无法更新访问权限，请重试。</string>
     <string name="acl_error_load">无法加载有访问权限的人。</string>
+    <string name="bookmarks">书签</string>
+    <string name="bookmark_new">新建书签</string>
+    <string name="bookmark_edit">编辑书签</string>
+    <string name="bookmark_name">名称</string>
+    <string name="bookmark_description">描述</string>
+    <string name="bookmark_description_hint">可选</string>
+    <string name="bookmark_add_to_chat">添加到此对话</string>
+    <string name="bookmark_create">创建</string>
+    <string name="bookmark_save">保存</string>
+    <string name="bookmark_saving">正在保存…</string>
+    <string name="bookmark_cancel">取消</string>
+    <string name="bookmark_error_blank">请输入名称</string>
+    <string name="bookmark_error_duplicate">已有同名书签</string>
+    <string name="bookmark_error_reserved">“Saved”已保留给收藏，请换一个名称。</string>
+    <string name="bookmark_char_counter">%1$d/%2$d</string>
+    <string name="bookmarks_none_yet">还没有书签</string>
+    <string name="bookmarks_no_match">没有与“%1$s”匹配的书签</string>
+    <string name="search_bookmarks">搜索书签</string>
+    <string name="cd_bookmarked">已添加</string>
+    <string name="cd_not_bookmarked">未添加</string>
+    <plurals name="bookmark_chat_count">
+        <item quantity="other">%1$d 个对话</item>
+    </plurals>
+    <plurals name="bookmark_error_too_long">
+        <item quantity="other">最多 %1$d 个字符</item>
+    </plurals>
 </resources>

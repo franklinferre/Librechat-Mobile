@@ -2,11 +2,15 @@ package com.garfiec.librechat.feature.settings.viewmodel
 
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.datastore.AppPreferences
+import com.garfiec.librechat.core.data.datastore.ArtifactLibraryConsentStore
+import com.garfiec.librechat.core.data.datastore.ArtifactLibraryConsentStore.Decision
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
+import com.garfiec.librechat.core.data.datastore.FlaggedArtifactLibraries
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.data.datastore.PreferenceStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.UploadRoutingMode
+import com.garfiec.librechat.core.data.datastore.WebSearchPreference
 import com.garfiec.librechat.core.data.repository.SpeechRepository
 import com.garfiec.librechat.core.model.speech.SpeechConfig
 import com.garfiec.librechat.feature.settings.viewmodel.delegate.SpeechSettingsContract
@@ -16,6 +20,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,13 +44,16 @@ class ChatSettingsViewModelTest {
     private val uploadRoutingModeFlow = MutableStateFlow(UploadRoutingMode.AUTO)
     private val siteIconsChoiceFlow = MutableStateFlow<Boolean?>(null)
     private val preferLastUsedFlow = MutableStateFlow(false)
+    private val webSearchFirstFlow = MutableStateFlow(WebSearchPreference.LIBRECHAT_FIRST)
     private val speechRepository = mockk<SpeechRepository>(relaxed = true)
+    private val libraryConsent = mockk<ArtifactLibraryConsentStore>(relaxed = true)
 
     private lateinit var viewModel: ChatSettingsViewModel
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
+        every { libraryConsent.snapshot } returns MutableStateFlow(null)
 
         // Setup DataStore flows
         every { settingsDataStore.chatFontSize } returns MutableStateFlow(ChatFontSize.MEDIUM)
@@ -72,6 +80,8 @@ class ChatSettingsViewModelTest {
         every { preferenceStore.observe(AppPreferences.SiteIcons) } returns siteIconsChoiceFlow
         every { preferenceStore.observe(AppPreferences.PreferLastUsedModel) } returns preferLastUsedFlow
         coEvery { preferenceStore.set(AppPreferences.PreferLastUsedModel, any()) } answers { preferLastUsedFlow.value = secondArg() }
+        every { preferenceStore.observe(AppPreferences.WebSearchFirst) } returns webSearchFirstFlow
+        coEvery { preferenceStore.set(AppPreferences.WebSearchFirst, any()) } answers { webSearchFirstFlow.value = secondArg() }
         every { preferenceStore.initial(AppPreferences.SiteIcons) } returns null
         coEvery { preferenceStore.set(AppPreferences.SiteIcons, any()) } answers { siteIconsChoiceFlow.value = secondArg() }
         every { settingsDataStore.latexRenderer } returns MutableStateFlow(LatexRenderer.KATEX)
@@ -92,7 +102,45 @@ class ChatSettingsViewModelTest {
         settingsDataStore = settingsDataStore,
         preferenceStore = preferenceStore,
         speechSettingsFactory = SpeechSettingsFactory { speechSettingsContract },
+        libraryConsent = libraryConsent,
     )
+
+    @Test
+    fun `library choices wait for the stored answers, then list every flagged library`() = runTest {
+        val snapshots = MutableStateFlow<ArtifactLibraryConsentStore.Snapshot?>(null)
+        every { libraryConsent.snapshot } returns snapshots
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.artifactLibraries.value).isNull()
+
+        val answered = mockk<ArtifactLibraryConsentStore.Snapshot>()
+        val first = FlaggedArtifactLibraries.SUBJECTS.first()
+        every { answered.remembered(any()) } returns null
+        every { answered.remembered(first) } returns false
+        snapshots.value = answered
+        advanceUntilIdle()
+
+        val choices = viewModel.artifactLibraries.value!!
+        assertThat(choices.map { it.subject }).containsExactlyElementsIn(FlaggedArtifactLibraries.SUBJECTS).inOrder()
+        assertThat(choices.first().decision).isEqualTo(Decision.DECLINE)
+        assertThat(choices.drop(1).map { it.decision }).containsNoneOf(Decision.ALLOW, Decision.DECLINE)
+    }
+
+    @Test
+    fun `setting a library writes a remembered answer, and Ask forgets it`() = runTest {
+        every { libraryConsent.snapshot } returns MutableStateFlow(null)
+        viewModel = createViewModel()
+        val subject = FlaggedArtifactLibraries.SUBJECTS.first()
+
+        viewModel.setArtifactLibraryDecision(subject, Decision.ALLOW)
+        viewModel.setArtifactLibraryDecision(subject, Decision.DECLINE)
+        viewModel.setArtifactLibraryDecision(subject, Decision.ASK)
+        advanceUntilIdle()
+
+        coVerify { libraryConsent.remember(subject, true) }
+        coVerify { libraryConsent.remember(subject, false) }
+        coVerify { libraryConsent.forget(subject) }
+    }
 
     @Test
     fun `site icons read as off until chosen, then follow the stored choice`() = runTest {
@@ -118,6 +166,19 @@ class ChatSettingsViewModelTest {
 
         coVerify { preferenceStore.set(AppPreferences.PreferLastUsedModel, true) }
         assertThat(viewModel.uiState.value.preferLastUsedModel).isTrue()
+    }
+
+    @Test
+    fun `web search tries LibreChat search first until the user prefers the built-in one`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.webSearchFirst).isEqualTo(WebSearchPreference.LIBRECHAT_FIRST)
+
+        viewModel.setWebSearchFirst(WebSearchPreference.BUILT_IN_FIRST)
+        advanceUntilIdle()
+
+        coVerify { preferenceStore.set(AppPreferences.WebSearchFirst, WebSearchPreference.BUILT_IN_FIRST) }
+        assertThat(viewModel.uiState.value.webSearchFirst).isEqualTo(WebSearchPreference.BUILT_IN_FIRST)
     }
 
     @Test
@@ -147,5 +208,15 @@ class ChatSettingsViewModelTest {
 
         coVerify { settingsDataStore.setUploadRoutingMode(UploadRoutingMode.MANUAL) }
         assertThat(viewModel.uiState.value.uploadRoutingMode).isEqualTo(UploadRoutingMode.MANUAL)
+    }
+
+    @Test
+    fun `opening the page loads the speech config and leaves voices to it`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // The delegate fetches voices only once the config says the server has TTS.
+        verify(exactly = 1) { speechSettingsContract.loadSpeechConfig() }
+        verify(exactly = 0) { speechSettingsContract.loadVoices() }
     }
 }

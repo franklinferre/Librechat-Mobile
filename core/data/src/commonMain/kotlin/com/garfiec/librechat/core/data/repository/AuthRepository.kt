@@ -4,12 +4,13 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.model.LoginOutcome
 import com.garfiec.librechat.core.model.User
 import com.garfiec.librechat.core.model.VerifyTwoFactorOutcome
+import com.garfiec.librechat.core.model.auth.AuthCookies
 import com.garfiec.librechat.core.model.response.BackupCodesResponse
 import com.garfiec.librechat.core.model.response.TwoFactorSetupResponse
 
 interface AuthRepository {
     suspend fun login(email: String, password: String): Result<LoginOutcome>
-    suspend fun loginWithOAuthToken(refreshToken: String): Result<User>
+    suspend fun loginWithOAuthToken(cookies: AuthCookies): Result<User>
 
     /**
      * Verifies a 2FA temp-token session. Returns a closed [VerifyTwoFactorOutcome] (not a
@@ -20,6 +21,12 @@ interface AuthRepository {
     suspend fun verifyTwoFactor(tempToken: String, code: String, isBackupCode: Boolean = false): VerifyTwoFactorOutcome
     suspend fun register(name: String, email: String, username: String, password: String): Result<Unit>
     suspend fun logout(): Result<Unit>
+
+    /**
+     * Revokes [accountId]'s server session, best-effort, then removes the account and its local data.
+     * The active account goes through [logout].
+     */
+    suspend fun removeAccount(accountId: String)
     suspend fun isLoggedIn(): Boolean
 
     /**

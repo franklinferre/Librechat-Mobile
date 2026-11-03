@@ -19,9 +19,7 @@
     <string name="cd_search">Search</string>
     <string name="cd_clear_search">Clear search</string>
     <string name="cd_close_search">Close search</string>
-    <string name="cd_bookmarked">Bookmarked</string>
     <string name="cd_conversation_actions">Conversation actions</string>
-    <string name="cd_add_tag">Add tag</string>
     <string name="cd_hide_tags">Hide tags</string>
     <string name="cd_show_tags">Show tags</string>
     <string name="cd_clear_filter">Clear filter</string>
@@ -41,8 +39,6 @@
     <string name="copy_of">Copy of %1$s</string>
 
     <!-- Conversation actions -->
-    <string name="remove_bookmark">Remove Bookmark</string>
-    <string name="bookmark">Bookmark</string>
     <string name="pin">Pin</string>
     <string name="unpin">Unpin</string>
     <string name="move_to_project">Move to project</string>
@@ -59,7 +55,6 @@
     <string name="project_delete_confirm">Delete project "%1$s"? Conversations stay, but are removed from the project.</string>
     <string name="project_unassigned">Not in a project</string>
     <string name="projects_all">All projects</string>
-    <string name="projects_see_all">See all projects</string>
     <string name="project_new">New project</string>
     <string name="project_name_label">Project name</string>
     <string name="project_edit">Edit project</string>
@@ -73,19 +68,17 @@
     <string name="projects_search">Search projects</string>
     <string name="project_sort_activity">Latest activity</string>
     <string name="project_sort_name">Name</string>
+    <string name="project_sort_custom">Custom order</string>
+    <string name="project_move_up">Move up</string>
+    <string name="project_move_down">Move down</string>
     <string name="projects_empty_description">A project groups chats on one topic. Move any chat into a project from its menu.</string>
     <string name="projects_no_match">No projects match "%1$s"</string>
-    <string name="tags">Tags</string>
     <string name="rename_conversation">Rename conversation</string>
     <string name="rename_dialog_message">Enter a new title for this conversation.</string>
     <string name="title_label">Title</string>
     <string name="delete_conversation">Delete conversation</string>
     <string name="delete_confirmation_message">Are you sure you want to delete "%1$s"? This action cannot be undone.</string>
     <string name="this_conversation">this conversation</string>
-
-    <!-- Tag picker -->
-    <string name="no_tags_yet">No tags yet. Add one below.</string>
-    <string name="add_new_tag">Add new tag</string>
 
     <!-- Tag filter bar -->
 
@@ -99,6 +92,8 @@
     <!-- Archived conversations screen -->
     <string name="archived_conversations">Archived Conversations</string>
     <string name="could_not_load_archived">Could not load archived conversations</string>
+    <string name="could_not_load_more_archived">Couldn't load more archived chats</string>
+    <string name="archived_load_more_retry">Retry</string>
     <string name="no_archived_conversations">No archived conversations</string>
     <string name="archived_will_appear_here">Archived conversations will appear here</string>
 
@@ -238,4 +233,57 @@
         <item quantity="one">%1$d project</item>
         <item quantity="other">%1$d projects</item>
     </plurals>
+    <string name="favorite">Favorite</string>
+    <string name="remove_favorite">Remove from favorites</string>
+    <string name="cd_favorited">Favorite</string>
+    <string name="bookmarks_ellipsis">Bookmarks…</string>
+    <string name="bookmark_update_failed">Couldn't update bookmarks. Try again.</string>
+    <string name="bookmark_create_failed">Couldn't create the bookmark. Try again.</string>
+    <string name="bookmarks_load_failed">Couldn't load this chat's bookmarks</string>
+    <string name="favorite_update_failed">Couldn't update favorites. Try again.</string>
+    <plurals name="bookmarks_count">
+        <item quantity="one">%1$d bookmark</item>
+        <item quantity="other">%1$d bookmarks</item>
+    </plurals>
+    <string name="bookmarks_reorder_hint">Hold a card to reorder</string>
+    <string name="bookmark_no_chats">No chats yet</string>
+    <string name="bookmarks_empty_description">Bookmark chats to find them again. Create one here, or add a chat to one from its menu.</string>
+    <string name="bookmark_options">Bookmark options</string>
+    <string name="bookmark_delete">Delete bookmark</string>
+    <string name="bookmark_delete_title">Delete “%1$s”?</string>
+    <plurals name="bookmark_delete_body">
+        <item quantity="one">It comes off %1$d chat. The chat itself stays.</item>
+        <item quantity="other">It comes off %1$d chats. The chats themselves stay.</item>
+    </plurals>
+    <string name="bookmarks_load_error">Couldn't load bookmarks</string>
+    <string name="bookmark_save_failed">Couldn't save the bookmark. Try again.</string>
+    <string name="bookmark_delete_failed">Couldn't delete the bookmark. Try again.</string>
+    <string name="bookmark_move_failed">Couldn't move the bookmark. Try again.</string>
+    <string name="bookmark_chats_empty">No chats have this bookmark</string>
+    <string name="bookmark_chats_empty_description">Add a chat to it from the chat's menu, under Bookmarks…</string>
+    <string name="bookmark_chats_load_error">Couldn't load these chats</string>
+    <string name="workspace">Workspace</string>
+    <string name="workspace_current">Workspace · %1$s</string>
+    <string name="workspace_expanded">Expanded</string>
+    <string name="workspace_collapsed">Collapsed</string>
+    <string name="workspace_group_build">Build and automate</string>
+    <string name="workspace_group_data">Your data</string>
+    <string name="workspace_prompts">Prompts</string>
+    <string name="workspace_mcp_servers">MCP servers</string>
+    <string name="workspace_memories">Memories</string>
+    <string name="workspace_shared_links">Shared links</string>
+    <string name="workspace_archived">Archived</string>
+    <string name="workspace_hint_agents">Browse and build assistants</string>
+    <string name="workspace_hint_skills">Reusable instructions for agents</string>
+    <string name="workspace_hint_prompts">Saved prompts and templates</string>
+    <string name="workspace_hint_mcp_servers">Connect tools and services</string>
+    <string name="workspace_hint_schedules">Chats that run on a timer</string>
+    <string name="workspace_hint_memories">What the assistant remembers</string>
+    <string name="workspace_hint_bookmarks">Chats you've tagged</string>
+    <string name="workspace_hint_files">Everything you've uploaded</string>
+    <string name="workspace_hint_shared_links">Chats you've shared</string>
+    <string name="workspace_hint_archived">Chats you've put away</string>
+    <string name="workspace_pin">Pin %1$s to the drawer</string>
+    <string name="workspace_unpin">Unpin %1$s from the drawer</string>
+    <string name="workspace_reorder">Drag to reorder</string>
 </resources>

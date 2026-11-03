@@ -1,6 +1,8 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
 import com.garfiec.librechat.core.common.EndpointConstants
+import com.garfiec.librechat.core.model.endpoint.endpointDisplayName
+import com.garfiec.librechat.feature.chat.util.blocksSelection
 import com.garfiec.librechat.feature.chat.util.requiresSpec
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.SendBlockReason
@@ -83,6 +85,14 @@ class SendReadinessDelegate(
         if (state.modelSpecs.requiresSpec && state.selectedSpec.isNullOrBlank()) {
             return SendBlockReason.SelectModel
         }
+        // The server checks only the primary, but Compare offers lane B no raw models under
+        // `enforce` either; a reopened lane whose spec can't be read back asks here instead.
+        val comparison = state.comparisonState
+        if (state.modelSpecs.requiresSpec && comparison.isEnabled &&
+            comparison.secondaryEndpoint != EndpointConstants.AGENTS && state.laneBSpec.isNullOrBlank()
+        ) {
+            return SendBlockReason.SelectSecondaryModel
+        }
         if (state.selectedModel == null) {
             return if (state.selectedEndpoint == EndpointConstants.AGENTS) {
                 SendBlockReason.SelectAgent
@@ -92,6 +102,13 @@ class SendReadinessDelegate(
         }
         if (state.selectedEndpoint == EndpointConstants.AGENTS && !state.agentsEnabled) {
             return SendBlockReason.AgentsUnavailable
+        }
+        // As web's `useRequiresKey`: the server would refuse it with `no_user_key`. A key state
+        // still loading (or never fetched) lets the send through, as the picker does.
+        if (state.endpointKeyStates[state.selectedEndpoint].blocksSelection()) {
+            // The name the picker shows for the endpoint, not its config key.
+            val label = endpointDisplayName(state.selectedEndpoint, state.endpointConfigs[state.selectedEndpoint])
+            return SendBlockReason.ApiKeyRequired(label)
         }
         return null
     }

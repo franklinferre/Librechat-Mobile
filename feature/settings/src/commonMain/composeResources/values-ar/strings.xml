@@ -311,6 +311,12 @@
     <string name="new_chat_start_desc">عندما يحدد الخادم نموذجًا للمحادثات الجديدة، اختر استخدامه أو استخدام آخر نموذج استخدمته. يتم تجاهل ذلك إذا أخفى الخادم أداة اختيار النموذج. إذا اشترط الخادم استخدام أحد نماذجه، فلا يُحتسب آخر نموذج استخدمته إلا إذا كان واحدًا منها.</string>
     <string name="new_chat_start_server">اختيار الخادم</string>
     <string name="new_chat_start_last_used">آخر نموذج استخدمته</string>
+    <string name="web_search_first_title">البحث على الويب</string>
+    <string name="web_search_first_desc">أي بحث يشغّله مفتاح البحث على الويب في المحادثة عندما يكون كلاهما ممكنًا. إذا تعذّر اختيارك في محادثة، يُستخدم الآخر. يتقدّم بحث مواصفة النموذج نفسها، وتستخدم المقارنة بحث LibreChat متى أمكن ليبحث النموذجان كلاهما.</string>
+    <string name="web_search_first_librechat">بحث LibreChat أولًا</string>
+    <string name="web_search_first_librechat_desc">بحث خادمك، مع المصادر. يستخدم البحث المدمج في النموذج عندما لا يكون على الخادم بحث مُعدّ.</string>
+    <string name="web_search_first_built_in">البحث المدمج أولًا</string>
+    <string name="web_search_first_built_in_desc">بحث مزوّد النموذج نفسه (OpenAI وClaude وGemini وOpenRouter). يستخدم بحث LibreChat للنماذج الأخرى.</string>
     <string name="chat_header_title">ترويسة المحادثة</string>
     <string name="chat_header_summary_format">%1$s · %2$s</string>
     <string name="chat_header_content_label">المحتوى</string>
@@ -355,6 +361,16 @@
     <string name="artifact_mode_fullscreen_desc">يُفتح كصفحة بملء الشاشة بمساحة أكبر.</string>
     <string name="artifact_inline_title">العرض المضمّن</string>
     <string name="artifact_inline_enabled_count">%1$d من %2$d مفعّلة</string>
+    <string name="artifact_libraries_title">المكتبات المُعلَّمة</string>
+    <string name="artifact_libraries_desc">يمكن للعناصر التفاعلية استخدام بعض المكتبات التي لم تعد تُصان أو فيها مشكلات معروفة. اختر ما إذا كانت كل منها تُحمَّل، أو دع كل عنصر تفاعلي يسأل. تعمل في بيئة معزولة دون وصول إلى ملفاتك أو حسابك.</string>
+    <string name="artifact_libraries_none_set">السؤال في كل مرة</string>
+    <string name="artifact_libraries_some_set">تم ضبط %1$d من %2$d</string>
+    <string name="artifact_libraries_ask">اسأل</string>
+    <string name="artifact_libraries_allow">تحميل</string>
+    <string name="artifact_libraries_decline">عدم التحميل</string>
+    <string name="artifact_libraries_unmaintained">لم تعد تُصان</string>
+    <string name="artifact_libraries_deprecated">أوقف مؤلفوها دعمها</string>
+    <string name="artifact_libraries_vulnerable">عليها تحذير أمني معروف</string>
     <string name="artifacts_section_desc">عرض العناصر التفاعلية مباشرة في المحادثة بدلًا من خلف بطاقة تُفتح بالنقر. انقر على عنصر تفاعلي مضمّن لفتح العرض بملء الشاشة.</string>
     <string name="inline_artifact_mermaid">مخططات Mermaid</string>
     <string name="inline_artifact_mermaid_desc">عرض مخططات ومنظومات Mermaid الانسيابية بشكل مضمّن</string>
@@ -649,11 +665,8 @@
     <!-- Provider API Keys -->
     <string name="provider_keys_title">مفاتيح API للمزودين</string>
     <string name="provider_keys_subtitle">عيّن مفاتيحك الخاصة لنقاط النهاية التي تتطلبها</string>
-    <string name="provider_keys_dialog_title">تعيين مفتاح API لـ %1$s</string>
-    <string name="provider_keys_status_set_expires">ينتهي خلال %1$s</string>
-    <string name="provider_keys_status_set_never">لن ينتهي مفتاحك أبدًا</string>
     <string name="provider_keys_status_unset">غير مُعيّن</string>
-    <string name="provider_keys_status_expired">منتهي الصلاحية</string>
+    <string name="provider_keys_status_unknown">تعذّر التحقق</string>
     <string name="provider_keys_status_loading">جارٍ التحقق من حالة المفتاح…</string>
     <string name="provider_keys_field_api_key_label">المفتاح</string>
     <string name="provider_keys_field_base_url_label">الرابط الأساسي</string>
@@ -674,35 +687,75 @@
     <string name="provider_keys_field_google_imported">تم استيراد مفتاح حساب الخدمة JSON بنجاح</string>
     <string name="provider_keys_field_google_paste_label">أو الصق ملف JSON لحساب الخدمة</string>
     <string name="provider_keys_field_google_paste_only_hint">الصق ملف JSON لحساب الخدمة أدناه.</string>
-    <string name="provider_keys_field_google_service_key_or_gemini">مفتاح خدمة Google أو مفتاح Gemini API</string>
 
     <string name="provider_keys_field_bedrock_access_key_id">معرّف مفتاح الوصول</string>
     <string name="provider_keys_field_bedrock_secret_access_key">مفتاح الوصول السري</string>
     <string name="provider_keys_field_bedrock_session_token">رمز الجلسة المميز</string>
     <string name="provider_keys_field_bedrock_session_token_optional_suffix">(اختياري)</string>
+    <string name="provider_keys_field_bedrock_bearer_token">رمز Bearer المميز</string>
+    <string name="provider_keys_field_bedrock_bearer_token_placeholder">مفتاح Bedrock API</string>
+    <string name="provider_keys_field_required">مطلوب</string>
+    <string name="provider_keys_bedrock_or_access_keys">أو استخدم مفاتيح الوصول بدلاً من ذلك</string>
+    <string name="provider_keys_field_google_either_required">أضف مفتاح خدمة أو مفتاح Gemini API</string>
 
-    <string name="provider_keys_required_fields">الحقول التالية مطلوبة: %1$s</string>
     <string name="provider_keys_revoke">إبطال</string>
     <string name="provider_keys_revoke_failed">فشل إبطال مفتاح API. يرجى المحاولة مرة أخرى.</string>
     <string name="provider_keys_revoke_success">تم إبطال مفتاح API بنجاح</string>
-    <string name="provider_keys_revoke_all">إبطال المفاتيح</string>
     <string name="provider_keys_revoke_all_confirm">هل أنت متأكد أنك تريد إبطال جميع المفاتيح؟</string>
     <string name="provider_keys_revoke_all_failed">فشل إبطال جميع المفاتيح</string>
     <string name="provider_keys_save_failed">فشل حفظ مفتاح API. يرجى المحاولة مرة أخرى.</string>
     <string name="provider_keys_save_success">تم حفظ مفتاح API بنجاح</string>
 
-    <string name="provider_keys_expiry_label">ينتهي</string>
-    <string name="provider_keys_expiry_30m">خلال 30 دقيقة</string>
-    <string name="provider_keys_expiry_2h">خلال ساعتين</string>
-    <string name="provider_keys_expiry_12h">خلال 12 ساعة</string>
-    <string name="provider_keys_expiry_1d">خلال يوم واحد</string>
-    <string name="provider_keys_expiry_7d">خلال 7 أيام</string>
-    <string name="provider_keys_expiry_30d">خلال 30 يومًا</string>
+    <string name="provider_keys_expiry_label">ينتهي المفتاح الجديد</string>
+    <string name="provider_keys_expiry_30m">30 دقيقة</string>
+    <string name="provider_keys_expiry_2h">ساعتان</string>
+    <string name="provider_keys_expiry_12h">12 ساعة</string>
+    <string name="provider_keys_expiry_1d">يوم واحد</string>
+    <string name="provider_keys_expiry_7d">7 أيام</string>
+    <string name="provider_keys_expiry_30d">30 يومًا</string>
     <string name="provider_keys_expiry_never">أبدًا</string>
 
     <string name="provider_keys_empty_title">لا توجد نقاط نهاية تتطلب مفاتيح يوفرها المستخدم</string>
     <string name="provider_keys_empty_desc">ستظهر هنا نقاط النهاية التي تحتاج إلى مفتاح API الخاص بك.</string>
-    <string name="provider_keys_revoke_all_action">إبطال الكل</string>
+    <string name="provider_keys_load_failed_title">تعذّر تحميل مزوّديك</string>
+    <string name="provider_keys_load_failed_desc">تحقّق من اتصالك وأعد المحاولة.</string>
+    <string name="provider_keys_status_never_expires">لا ينتهي أبدًا</string>
+    <string name="provider_keys_status_expires_at">ينتهي في %1$s</string>
+    <string name="provider_keys_status_expires_at_time">ينتهي الساعة %1$s</string>
+    <string name="provider_keys_retry_check_cd">التحقق من %1$s مجددًا</string>
+    <string name="provider_keys_status_unset_needs">غير مُعيّن · %1$s</string>
+    <string name="provider_keys_needs_azure">المفتاح، المثيل، النشر، الإصدار</string>
+    <string name="provider_keys_needs_key_and_url">المفتاح، عنوان URL الأساسي</string>
+    <string name="provider_keys_needs_base_url">عنوان URL الأساسي</string>
+    <string name="provider_keys_needs_google">مفتاح الخدمة أو مفتاح Gemini</string>
+    <string name="provider_keys_needs_access_keys">مفاتيح الوصول</string>
+    <string name="provider_keys_needs_bearer_or_access_keys">رمز Bearer أو مفاتيح الوصول</string>
+    <string name="provider_keys_summary_note">تُخزَّن المفاتيح على خادمك وتُحذف عند انتهاء صلاحيتها.</string>
+    <string name="provider_keys_revoke_all_button">إبطال جميع المفاتيح</string>
+    <plurals name="provider_keys_status_expires_in_minutes">
+        <item quantity="zero">ينتهي خلال %1$d دقيقة</item>
+        <item quantity="one">ينتهي خلال دقيقة واحدة</item>
+        <item quantity="two">ينتهي خلال دقيقتين</item>
+        <item quantity="few">ينتهي خلال %1$d دقائق</item>
+        <item quantity="many">ينتهي خلال %1$d دقيقة</item>
+        <item quantity="other">ينتهي خلال %1$d دقيقة</item>
+    </plurals>
+    <plurals name="provider_keys_summary">
+        <item quantity="zero">تم تعيين %1$d من %2$d مفتاح.</item>
+        <item quantity="one">تم تعيين %1$d من %2$d مفتاح.</item>
+        <item quantity="two">تم تعيين %1$d من %2$d مفتاحين.</item>
+        <item quantity="few">تم تعيين %1$d من %2$d مفاتيح.</item>
+        <item quantity="many">تم تعيين %1$d من %2$d مفتاحًا.</item>
+        <item quantity="other">تم تعيين %1$d من %2$d مفتاح.</item>
+    </plurals>
+    <plurals name="provider_keys_row_summary">
+        <item quantity="zero">تم تعيين %1$d من %2$d</item>
+        <item quantity="one">تم تعيين %1$d من %2$d</item>
+        <item quantity="two">تم تعيين %1$d من %2$d</item>
+        <item quantity="few">تم تعيين %1$d من %2$d</item>
+        <item quantity="many">تم تعيين %1$d من %2$d</item>
+        <item quantity="other">تم تعيين %1$d من %2$d</item>
+    </plurals>
 
     <!-- Admin: role skill access -->
     <string name="role_skills_settings_row">أذونات المهارات</string>
@@ -877,7 +930,6 @@
     <string name="mcp_empty_title">امنح محادثاتك أدوات</string>
     <string name="mcp_empty_body">يتيح خادم MCP للنماذج البحث والقراءة والتصرف في تطبيق آخر، مثل GitHub أو تقويمك. أضف خادمًا باستخدام عنوان URL الخاص به.</string>
     <string name="mcp_empty_body_no_create">يتيح خادم MCP للنماذج البحث والقراءة والتصرف في تطبيق آخر، مثل GitHub أو تقويمك. اطلب من المسؤول إضافة خادم.</string>
-    <string name="cd_server_options">خيارات %1$s</string>
     <string name="mcp_tools_title">الأدوات</string>
     <string name="mcp_tools_filter_hint">تصفية الأدوات</string>
     <string name="mcp_tools_no_match">لا توجد أدوات مطابقة</string>

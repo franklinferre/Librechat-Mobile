@@ -20,7 +20,17 @@
     <string name="new_chat">Новый чат</string>
     <string name="load_preset">Загрузить пресет</string>
     <string name="save_as_preset">Сохранить как пресет</string>
-    <string name="save_and_submit">Сохранить и отправить</string>
+    <string name="saving">Сохранение…</string>
+    <string name="rerun">Запустить снова</string>
+    <string name="update_and_rerun">Обновить и запустить снова</string>
+    <string name="edit_part_response">Ответ</string>
+    <string name="edit_part_thoughts">Размышления</string>
+    <string name="edit_status_part_empty">Часть сообщения не может быть пустой.</string>
+    <string name="edit_status_save_before_rerun">Сохраните изменения перед повторным запуском.</string>
+    <string name="edit_status_unsaved_changes">Несохранённые изменения.</string>
+    <string name="edit_status_rerun_discards_changes">Повторный запуск создаст ответ заново и отменит ваши изменения.</string>
+    <string name="edit_status_rerun_needs_user_turn">Для повторного запуска нужно сообщение пользователя.</string>
+    <string name="notice_message_save_failed">Не удалось сохранить изменение.</string>
     <string name="preset_name_label">Имя пресета</string>
     <string name="code">Код</string>
     <string name="preview">Предпросмотр</string>
@@ -79,6 +89,9 @@
     <string name="cd_more_options">Дополнительно</string>
     <string name="cd_scroll_to_bottom">Прокрутить вниз</string>
     <string name="cd_select_model">Выбрать модель</string>
+    <string name="cd_starter_send">Отправить</string>
+    <string name="cd_starter_edit">Изменить перед отправкой</string>
+    <string name="starters_try_asking">Попробуйте спросить</string>
     <string name="cd_librechat">LID.IA</string>
     <string name="cd_comparison_enabled">Сравнение включено</string>
 
@@ -215,8 +228,15 @@
     <string name="tool_model">Модель</string>
     <string name="tool_model_parameters">Параметры модели</string>
     <string name="tool_model_parameters_desc">Настройте температуру, токены и другое</string>
+    <string name="param_set_by_spec">Настройки этой модели задаёт сервер, здесь их изменить нельзя.</string>
+    <string name="tool_set_by_spec">Включено сервером для этой модели</string>
     <string name="tool_web_search">Веб-поиск</string>
     <string name="tool_web_search_desc">Искать информацию в интернете</string>
+    <string name="web_search_librechat">Поиск LibreChat</string>
+    <string name="web_search_checking">Проверка поиска LibreChat…</string>
+    <string name="web_search_built_in">Встроенный поиск %1$s</string>
+    <string name="web_search_built_in_plain">Встроенный поиск</string>
+    <string name="web_search_set_by_spec">%1$s, включено сервером для этой модели</string>
     <string name="web_searched">Выполнен поиск в интернете</string>
     <string name="tool_url_context">Контекст URL</string>
     <string name="tool_url_context_desc">Разрешить модели читать указанные вами URL и видео YouTube</string>
@@ -269,8 +289,14 @@
     <string name="audio_decode_failed">Не удалось декодировать аудио</string>
 
     <!-- Citation -->
-    <string name="citation_number">Источник %1$d</string>
-    <string name="cd_open_citation_url">Открыть URL источника</string>
+    <string name="citation_sources_title">Источники</string>
+    <string name="cd_citation">Источник: %1$s</string>
+    <plurals name="cd_citation_more">
+        <item quantity="one">Источник: %1$s и ещё %2$d</item>
+        <item quantity="few">Источник: %1$s и ещё %2$d</item>
+        <item quantity="many">Источник: %1$s и ещё %2$d</item>
+        <item quantity="other">Источник: %1$s и ещё %2$d</item>
+    </plurals>
 
     <!-- Fork options -->
     <string name="fork_conversation">Ответвить беседу</string>
@@ -360,8 +386,12 @@
     <string name="cd_unpin_favorite">Открепить из избранного</string>
     <string name="cd_collapse_section">Свернуть %1$s</string>
     <string name="cd_expand_section">Развернуть %1$s</string>
-    <string name="set_api_key_action">Задать API-ключ</string>
-    <string name="cd_set_api_key">Настроить API-ключ для %1$s</string>
+    <string name="set_api_key_action">Добавить ключ</string>
+    <string name="cd_set_api_key">Добавить ключ для %1$s</string>
+    <!-- Under an endpoint or spec name in the model picker when its key is missing. -->
+    <string name="model_selector_needs_key">Нужен ваш ключ</string>
+    <!-- Same place, in the minute before the server deletes an expired key. -->
+    <string name="model_selector_key_expired">Срок действия ключа истёк</string>
 
     <!-- Preset picker -->
     <string name="select_preset">Выбрать пресет</string>
@@ -473,21 +503,31 @@
     <string name="dialog_title_fill_variables">Заполнить переменные</string>
 
     <!-- Comparison mode -->
-    <string name="continue_with_response">Продолжить с этим ответом</string>
+    <string name="keep_this_answer">Оставить этот ответ</string>
+    <string name="reply_stopped">Остановлено</string>
+    <string name="action_continue_reply">Продолжить</string>
+    <string name="action_keep_and_continue">Оставить и продолжить</string>
 
     <!-- Provider Keys chat-time errors. -->
     <string name="provider_keys_chat_error_no_key">Ключ не найден. Укажите ключ и попробуйте снова.</string>
-    <!-- {0} = endpoint name, {1} = expiredAt (server-locale string, NOT ISO) -->
+    <!-- {0} = endpoint name, {1} = expiry date and time, already formatted in the user's locale -->
     <string name="provider_keys_chat_error_expired">Указанный ключ для %1$s истёк %2$s. Укажите новый ключ и попробуйте снова.</string>
     <string name="provider_keys_chat_error_invalid">Указан недействительный ключ. Укажите действительный ключ и попробуйте снова.</string>
-    <!-- Snackbar action label that deep-links to Settings → Provider Keys -->
-    <string name="provider_keys_chat_error_cta">Открыть настройки ключей</string>
+    <string name="provider_keys_chat_error_no_key_for">Ключ для %1$s не найден. Укажите ключ и попробуйте снова.</string>
+    <string name="provider_keys_chat_error_invalid_for">Указан недействительный ключ для %1$s. Укажите действительный ключ и попробуйте снова.</string>
+    <string name="provider_keys_chat_error_expired_no_label">Срок действия указанного ключа истёк %1$s. Укажите новый ключ и попробуйте снова.</string>
+    <string name="provider_keys_chat_error_no_base_url">Базовый URL не найден. Укажите его и попробуйте снова.</string>
+    <string name="provider_keys_chat_error_no_base_url_for">Базовый URL для %1$s не найден. Укажите его и попробуйте снова.</string>
+    <string name="provider_keys_chat_error_invalid_base_url">Указанный базовый URL ведёт на запрещённый адрес. Используйте действительный внешний URL и попробуйте снова.</string>
+    <string name="provider_keys_chat_error_invalid_base_url_for">Указанный базовый URL для %1$s ведёт на запрещённый адрес. Используйте действительный внешний URL и попробуйте снова.</string>
     <string name="queued_messages_dropped_account_switch">Сообщения в очереди удалены после смены учётной записи</string>
 
     <!-- Send block reasons (shown in error snackbar when send can't proceed) -->
     <string name="send_block_select_agent">Выберите агента перед отправкой сообщения.</string>
     <string name="send_block_select_model">Выберите модель перед отправкой сообщения.</string>
+    <string name="send_block_select_second_model">Перед отправкой выберите модель B из списка.</string>
     <string name="send_block_agents_unavailable">Агенты недоступны на этом сервере. Выберите другую модель.</string>
+    <string name="send_block_api_key_required">Добавьте свой API-ключ для %1$s, чтобы отправлять сообщения.</string>
     <string name="send_block_agent_not_available">Выбранный агент недоступен на этом сервере. Выберите другого агента.</string>
     <string name="send_block_model_not_available">Выбранная модель недоступна на этом сервере. Выберите другую модель.</string>
     <string name="send_block_model_load_failed">Пока не удалось загрузить выбранную модель. Попробуйте снова или выберите другую модель.</string>
@@ -682,7 +722,8 @@
     <string name="compact_confirm_not_now">Не сейчас</string>
     <string name="compact_confirm_action">Сжать</string>
     <string name="cd_temporary_chat">Временный чат</string>
-    <string name="temporary_chat_banner">Временный чат: этот разговор не сохранится в истории</string>
+    <string name="temporary_chat_title">Временный чат</string>
+    <string name="temporary_chat_subtitle">Этот разговор не сохранится в истории</string>
     <string name="notice_rename_failed">Не удалось переименовать беседу</string>
     <string name="notice_delete_failed">Не удалось удалить беседу</string>
     <string name="notice_archive_failed">Не удалось архивировать беседу</string>
@@ -693,6 +734,9 @@
     <string name="notice_continue_response_failed">Не удалось продолжить с выбранным ответом</string>
     <string name="notice_favorites_limit">Можно закрепить не более %1$d избранных.</string>
     <string name="notice_favorites_update_failed">Не удалось обновить избранное.</string>
+    <string name="notice_bookmark_update_failed">Не удалось обновить закладки. Попробуйте ещё раз.</string>
+    <string name="notice_bookmark_create_failed">Не удалось создать закладку. Попробуйте ещё раз.</string>
+    <string name="notice_bookmarks_load_failed">Не удалось загрузить закладки этого чата</string>
     <string name="notice_upload_failed">Не удалось загрузить %1$s: %2$s</string>
     <string name="notice_upload_failed_unknown">Не удалось загрузить %1$s: неизвестная ошибка</string>
     <string name="notice_upload_unreadable">Не удалось загрузить %1$s: не удалось прочитать файл</string>
@@ -782,6 +826,17 @@
     <string name="stt_speak_now">Говорите…</string>
     <string name="stt_recognition_unavailable">Распознавание речи недоступно на этом устройстве</string>
     <string name="artifact_preview_failed">Не удалось загрузить предпросмотр</string>
+    <string name="artifact_library_title">Загрузить %1$s?</string>
+    <string name="artifact_library_unmaintained">Этот артефакт использует %1$s — библиотеку, которая больше не поддерживается.</string>
+    <string name="artifact_library_deprecated">Этот артефакт использует %1$s — библиотеку, которую авторы объявили устаревшей.</string>
+    <string name="artifact_library_vulnerable">Этот артефакт использует %1$s — библиотеку с известным предупреждением о безопасности.</string>
+    <string name="artifact_library_sandbox">Он работает в изолированной среде без доступа к вашим файлам и аккаунту. Как и любой артефакт, он может загружать изображения из интернета.</string>
+    <string name="artifact_library_remember">Запомнить для %1$s</string>
+    <string name="artifact_library_load">Загрузить</string>
+    <string name="artifact_library_skip">Не загружать</string>
+    <string name="artifact_library_declined">Не загружено: %1$s</string>
+    <string name="artifact_library_allowed">Загружено: %1$s</string>
+    <string name="artifact_library_change">Изменить</string>
     <string name="cd_mcp_server_enabled">MCP-сервер %1$s включён</string>
     <string name="cd_code_block">Блок кода</string>
     <string name="cd_code_block_language">Блок кода %1$s</string>
@@ -789,7 +844,7 @@
     <string name="cd_attached_image">Прикреплённое изображение</string>
     <string name="model_selector_search">Поиск моделей…</string>
     <string name="model_selector_my_agents">Мои агенты</string>
-    <string name="model_selector_spec_only_note">Этот сервер принимает только варианты, перечисленные выше.</string>
+    <string name="model_selector_spec_only_top_note">Отправлять можно только спецификации моделей с сервера; серые модели показаны для справки.</string>
     <string name="agent_handoff_to">Агент %1$s</string>
     <string name="agent_handoff_run">Запуск: %1$s</string>
     <string name="sibling_position">Ответ %1$d из %2$d</string>
@@ -839,4 +894,45 @@
     <string name="shared_chat_load_failed">Не удалось загрузить этот общий чат</string>
     <string name="shared_chat_user">Пользователь</string>
     <string name="shared_chat_file_failed">Не удалось открыть этот файл</string>
+
+    <!-- Web and file search sources -->
+    <string name="web_searching">Поиск в сети</string>
+    <string name="web_searching_again">Повторный поиск в Интернете</string>
+    <string name="web_search_processing">Результаты обработки</string>
+    <string name="web_search_reading">Результаты чтения</string>
+    <string name="web_search_details">Подробности поиска</string>
+    <string name="web_search_query">Запрос</string>
+    <string name="web_search_images">Результаты изображений</string>
+    <string name="web_search_shopping">Результаты покупок</string>
+    <string name="web_search_places">Места</string>
+    <string name="files_searching">Поиск в ваших файлах</string>
+    <string name="searching_web_and_files">Поиск в интернете и файлах</string>
+    <string name="searched_web_and_files">Поиск в интернете и файлах выполнен</string>
+    <string name="search_cancelled">Отменен</string>
+    <string name="sources_tab_all">Все</string>
+    <string name="sources_tab_news">Новости</string>
+    <string name="sources_tab_images">Изображения</string>
+    <string name="sources_tab_files">Файлы</string>
+    <string name="sources_agent_files">Файлы агента</string>
+    <string name="sources_agent_file">Исходный документ</string>
+    <string name="web_search_load_images">Загрузить изображения</string>
+    <string name="cd_open_cited_file">Открыть %1$s</string>
+    <plurals name="web_search_sources">
+        <item quantity="one">%1$d источник</item>
+        <item quantity="few">%1$d источников</item>
+        <item quantity="many">%1$d источников</item>
+        <item quantity="other">%1$d источников</item>
+    </plurals>
+    <plurals name="sources_more">
+        <item quantity="one">+%1$d источник</item>
+        <item quantity="few">+%1$d источников</item>
+        <item quantity="many">+%1$d источников</item>
+        <item quantity="other">+%1$d источников</item>
+    </plurals>
+    <plurals name="files_more">
+        <item quantity="one">+%1$d файл</item>
+        <item quantity="few">+%1$d файлов</item>
+        <item quantity="many">+%1$d файлов</item>
+        <item quantity="other">+%1$d файлов</item>
+    </plurals>
 </resources>

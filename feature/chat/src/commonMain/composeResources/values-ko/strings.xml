@@ -20,7 +20,17 @@
     <string name="new_chat">새 채팅</string>
     <string name="load_preset">프리셋 불러오기</string>
     <string name="save_as_preset">프리셋으로 저장</string>
-    <string name="save_and_submit">저장 &amp; 제출</string>
+    <string name="saving">저장 중…</string>
+    <string name="rerun">다시 실행</string>
+    <string name="update_and_rerun">업데이트 후 다시 실행</string>
+    <string name="edit_part_response">응답</string>
+    <string name="edit_part_thoughts">추론</string>
+    <string name="edit_status_part_empty">메시지의 일부를 비워 둘 수 없습니다.</string>
+    <string name="edit_status_save_before_rerun">다시 실행하기 전에 변경 내용을 저장하세요.</string>
+    <string name="edit_status_unsaved_changes">저장하지 않은 변경 내용이 있습니다.</string>
+    <string name="edit_status_rerun_discards_changes">다시 실행하면 이 응답이 새로 생성되고 변경 내용은 사라집니다.</string>
+    <string name="edit_status_rerun_needs_user_turn">다시 실행하려면 재전송할 사용자 메시지가 필요합니다.</string>
+    <string name="notice_message_save_failed">편집 내용을 저장할 수 없습니다.</string>
     <string name="preset_name_label">프리셋 이름</string>
     <string name="code">코드</string>
     <string name="preview">미리보기</string>
@@ -79,6 +89,9 @@
     <string name="cd_more_options">추가 옵션</string>
     <string name="cd_scroll_to_bottom">맨 아래로 스크롤</string>
     <string name="cd_select_model">모델 선택</string>
+    <string name="cd_starter_send">보내기</string>
+    <string name="cd_starter_edit">보내기 전에 편집</string>
+    <string name="starters_try_asking">이렇게 물어보세요</string>
     <string name="cd_librechat">LID.IA</string>
     <string name="cd_comparison_enabled">비교 사용</string>
 
@@ -215,8 +228,15 @@
     <string name="tool_model">모델</string>
     <string name="tool_model_parameters">모델 매개변수</string>
     <string name="tool_model_parameters_desc">온도, 토큰 등 조정</string>
+    <string name="param_set_by_spec">이 모델의 설정은 서버에서 정하므로 여기서 변경할 수 없습니다.</string>
+    <string name="tool_set_by_spec">이 모델에 대해 서버에서 켜 두었습니다</string>
     <string name="tool_web_search">웹 검색</string>
     <string name="tool_web_search_desc">웹에서 정보 검색</string>
+    <string name="web_search_librechat">LibreChat 검색</string>
+    <string name="web_search_checking">LibreChat 검색 확인 중…</string>
+    <string name="web_search_built_in">%1$s 기본 제공 검색</string>
+    <string name="web_search_built_in_plain">기본 제공 검색</string>
+    <string name="web_search_set_by_spec">%1$s, 이 모델에 대해 서버에서 켜 두었습니다</string>
     <string name="web_searched">웹을 검색함</string>
     <string name="tool_url_context">URL 컨텍스트</string>
     <string name="tool_url_context_desc">참조한 URL과 YouTube를 모델이 읽도록 허용</string>
@@ -269,8 +289,11 @@
     <string name="audio_decode_failed">오디오를 디코딩하지 못했습니다</string>
 
     <!-- Citation -->
-    <string name="citation_number">인용 %1$d</string>
-    <string name="cd_open_citation_url">인용 URL 열기</string>
+    <string name="citation_sources_title">출처</string>
+    <string name="cd_citation">출처: %1$s</string>
+    <plurals name="cd_citation_more">
+        <item quantity="other">출처: %1$s 외 %2$d개</item>
+    </plurals>
 
     <!-- Fork options -->
     <string name="fork_conversation">대화 분기</string>
@@ -351,8 +374,12 @@
     <string name="cd_unpin_favorite">즐겨찾기 고정 해제</string>
     <string name="cd_collapse_section">%1$s 접기</string>
     <string name="cd_expand_section">%1$s 펼치기</string>
-    <string name="set_api_key_action">API 키 설정</string>
-    <string name="cd_set_api_key">%1$s의 API 키 구성</string>
+    <string name="set_api_key_action">키 추가</string>
+    <string name="cd_set_api_key">%1$s 키 추가</string>
+    <!-- Under an endpoint or spec name in the model picker when its key is missing. -->
+    <string name="model_selector_needs_key">키가 필요합니다</string>
+    <!-- Same place, in the minute before the server deletes an expired key. -->
+    <string name="model_selector_key_expired">키 만료됨</string>
 
     <!-- Preset picker -->
     <string name="select_preset">프리셋 선택</string>
@@ -464,21 +491,31 @@
     <string name="dialog_title_fill_variables">변수 입력</string>
 
     <!-- Comparison mode -->
-    <string name="continue_with_response">이 응답으로 계속하기</string>
+    <string name="keep_this_answer">이 답변 유지</string>
+    <string name="reply_stopped">중지됨</string>
+    <string name="action_continue_reply">계속하기</string>
+    <string name="action_keep_and_continue">유지하고 계속하기</string>
 
     <!-- Provider Keys chat-time errors. -->
     <string name="provider_keys_chat_error_no_key">키를 찾을 수 없습니다. 키를 입력한 후 다시 시도하세요.</string>
-    <!-- {0} = endpoint name, {1} = expiredAt (server-locale string, NOT ISO) -->
+    <!-- {0} = endpoint name, {1} = expiry date and time, already formatted in the user's locale -->
     <string name="provider_keys_chat_error_expired">%1$s에 제공된 키가 %2$s에 만료되었습니다. 새 키를 입력한 후 다시 시도하세요.</string>
     <string name="provider_keys_chat_error_invalid">유효하지 않은 키입니다. 유효한 키를 입력한 후 다시 시도하세요.</string>
-    <!-- Snackbar action label that deep-links to Settings → Provider Keys -->
-    <string name="provider_keys_chat_error_cta">키 설정 열기</string>
+    <string name="provider_keys_chat_error_no_key_for">%1$s의 키를 찾을 수 없습니다. 키를 입력한 후 다시 시도하세요.</string>
+    <string name="provider_keys_chat_error_invalid_for">%1$s의 키가 유효하지 않습니다. 유효한 키를 입력한 후 다시 시도하세요.</string>
+    <string name="provider_keys_chat_error_expired_no_label">제공된 키가 %1$s에 만료되었습니다. 새 키를 입력한 후 다시 시도하세요.</string>
+    <string name="provider_keys_chat_error_no_base_url">기본 URL을 찾을 수 없습니다. URL을 입력한 후 다시 시도하세요.</string>
+    <string name="provider_keys_chat_error_no_base_url_for">%1$s의 기본 URL을 찾을 수 없습니다. URL을 입력한 후 다시 시도하세요.</string>
+    <string name="provider_keys_chat_error_invalid_base_url">입력한 기본 URL이 제한된 주소를 가리킵니다. 유효한 외부 URL을 사용하여 다시 시도하세요.</string>
+    <string name="provider_keys_chat_error_invalid_base_url_for">%1$s에 입력한 기본 URL이 제한된 주소를 가리킵니다. 유효한 외부 URL을 사용하여 다시 시도하세요.</string>
     <string name="queued_messages_dropped_account_switch">계정 전환으로 대기 중인 메시지가 삭제되었습니다</string>
 
     <!-- Send block reasons (shown in error snackbar when send can't proceed) -->
     <string name="send_block_select_agent">메시지를 보내기 전에 에이전트를 선택하세요.</string>
     <string name="send_block_select_model">메시지를 보내기 전에 모델을 선택하세요.</string>
+    <string name="send_block_select_second_model">보내기 전에 목록에서 모델 B를 선택하세요.</string>
     <string name="send_block_agents_unavailable">이 서버에서는 에이전트를 사용할 수 없습니다. 다른 모델을 선택하세요.</string>
+    <string name="send_block_api_key_required">메시지를 보내려면 %1$s의 API 키를 추가하세요.</string>
     <string name="send_block_agent_not_available">선택한 에이전트를 이 서버에서 사용할 수 없습니다. 다른 에이전트를 선택하세요.</string>
     <string name="send_block_model_not_available">선택한 모델을 이 서버에서 사용할 수 없습니다. 다른 모델을 선택하세요.</string>
     <string name="send_block_model_load_failed">선택한 모델을 아직 불러올 수 없습니다. 다시 시도하거나 다른 모델을 선택하세요.</string>
@@ -673,7 +710,8 @@
     <string name="compact_confirm_not_now">나중에</string>
     <string name="compact_confirm_action">압축</string>
     <string name="cd_temporary_chat">임시 채팅</string>
-    <string name="temporary_chat_banner">임시 채팅: 이 대화는 기록에 저장되지 않습니다</string>
+    <string name="temporary_chat_title">임시 채팅</string>
+    <string name="temporary_chat_subtitle">이 대화는 기록에 저장되지 않습니다</string>
     <string name="notice_rename_failed">대화 이름을 변경하지 못했습니다</string>
     <string name="notice_delete_failed">대화를 삭제하지 못했습니다</string>
     <string name="notice_archive_failed">대화를 보관하지 못했습니다</string>
@@ -684,6 +722,9 @@
     <string name="notice_continue_response_failed">선택한 응답으로 계속하지 못했습니다</string>
     <string name="notice_favorites_limit">즐겨찾기는 최대 %1$d개까지 고정할 수 있습니다.</string>
     <string name="notice_favorites_update_failed">즐겨찾기를 업데이트하지 못했습니다.</string>
+    <string name="notice_bookmark_update_failed">북마크를 업데이트하지 못했습니다. 다시 시도하세요.</string>
+    <string name="notice_bookmark_create_failed">북마크를 만들지 못했습니다. 다시 시도하세요.</string>
+    <string name="notice_bookmarks_load_failed">이 채팅의 북마크를 불러오지 못했습니다</string>
     <string name="notice_upload_failed">%1$s을(를) 업로드하지 못했습니다: %2$s</string>
     <string name="notice_upload_failed_unknown">%1$s을(를) 업로드하지 못했습니다: 알 수 없는 오류</string>
     <string name="notice_upload_unreadable">%1$s을(를) 업로드하지 못했습니다: 파일을 읽을 수 없습니다</string>
@@ -749,6 +790,17 @@
     <string name="stt_speak_now">지금 말하세요…</string>
     <string name="stt_recognition_unavailable">이 기기에서는 음성 인식을 사용할 수 없습니다</string>
     <string name="artifact_preview_failed">미리보기를 불러오지 못했습니다</string>
+    <string name="artifact_library_title">%1$s을(를) 불러올까요?</string>
+    <string name="artifact_library_unmaintained">이 아티팩트는 더 이상 유지 관리되지 않는 라이브러리 %1$s을(를) 사용합니다.</string>
+    <string name="artifact_library_deprecated">이 아티팩트는 작성자가 지원 중단한 라이브러리 %1$s을(를) 사용합니다.</string>
+    <string name="artifact_library_vulnerable">이 아티팩트는 알려진 보안 권고가 있는 라이브러리 %1$s을(를) 사용합니다.</string>
+    <string name="artifact_library_sandbox">샌드박스에서 실행되며 파일이나 계정에 접근할 수 없습니다. 다른 아티팩트와 마찬가지로 웹에서 이미지를 불러올 수 있습니다.</string>
+    <string name="artifact_library_remember">%1$s에 대해 기억하기</string>
+    <string name="artifact_library_load">불러오기</string>
+    <string name="artifact_library_skip">불러오지 않기</string>
+    <string name="artifact_library_declined">불러오지 않음: %1$s</string>
+    <string name="artifact_library_allowed">불러옴: %1$s</string>
+    <string name="artifact_library_change">변경</string>
     <string name="cd_mcp_server_enabled">MCP 서버 %1$s 사용 중</string>
     <string name="cd_code_block">코드 블록</string>
     <string name="cd_code_block_language">%1$s 코드 블록</string>
@@ -756,7 +808,7 @@
     <string name="cd_attached_image">첨부된 이미지</string>
     <string name="model_selector_search">모델 검색…</string>
     <string name="model_selector_my_agents">내 에이전트</string>
-    <string name="model_selector_spec_only_note">이 서버에서는 위에 표시된 옵션만 사용할 수 있습니다.</string>
+    <string name="model_selector_spec_only_top_note">서버의 모델 사양으로만 보낼 수 있습니다. 회색으로 표시된 모델은 참고용입니다.</string>
     <string name="agent_handoff_to">에이전트 %1$s</string>
     <string name="agent_handoff_run">실행: %1$s</string>
     <string name="sibling_position">응답 %1$d/%2$d</string>
@@ -806,4 +858,36 @@
     <string name="shared_chat_load_failed">이 공유된 채팅을 불러올 수 없습니다</string>
     <string name="shared_chat_user">사용자</string>
     <string name="shared_chat_file_failed">이 파일을 열 수 없습니다</string>
+
+    <!-- Web and file search sources -->
+    <string name="web_searching">웹 검색 진행 중</string>
+    <string name="web_searching_again">웹 검색 다시 진행</string>
+    <string name="web_search_processing">결과 처리 중</string>
+    <string name="web_search_reading">결과 읽기 중</string>
+    <string name="web_search_details">검색 세부 정보</string>
+    <string name="web_search_query">검색어</string>
+    <string name="web_search_images">이미지 결과</string>
+    <string name="web_search_shopping">쇼핑 결과</string>
+    <string name="web_search_places">장소</string>
+    <string name="files_searching">파일 검색 중</string>
+    <string name="searching_web_and_files">웹과 파일 검색 중</string>
+    <string name="searched_web_and_files">웹과 파일 검색 완료</string>
+    <string name="search_cancelled">취소됨</string>
+    <string name="sources_tab_all">전체</string>
+    <string name="sources_tab_news">뉴스</string>
+    <string name="sources_tab_images">이미지</string>
+    <string name="sources_tab_files">파일</string>
+    <string name="sources_agent_files">에이전트 파일</string>
+    <string name="sources_agent_file">소스 문서</string>
+    <string name="web_search_load_images">이미지 불러오기</string>
+    <string name="cd_open_cited_file">%1$s 열기</string>
+    <plurals name="web_search_sources">
+        <item quantity="other">출처 %1$d개</item>
+    </plurals>
+    <plurals name="sources_more">
+        <item quantity="other">+%1$d개 소스</item>
+    </plurals>
+    <plurals name="files_more">
+        <item quantity="other">파일 +%1$d개</item>
+    </plurals>
 </resources>

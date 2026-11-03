@@ -11,12 +11,15 @@ import com.garfiec.librechat.core.logging.LogOrigin
 import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.config.ModelSpecs
+import com.garfiec.librechat.core.model.hasParameters
+import com.garfiec.librechat.core.model.parametersStale
 import com.garfiec.librechat.core.model.request.MAX_MANUAL_SKILLS
 import com.garfiec.librechat.feature.chat.util.MessageNode
 import com.garfiec.librechat.feature.chat.util.NEW_CHAT_DRAFT_KEY
 import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
 import com.garfiec.librechat.feature.chat.util.hasParallelParts
 import com.garfiec.librechat.feature.chat.util.stabilizeMessageInstances
+import com.garfiec.librechat.feature.chat.util.withoutLivePartial
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.ConversationLoadHandle
 import com.garfiec.librechat.feature.chat.viewmodel.isServerCopyOf
@@ -47,6 +50,15 @@ class ConversationLoadDelegate(
     private val defaultDispatcher: CoroutineDispatcher,
     /** ModelSelectionDelegate.applyConversationModel: seeds the selection from a fetched conversation. */
     private val applyConversationModel: (Conversation) -> Boolean,
+    /** Whether this screen takes the conversation's stored parameters (not a handed-off new chat). */
+    private val wantsStoredParameters: () -> Boolean = { false },
+    /** Writes the conversation's parameters, with the web-search switch this device remembered (if any). */
+    private val restoreParameters: (Conversation, Boolean?) -> Unit = { _, _ -> },
+    /**
+     * The web-search switch this device remembered for a conversation. Read before the model is
+     * applied, so nothing suspends between that and [restoreParameters] for a user change to land in.
+     */
+    private val rememberedWebSearch: suspend (String) -> Boolean? = { null },
     /**
      * Marks the conversation-model load attempted (never "resolved") and refilters the model list;
      * see ModelSelectionDelegate.conversationModelLoaded. Runs on every path out of
@@ -67,9 +79,22 @@ class ConversationLoadDelegate(
     private val currentModelSpecs: () -> ModelSpecs?,
     /** The active account's id, which keys [specBackfillDone]: conversation ids repeat across servers. */
     private val currentAccountId: () -> String?,
+    /**
+     * ModelSelectionDelegate.selectionWatches ([SelectionWatches]). The default sees no config
+     * rewrites, so it counts a spec drop as the user's change: pass the shared watches.
+     */
+    private val watchSelection: () -> () -> Boolean = {
+        SelectionWatches { handle.state.selection.let { it.choice to it.modelParameters } }.watch()
+    },
     private val newChatDraftKey: String = NEW_CHAT_DRAFT_KEY,
 ) {
     private var roomObserverJob: Job? = null
+
+    /**
+     * `onSettled` callbacks not yet run. Kept outside any one load so a load that replaces another
+     * before it settles runs them too. Confined to the handle's Main scope.
+     */
+    private val settleWaiters = mutableListOf<() -> Unit>()
 
     /**
      * A comparison tail that settled while Compare setup was open. Rehydrating then would replace
@@ -139,11 +164,15 @@ class ConversationLoadDelegate(
      *
      * [unsavedTurn] is a failed turn's optimistic user message whose persistence is unknown: once
      * the fetch settles, its text goes back into the composer if the server kept no copy of it.
+     *
+     * [onSettled] runs once, after the settled read is on screen. A later load that replaces this
+     * one first takes it over and runs it when it settles. Never in a temporary chat (nothing loads).
      */
     fun loadConversation(
         conversationId: String,
         cacheFirst: Boolean = false,
         unsavedTurn: Message? = null,
+        onSettled: (() -> Unit)? = null,
     ) {
         // SECURITY: do not remove — temp-chat data-at-rest guard.
         // Defense-in-depth for temporary chats: never route a temp conversation
@@ -160,6 +189,7 @@ class ConversationLoadDelegate(
         var autoRehydrateHandled = false
         rehydrateHeldForSetup = null
         var pendingUnsavedTurn = unsavedTurn
+        onSettled?.let(settleWaiters::add)
         roomObserverJob = handle.scope.launch {
             // A flow, not a plain flag: it is a `combine` input below, so settling re-runs the
             // transform even when Room never emits again — a conversation with genuinely zero
@@ -203,8 +233,9 @@ class ConversationLoadDelegate(
                 val baseline = handle.state
                 val stabilized = stabilizeMessageInstances(messages, baseline.messages)
                 // A handed-off new chat seeds the just-sent user message (pendingResumeUserMessage):
-                // the server persists the request only when the reply completes, so the Room read is
-                // empty mid-stream and the user's message would otherwise vanish for the whole stream.
+                // the server persists the request only when the reply completes or a client drops its
+                // stream, so the Room read can be empty mid-stream and the user's message would otherwise
+                // vanish for the whole stream.
                 // Keep that seed appended until the server's own copy arrives, then drop it. The copy
                 // is matched by content as well as id (isServerCopyOf): rc3+ re-mints the id, so an
                 // id-only match never fires, and a run ending with no Final (a resume that 404s) would
@@ -217,9 +248,11 @@ class ConversationLoadDelegate(
                     stabilized.none { it.messageId == seed.messageId || it.isServerCopyOf(seed) }
                 }
                 val merged = retainedPending?.let { stabilized + it } ?: stabilized
+                // A resumed run's saved partial: the streaming bubble shows that text already.
+                val liveReplyId = baseline.content.resumedReplyId.takeIf { baseline.isStreaming }
                 MessagePathEmission(
                     messages = merged,
-                    displayMessages = buildActiveMessagePath(merged, branches),
+                    displayMessages = buildActiveMessagePath(merged, branches).withoutLivePartial(liveReplyId),
                     retainedPending = retainedPending,
                     revalidated = settled,
                 )
@@ -252,6 +285,11 @@ class ConversationLoadDelegate(
                     // A reply that finished while nobody was watching may have left its generated
                     // files pending; the settled read is the one that names them.
                     if (settled) onMessagesSettled(displayMessages)
+                    if (settled && settleWaiters.isNotEmpty()) {
+                        val waiters = settleWaiters.toList()
+                        settleWaiters.clear()
+                        waiters.forEach { it() }
+                    }
                     pendingUnsavedTurn?.takeIf { settled }?.let { unsent ->
                         pendingUnsavedTurn = null
                         val kept = emission.messages.any {
@@ -346,22 +384,42 @@ class ConversationLoadDelegate(
         handle.scope.launch {
             val result = conversationRepository.getConversation(conversationId, originAccount = null)
             var conversation = result.getOrNull()
+            val wantsParameters = wantsStoredParameters()
+            val remembered = if (wantsParameters) rememberedWebSearch(conversationId) else null
+            fun apply(loaded: Conversation, restore: Boolean): Boolean {
+                handle.update { conversationTitle = loaded.title }
+                val applied = applyConversationModel(loaded)
+                // After the model, so the conversation's own parameters are what stays.
+                if (applied && restore) restoreParameters(loaded, remembered)
+                return applied
+            }
+            // The cached row applies at once, so an open never waits on the network for its model.
+            var applied = conversation?.let { apply(it, restore = wantsParameters) } ?: false
             // Rows cached before the spec column have none, and an enforced server rejects a send
-            // without it. Ask the server once per process: a conversation that has no spec there
-            // either would otherwise cost a request on every open.
-            val backfillKey = currentAccountId()?.let { "$it:$conversationId" }
-            if (conversation != null && conversation.spec == null && backfillKey != null &&
-                currentModelSpecs()?.enforce == true && backfillKey !in specBackfillDone
-            ) {
-                conversationRepository.refreshConversation(conversationId, originAccount = null).getOrNull()?.let {
+            // without it. The list route sends no parameters, so a row it synced has none, or older
+            // ones once the chat changed elsewhere. Ask the server once per process and version of
+            // the chat: one that has neither there either would otherwise cost a request every open.
+            val cached = conversation
+            val backfillKey = currentAccountId()?.let { "$it:$conversationId:${cached?.updatedAt}" }
+            val incomplete = cached != null && (
+                (cached.spec == null && currentModelSpecs()?.enforce == true) ||
+                    (wantsParameters && (!cached.hasParameters || cached.parametersStale))
+                )
+            if (incomplete && backfillKey != null && backfillKey !in conversationBackfillDone) {
+                val unchanged = watchSelection()
+                val fetched = conversationRepository.refreshConversation(conversationId, originAccount = null).getOrNull()
+                // A model or parameter set while the fetch was out is the user's and stays.
+                val userUnchanged = unchanged()
+                fetched?.let {
                     // Only a successful fetch settles it: a failed one is retried on the next open.
-                    specBackfillDone.add(backfillKey)
+                    conversationBackfillDone.add(backfillKey)
                     conversation = it
+                    if (userUnchanged) {
+                        applied = apply(it, restore = wantsParameters && it.hasParameters)
+                    }
                 }
             }
             if (conversation != null) {
-                handle.update { conversationTitle = conversation.title }
-                val applied = applyConversationModel(conversation)
                 Diag.d(
                     tag = "ModelSel",
                     attrs = mapOf(
@@ -406,10 +464,10 @@ class ConversationLoadDelegate(
 }
 
 /**
- * Conversations whose spec the server has answered for this process, keyed `accountId:conversationId`.
- * Touched only on the main thread.
+ * Conversations the server has been asked for their spec and parameters this process, keyed
+ * `accountId:conversationId:updatedAt`. Touched only on the main thread.
  */
-private val specBackfillDone = HashSet<String>()
+private val conversationBackfillDone = HashSet<String>()
 
 private data class MessagePathEmission(
     val messages: List<Message>,

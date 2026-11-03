@@ -1,11 +1,20 @@
 package com.garfiec.librechat.feature.chat.viewmodel.delegate
 
+import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.MessageRepository
 import com.garfiec.librechat.core.model.ContentType
+import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.Message
+import com.garfiec.librechat.core.model.Preset
 import com.garfiec.librechat.core.model.RunStepStatus
 import com.garfiec.librechat.core.model.StreamEvent
+import com.garfiec.librechat.core.model.config.ModelSpec
+import com.garfiec.librechat.core.model.config.ModelSpecs
 import com.garfiec.librechat.core.model.content.MessageContentPart
+import com.garfiec.librechat.core.model.request.NO_PARENT
+import com.garfiec.librechat.feature.chat.util.MessageNode
+import com.garfiec.librechat.feature.chat.util.buildActiveMessagePath
+import com.garfiec.librechat.feature.chat.viewmodel.ChatNotice
 import com.garfiec.librechat.feature.chat.viewmodel.ChatScreenState
 import com.garfiec.librechat.feature.chat.viewmodel.ChatStateHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
@@ -16,7 +25,9 @@ import com.garfiec.librechat.feature.chat.viewmodel.MessagesState
 import com.garfiec.librechat.feature.chat.viewmodel.ModelChoice
 import com.garfiec.librechat.feature.chat.viewmodel.ModelSelectionState
 import com.google.common.truth.Truth.assertThat
+import io.mockk.Runs
 import io.mockk.coEvery
+import io.mockk.just
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,17 +39,23 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.Test
 
 class ComparisonModeDelegateTest {
 
-    private fun delegateWith(state: ChatUiState = ChatUiState()): Pair<ComparisonModeDelegate, MutableStateFlow<ChatUiState>> {
+    private fun delegateWith(
+        state: ChatUiState = ChatUiState(),
+        specs: () -> ModelSpecs? = { null },
+    ): Pair<ComparisonModeDelegate, MutableStateFlow<ChatUiState>> {
         val flow = MutableStateFlow(state)
         val handle = ChatStateHandle(flow, CoroutineScope(Dispatchers.Unconfined))
         val delegate = ComparisonModeDelegate(
             handle = ComparisonHandle(handle),
             messageRepository = mockk<MessageRepository>(relaxed = true),
-            reloadConversation = {},
+            reloadConversation = { _, _ -> },
+            currentModelSpecs = specs,
         )
         return delegate to flow
     }
@@ -104,6 +121,201 @@ class ComparisonModeDelegateTest {
 
         assertThat(flow.value.comparisonState.isEnabled).isFalse()
     }
+
+    private val research = ModelSpec(
+        name = "research",
+        label = "Research",
+        preset = Preset(
+            endpoint = "openAI",
+            model = "gpt-4o",
+            temperature = 0.2,
+            topPSnake = 0.9,
+            maxOutputTokens = 2048,
+        ),
+    )
+    private val quick =
+        ModelSpec(name = "quick", label = "Quick", preset = Preset(endpoint = "openAI", model = "gpt-4o"))
+
+    /** The endpoint configs have loaded: `openAI` is known and displays no label of its own. */
+    private val openAiLoaded = ChatUiState(
+        selection = ModelSelectionState(endpointConfigs = mapOf("openAI" to EndpointConfig())),
+    )
+
+    @Test
+    fun `a reopened spec lane gets its spec back from the sender in its id`() {
+        val specs = ModelSpecs(list = listOf(quick, research))
+        val (delegate, flow) = delegateWith(openAiLoaded, specs = { specs })
+
+        delegate.rehydrateFromMessage(parallelMessage("openAI__gpt-4o___Research____1"))
+
+        // Read from the id on every use, never pinned at reopen: the config it is read against
+        // can still change.
+        assertThat(flow.value.comparisonState.secondarySpec).isNull()
+        assertThat(delegate.buildAddedConvo()?.spec).isEqualTo("research")
+    }
+
+    @Test
+    fun `a reopen that lands before the spec config finds the spec once it loads`() {
+        var specs: ModelSpecs? = null
+        val (delegate, flow) = delegateWith(openAiLoaded, specs = { specs })
+
+        delegate.rehydrateFromMessage(parallelMessage("openAI__gpt-4o___Research____1"))
+        assertThat(flow.value.comparisonState.secondarySpec).isNull()
+        specs = ModelSpecs(list = listOf(quick, research))
+        flow.value = flow.value.copy(selection = flow.value.selection.copy(modelSpecs = specs))
+
+        assertThat(delegate.buildAddedConvo()?.spec).isEqualTo("research")
+        assertThat(flow.value.laneBSpec).isEqualTo("research")
+    }
+
+    @Test
+    fun `a reopened saved-agent lane has no spec`() {
+        val specs = ModelSpecs(list = listOf(research))
+        val (delegate, flow) = delegateWith(specs = { specs })
+
+        delegate.rehydrateFromMessage(parallelMessage("agent_secondary____1"))
+
+        assertThat(flow.value.comparisonState.secondarySpec).isNull()
+        assertThat(delegate.buildAddedConvo()?.spec).isNull()
+    }
+
+    @Test
+    fun `a new lane B pick drops the reopened spec`() {
+        val specs = ModelSpecs(list = listOf(quick, research))
+        val (delegate, _) = delegateWith(specs = { specs })
+        delegate.rehydrateFromMessage(parallelMessage("openAI__gpt-4o___Research____1"))
+
+        delegate.setSecondaryModel("openAI", "gpt-4o")
+
+        assertThat(delegate.buildAddedConvo()?.spec).isNull()
+    }
+
+    @Test
+    fun `a spec lane carries its preset's sampling settings flat`() {
+        val specs = ModelSpecs(list = listOf(research))
+        val (delegate, _) = delegateWith(
+            ChatUiState(
+                comparisonState = ComparisonState(
+                    isEnabled = true,
+                    secondaryEndpoint = "openAI",
+                    secondaryModel = "gpt-4o",
+                    secondarySpec = "research",
+                ),
+            ),
+            specs = { specs },
+        )
+
+        val added = delegate.buildAddedConvo("p1")!!
+
+        assertThat(added.spec).isEqualTo("research")
+        assertThat(added.temperature).isEqualTo(0.2)
+        assertThat(added.topPSnake).isEqualTo(0.9)
+        assertThat(added.maxOutputTokens).isEqualTo(2048)
+        // Read back from the sender on reopen, which a label would replace.
+        assertThat(added.modelLabel).isNull()
+    }
+
+    @Test
+    fun `a raw lane B carries no settings`() {
+        val (delegate, _) = delegateWith(
+            ChatUiState(comparisonState = ComparisonState(isEnabled = true, secondaryEndpoint = "openAI", secondaryModel = "gpt-4o")),
+            specs = { ModelSpecs(list = listOf(research)) },
+        )
+
+        val added = delegate.buildAddedConvo("p1")!!
+
+        assertThat(added.spec).isNull()
+        assertThat(added.temperature).isNull()
+    }
+
+    @Test
+    fun `a model lane takes the primary's custom instructions`() {
+        val (delegate, _) = delegateWith(laneBComparing())
+        val primary = buildJsonObject {
+            put("temperature", 0.3)
+            put("promptPrefix", "Reply in French.")
+        }
+
+        val added = delegate.buildAddedConvo("p1", primaryEndpoint = "anthropic", primaryModelParams = primary)!!
+
+        assertThat(added.promptPrefix).isEqualTo("Reply in French.")
+        // Only the instructions carry over: the server drops the rest for this lane.
+        assertThat(added.temperature).isNull()
+    }
+
+    @Test
+    fun `a primary's system field counts as its instructions`() {
+        val (delegate, _) = delegateWith(laneBComparing())
+
+        val added = delegate.buildAddedConvo(
+            "p1",
+            primaryEndpoint = "bedrock",
+            primaryModelParams = buildJsonObject { put("system", "Be terse.") },
+        )!!
+
+        assertThat(added.promptPrefix).isEqualTo("Be terse.")
+    }
+
+    @Test
+    fun `no or blank primary instructions send none`() {
+        val (delegate, _) = delegateWith(laneBComparing())
+
+        assertThat(delegate.buildAddedConvo("p1", primaryEndpoint = "anthropic", primaryModelParams = null)!!.promptPrefix).isNull()
+        val blank = buildJsonObject { put("promptPrefix", "  ") }
+        assertThat(delegate.buildAddedConvo("p1", primaryEndpoint = "anthropic", primaryModelParams = blank)!!.promptPrefix).isNull()
+    }
+
+    @Test
+    fun `a saved-agent lane keeps its own instructions`() {
+        val (delegate, _) = delegateWith(
+            ChatUiState(comparisonState = ComparisonState(isEnabled = true, secondaryEndpoint = "agents", secondaryModel = "agent_abc")),
+        )
+
+        val added = delegate.buildAddedConvo(
+            "p1",
+            primaryEndpoint = "anthropic",
+            primaryModelParams = buildJsonObject { put("promptPrefix", "Reply in French.") },
+        )!!
+
+        assertThat(added.agentId).isEqualTo("agent_abc")
+        assertThat(added.promptPrefix).isNull()
+    }
+
+    @Test
+    fun `a saved-agent primary's payload instructions don't reach the model lane`() {
+        val (delegate, _) = delegateWith(laneBComparing())
+
+        val added = delegate.buildAddedConvo(
+            "p1",
+            primaryEndpoint = "agents",
+            primaryModelParams = buildJsonObject { put("system", "Be terse.") },
+        )!!
+
+        assertThat(added.promptPrefix).isNull()
+    }
+
+    @Test
+    fun `the turn's primary decides, not the live selection`() {
+        // A queued turn composed on a model drains after the user switched the chat to an agent.
+        val (delegate, _) = delegateWith(
+            ChatUiState(
+                selection = ModelSelectionState(choice = ModelChoice.Raw("agents", "agent_primary")),
+                comparisonState = ComparisonState(isEnabled = true, secondaryEndpoint = "openAI", secondaryModel = "gpt-4o"),
+            ),
+        )
+
+        val added = delegate.buildAddedConvo(
+            "p1",
+            primaryEndpoint = "anthropic",
+            primaryModelParams = buildJsonObject { put("promptPrefix", "Reply in French.") },
+        )!!
+
+        assertThat(added.promptPrefix).isEqualTo("Reply in French.")
+    }
+
+    private fun laneBComparing() = ChatUiState(
+        comparisonState = ComparisonState(isEnabled = true, secondaryEndpoint = "openAI", secondaryModel = "gpt-4o"),
+    )
 
     private fun landingWithPrimary() = ChatUiState(
         content = MessagesState(screenState = ChatScreenState.LANDING),
@@ -226,6 +438,49 @@ class ComparisonModeDelegateTest {
     }
 
     @Test
+    fun `stop before anything was sent returns to landing`() {
+        val (delegate, flow) = delegateWith(landingWithPrimary())
+        delegate.beginComparisonSetup()
+        delegate.startComparison("anthropic", "claude-opus-4-5")
+
+        delegate.stopComparison()
+
+        assertThat(flow.value.screenState).isEqualTo(ChatScreenState.LANDING)
+    }
+
+    @Test
+    fun `stop with messages stays active`() {
+        val enabled = ComparisonState(isEnabled = true, secondaryEndpoint = "anthropic", secondaryModel = "claude")
+        val state = ChatUiState(
+            comparisonState = enabled,
+            content = MessagesState(
+                screenState = ChatScreenState.ACTIVE,
+                messages = listOf(Message(messageId = "m1", conversationId = "c1")),
+            ),
+        )
+        val (delegate, flow) = delegateWith(state)
+
+        delegate.stopComparison()
+
+        assertThat(flow.value.screenState).isEqualTo(ChatScreenState.ACTIVE)
+    }
+
+    @Test
+    fun `stop on an opened conversation with no messages stays active`() {
+        val enabled = ComparisonState(isEnabled = true, secondaryEndpoint = "anthropic", secondaryModel = "claude")
+        val state = ChatUiState(
+            comparisonState = enabled,
+            conversation = ConversationMetaState(conversationId = "c1"),
+            content = MessagesState(screenState = ChatScreenState.ACTIVE, messagesLoadFailed = true),
+        )
+        val (delegate, flow) = delegateWith(state)
+
+        delegate.stopComparison()
+
+        assertThat(flow.value.screenState).isEqualTo(ChatScreenState.ACTIVE)
+    }
+
+    @Test
     fun `cancelling a branch mid-request writes no error`() = runTest {
         val messageRepository = mockk<MessageRepository>()
         coEvery { messageRepository.branchMessage(any(), any(), any()) } coAnswers { awaitCancellation() }
@@ -239,7 +494,8 @@ class ComparisonModeDelegateTest {
         val delegate = ComparisonModeDelegate(
             handle = ComparisonHandle(ChatStateHandle(flow, scope)),
             messageRepository = messageRepository,
-            reloadConversation = {},
+            reloadConversation = { _, _ -> },
+            currentModelSpecs = { null },
         )
 
         delegate.branchFromComparison("agent_secondary____1")
@@ -248,6 +504,151 @@ class ComparisonModeDelegateTest {
         advanceUntilIdle()
 
         assertThat(flow.value.error).isNull()
+    }
+
+    @Test
+    fun `keep shows the kept reply under a parent the tree files at the root`() = runTest {
+        // The comparison reply's parent isn't in the loaded list, so the path builder files it and
+        // its kept sibling at the root, where the user had pinned the comparison reply.
+        val parallel = parallelMessage("agent_secondary____1").copy(parentMessageId = "not-loaded")
+        val kept = Message(messageId = "m-kept", conversationId = "c1", parentMessageId = "not-loaded")
+        val messageRepository = mockk<MessageRepository>(relaxed = true)
+        coEvery { messageRepository.branchMessage(any(), any(), any()) } returns Result.Success(kept)
+        val pinned = mapOf(NO_PARENT to 0)
+        val flow = MutableStateFlow(
+            ChatUiState(
+                conversation = ConversationMetaState(conversationId = "c1", isTemporaryChat = true),
+                content = MessagesState(
+                    messages = listOf(parallel),
+                    activeBranches = pinned,
+                    displayMessages = buildActiveMessagePath(listOf(parallel), pinned),
+                ),
+                comparisonState = ComparisonState(isEnabled = true, parallelMessageId = "m-parallel"),
+            ),
+        )
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + Job())
+        val delegate = ComparisonModeDelegate(
+            handle = ComparisonHandle(ChatStateHandle(flow, scope)),
+            messageRepository = messageRepository,
+            reloadConversation = { _, _ -> },
+            currentModelSpecs = { null },
+        )
+
+        delegate.branchFromComparison("agent_secondary____1")
+        advanceUntilIdle()
+
+        assertThat(flow.value.displayMessages.last().message.messageId).isEqualTo("m-kept")
+        assertThat(flow.value.activeBranches).doesNotContainKey(NO_PARENT)
+        scope.cancel()
+    }
+
+    @Test
+    fun `the final message names each lane over an id learned while streaming`() {
+        val (delegate, flow) = delegateWith(
+            ChatUiState(comparisonState = ComparisonState(isEnabled = true, secondaryAgentId = "stale____1")),
+        )
+
+        delegate.onFinal(parallelMessage("openAI__gpt-4o___GPT-4o____1"))
+
+        assertThat(flow.value.comparisonState.secondaryAgentId).isEqualTo("openAI__gpt-4o___GPT-4o____1")
+        assertThat(flow.value.comparisonState.primaryAgentId).isEqualTo("agent_primary")
+    }
+
+    private fun keepHarness(
+        scope: CoroutineScope,
+        reloadSettles: Boolean = true,
+        onReload: (MutableStateFlow<ChatUiState>) -> Unit,
+    ): Pair<ComparisonModeDelegate, MutableStateFlow<ChatUiState>> {
+        val messageRepository = mockk<MessageRepository>()
+        coEvery { messageRepository.branchMessage(any(), any(), any()) } returns
+            Result.Success(Message(messageId = "m-kept", conversationId = "c1"))
+        coEvery { messageRepository.cacheMessages(any(), any()) } just Runs
+        val flow = MutableStateFlow(
+            ChatUiState(
+                conversation = ConversationMetaState(conversationId = "c1"),
+                comparisonState = ComparisonState(isEnabled = true, parallelMessageId = "m-parallel"),
+            ),
+        )
+        val delegate = ComparisonModeDelegate(
+            handle = ComparisonHandle(ChatStateHandle(flow, scope)),
+            messageRepository = messageRepository,
+            reloadConversation = { _, onSettled ->
+                onReload(flow)
+                if (reloadSettles) onSettled?.invoke()
+            },
+            currentModelSpecs = { null },
+        )
+        return delegate to flow
+    }
+
+    @Test
+    fun `keep and continue continues the kept reply once it is shown`() = runTest {
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + Job())
+        val (delegate, flow) = keepHarness(scope) { flow ->
+            val kept = MessageNode(Message(messageId = "m-kept", conversationId = "c1"), emptyList(), 0, 1)
+            flow.value = flow.value.copy(content = flow.value.content.copy(displayMessages = listOf(kept)))
+        }
+        var continued = 0
+
+        delegate.keepAndContinue("agent_secondary____1") {
+            continued++
+            flow.value = flow.value.copy(content = flow.value.content.copy(isStreaming = true))
+        }
+        advanceUntilIdle()
+
+        assertThat(continued).isEqualTo(1)
+        // The lane was kept first, so the Continue runs on a single-model chat.
+        assertThat(flow.value.comparisonState.isEnabled).isFalse()
+        // Moving a new chat now would replace this ViewModel under the Continue; its `created`
+        // event moves it instead.
+        assertThat(flow.value.pendingNavigationConversationId).isNull()
+        scope.cancel()
+    }
+
+    @Test
+    fun `keep and continue still moves a new chat when the continue never starts`() = runTest {
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + Job())
+        val (delegate, flow) = keepHarness(scope) { flow ->
+            val kept = MessageNode(Message(messageId = "m-kept", conversationId = "c1"), emptyList(), 0, 1)
+            flow.value = flow.value.copy(content = flow.value.content.copy(displayMessages = listOf(kept)))
+        }
+
+        // A Continue the send preflight refused.
+        delegate.keepAndContinue("agent_secondary____1") {}
+        advanceUntilIdle()
+
+        assertThat(flow.value.pendingNavigationConversationId).isEqualTo("c1")
+        scope.cancel()
+    }
+
+    @Test
+    fun `a plain branch moves a new chat to its own screen`() = runTest {
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + Job())
+        val (delegate, flow) = keepHarness(scope) {}
+
+        delegate.branchFromComparison("agent_secondary____1")
+        advanceUntilIdle()
+
+        assertThat(flow.value.comparisonState.isEnabled).isFalse()
+        assertThat(flow.value.pendingNavigationConversationId).isEqualTo("c1")
+        scope.cancel()
+    }
+
+    @Test
+    fun `keep and continue gives up with a notice when the reload never settles`() = runTest {
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler) + Job())
+        // The kept reply shows at once (merged in memory), but a Continue that starts before the
+        // reload lands would have its streaming anchor rebuilt away by the reload's Room write.
+        val (delegate, flow) = keepHarness(scope, reloadSettles = false) {}
+        var continued = 0
+
+        delegate.keepAndContinue("agent_secondary____1") { continued++ }
+        advanceUntilIdle()
+
+        assertThat(continued).isEqualTo(0)
+        assertThat(flow.value.error).isEqualTo(ChatNotice.CONTINUE_RESPONSE_FAILED.marker())
+        assertThat(flow.value.pendingNavigationConversationId).isEqualTo("c1")
+        scope.cancel()
     }
 
     @Test

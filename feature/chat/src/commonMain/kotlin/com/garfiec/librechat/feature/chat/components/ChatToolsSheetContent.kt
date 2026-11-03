@@ -39,6 +39,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
@@ -57,6 +59,8 @@ import com.garfiec.librechat.core.ui.components.rememberListDragSelection
 import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
+import com.garfiec.librechat.feature.chat.util.WebSearchKind
+import com.garfiec.librechat.feature.chat.util.WebSearchRoute
 import com.garfiec.librechat.feature.chat.viewmodel.ChatInputGates
 import com.garfiec.librechat.feature.chat.viewmodel.ContextGaugeDetails
 import org.jetbrains.compose.resources.stringResource
@@ -88,6 +92,8 @@ fun ChatToolsSheetContent(
     comparisonModels: ComparisonModelLabels? = null,
     isCodeInterpreterAvailable: Boolean = true,
     webSearchEnabled: Boolean = true,
+    /** The search the web-search control runs when on, named on its second line. */
+    webSearchKind: WebSearchKind = WebSearchKind(WebSearchRoute.LIBRECHAT, null),
     /** Whether to offer the Google-only URL Context toggle (active provider is Google/Gemini). */
     urlContextEnabled: Boolean = false,
     runCodeEnabled: Boolean = true,
@@ -275,16 +281,24 @@ fun ChatToolsSheetContent(
                 ToolConstants.MEMORY to memoryEnabled,
                 ToolConstants.SKILLS to skillsEnabled,
             )
+            val searchName = webSearchName(webSearchKind)
             toolRows.forEach { (toolKey, enabled) ->
                 val meta = ephemeralToolMeta(toolKey)
                 if (enabled && meta != null) {
+                    val locked = toolKey in gates.lockedTools
+                    val name = searchName.takeIf { toolKey == ToolConstants.WEB_SEARCH }
                     ToolToggleRow(
                         icon = meta.icon,
                         title = stringResource(meta.titleRes),
-                        subtitle = stringResource(meta.descriptionRes),
-                        isEnabled = toolKey in enabledTools,
+                        subtitle = when {
+                            name != null && locked -> stringResource(Res.string.web_search_set_by_spec, name)
+                            name != null -> name
+                            else -> stringResource(if (locked) Res.string.tool_set_by_spec else meta.descriptionRes)
+                        },
+                        isEnabled = locked || toolKey in enabledTools,
                         onToggle = { onToggleTool(toolKey) },
                         dragSelection = dragSelection,
+                        locked = locked,
                     )
                 }
             }
@@ -339,11 +353,13 @@ fun ChatToolsSheetContent(
                     modifier = Modifier.padding(start = 40.dp),
                 ) {
                     mcpServers.forEach { server ->
+                        val locked = server.name in gates.lockedMcpServers
                         McpServerToggleRow(
                             server = server,
-                            isSelected = server.name in selectedMcpServerNames,
+                            isSelected = locked || server.name in selectedMcpServerNames,
                             onToggle = { onToggleMcpServer(server.name) },
                             dragSelection = dragSelection,
+                            locked = locked,
                         )
                     }
                 }
@@ -360,14 +376,22 @@ private fun ToolToggleRow(
     isEnabled: Boolean,
     onToggle: () -> Unit,
     dragSelection: ListDragSelection,
+    locked: Boolean = false,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             // The platform reads the on/off state out in the user's language. The title and
             // subtitle below name the row, so no description is set on top of them.
-            .semantics { toggleableState = ToggleableState(isEnabled) }
-            .dragSelectRow(dragSelection, role = Role.Switch, onClick = onToggle)
+            // A locked row has no click to merge its texts, so it merges them itself.
+            .semantics(mergeDescendants = locked) {
+                toggleableState = ToggleableState(isEnabled)
+                if (locked) {
+                    role = Role.Switch
+                    disabled()
+                }
+            }
+            .then(if (locked) Modifier else Modifier.dragSelectRow(dragSelection, role = Role.Switch, onClick = onToggle))
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -398,6 +422,7 @@ private fun ToolToggleRow(
         AdaptiveSwitch(
             checked = isEnabled,
             onCheckedChange = null,
+            enabled = !locked,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.colorScheme.primary,
                 checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
@@ -497,11 +522,18 @@ private fun McpServerToggleRow(
     isSelected: Boolean,
     onToggle: () -> Unit,
     dragSelection: ListDragSelection,
+    locked: Boolean = false,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .dragSelectRow(dragSelection, onClick = onToggle)
+            .then(
+                if (locked) {
+                    Modifier.semantics(mergeDescendants = true) { disabled() }
+                } else {
+                    Modifier.dragSelectRow(dragSelection, onClick = onToggle)
+                },
+            )
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -527,7 +559,7 @@ private fun McpServerToggleRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            val description = server.description
+            val description = if (locked) stringResource(Res.string.tool_set_by_spec) else server.description
             if (!description.isNullOrBlank()) {
                 Text(
                     text = description,
@@ -541,6 +573,7 @@ private fun McpServerToggleRow(
         AdaptiveCheckbox(
             checked = isSelected,
             onCheckedChange = { onToggle() },
+            enabled = !locked,
         )
     }
 }

@@ -15,8 +15,11 @@ import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.PendingAction
+import com.garfiec.librechat.core.model.config.EndpointDropParams
+import com.garfiec.librechat.core.model.config.ModelSpec
 import com.garfiec.librechat.core.model.config.ModelSpecSkills
 import com.garfiec.librechat.core.model.config.ModelSpecs
+import com.garfiec.librechat.core.model.config.supportsUrlContext
 import com.garfiec.librechat.core.model.content.Compaction
 import com.garfiec.librechat.core.model.endpoint.KeyState
 import com.garfiec.librechat.core.model.request.manualSkillsSupportedOn
@@ -40,13 +43,24 @@ import com.garfiec.librechat.feature.chat.model.PickerSkill
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
+import com.garfiec.librechat.feature.chat.util.BuiltInSearchProvider
 import com.garfiec.librechat.feature.chat.util.CatalogSkill
 import com.garfiec.librechat.feature.chat.util.MessageNode
+import com.garfiec.librechat.feature.chat.util.ParameterTarget
 import com.garfiec.librechat.feature.chat.util.PendingUsage
 import com.garfiec.librechat.feature.chat.util.SkillPickRules
 import com.garfiec.librechat.feature.chat.util.ToolDecisionDraft
+import com.garfiec.librechat.feature.chat.util.WebSearchKind
+import com.garfiec.librechat.feature.chat.util.WebSearchRoute
+import com.garfiec.librechat.feature.chat.util.builtInSearchProvider
+import com.garfiec.librechat.feature.chat.util.changedPartIndices
+import com.garfiec.librechat.feature.chat.util.parameterTarget
 import com.garfiec.librechat.feature.chat.util.pickableSkills
+import com.garfiec.librechat.feature.chat.util.requiresSpec
+import com.garfiec.librechat.feature.chat.util.resolveLandingStarters
 import com.garfiec.librechat.feature.chat.util.skillPickRules
+import com.garfiec.librechat.feature.chat.util.stoppedReplyId
+import com.garfiec.librechat.feature.chat.util.webSearchRoute
 
 /**
  * The agents endpoint capability that enables server-side text extraction (`tool_resource=context`).
@@ -64,6 +78,7 @@ data class ChatUiState(
     val favorites: FavoritesState = FavoritesState(),
     val subagents: SubagentState = SubagentState(),
     val actions: ConversationActionsState = ConversationActionsState(),
+    val bookmarks: ChatBookmarksState = ChatBookmarksState(),
     val editing: MessageEditingState = MessageEditingState(),
     val composer: ComposerState = ComposerState(),
     val presetPrompts: PresetPromptState = PresetPromptState(),
@@ -73,6 +88,7 @@ data class ChatUiState(
     val prefs: ChatPrefsState = ChatPrefsState(),
     val selection: ModelSelectionState = ModelSelectionState(),
     val content: MessagesState = MessagesState(),
+    val avatars: ReplyAvatarsState = ReplyAvatarsState(),
     val conversation: ConversationMetaState = ConversationMetaState(),
     val error: String? = null,
     // Model comparison state
@@ -109,6 +125,7 @@ data class ChatUiState(
     val isForkInProgress: Boolean get() = actions.isForkInProgress
     val forkedConversationId: String? get() = actions.forkedConversationId
     val shareLinkActive: Boolean get() = actions.shareLinkActive
+    val hasBookmark: Boolean get() = bookmarks.hasBookmark
 
     /**
      * The chat's first turn is still streaming (at most the opening message is in the tree): its
@@ -117,8 +134,28 @@ data class ChatUiState(
     val isFirstTurnStreaming: Boolean get() = content.isStreaming && content.messages.size <= 1
     val editingMessageId: String? get() = editing.editingMessageId
     val editingText: String get() = editing.editingText
+    val editingPartDrafts: Map<Int, String> get() = editing.partDrafts
+    val isSavingEdit: Boolean get() = editing.isSavingEdit
+
+    /** Content-part indices the user has actually changed, in content order. */
+    val editChangedPartIndices: List<Int>
+        get() = changedPartIndices(editing.partDrafts, editing.partOriginals)
+
     val selectedSpec: String? get() = selection.selectedSpec
     val modelSpecs: ModelSpecs? get() = selection.modelSpecs
+
+    /** The latest reply cut short, which the chat offers to continue ([stoppedReplyId]). */
+    val continuableReplyId: String?
+        get() = stoppedReplyId(
+            displayMessages = displayMessages,
+            isStreaming = isStreaming,
+            hasPendingAction = pendingAction != null,
+            comparing = comparisonState.isEnabled,
+            runStatusSettled = runStatusSettled,
+        )
+
+    /** Compare's second lane's spec, including one a reopened comparison was sent with ([ComparisonState.laneBSpec]). */
+    val laneBSpec: String? get() = comparisonState.laneBSpec(modelSpecs, endpointConfigs)
     val selectedModel: String? get() = selection.selectedModel
     val selectedEndpoint: String get() = selection.selectedEndpoint
     val endpointConfigs: Map<String, EndpointConfig> get() = selection.endpointConfigs
@@ -127,11 +164,31 @@ data class ChatUiState(
     val agents: List<Agent> get() = selection.agents
     val agentsLoaded: Boolean get() = selection.agentsLoaded
     val selectedAgentProvider: String? get() = selection.selectedAgentProvider
+    val selectedAgentStarters: List<String>? get() = selection.selectedAgentStarters
+
+    /** What the new-chat screen offers to send in one tap ([resolveLandingStarters]). */
+    val landingStarters: List<String>
+        get() = resolveLandingStarters(
+            isAgent = selectedEndpoint == EndpointConstants.AGENTS,
+            agentStarters = selectedAgentStarters,
+            spec = modelSpecs?.list?.find { it.name == selectedSpec },
+        )
+
+    /** Whether the new-chat screen has starters to offer; they keep their space while the user types. */
+    val hasLandingStarters: Boolean
+        get() = screenState == ChatScreenState.LANDING && landingStarters.isNotEmpty()
+
+    /** Whether the new-chat screen is showing its starters: there are some, and the composer is empty. */
+    val showsLandingStarters: Boolean
+        get() = hasLandingStarters && inputText.isBlank()
     val modelParameters: ModelParameters get() = selection.modelParameters
     val showModelSheet: Boolean get() = selection.showModelSheet
     val enabledTools: Set<String> get() = selection.enabledTools
     val mcpServers: List<McpServerDisplayData> get() = selection.mcpServers
     val selectedMcpServerNames: Set<String> get() = selection.selectedMcpServerNames
+    val effectiveMcpServerNames: Set<String> get() = selection.effectiveMcpServerNames
+    val lockedTools: Set<String> get() = selection.lockedTools
+    val lockedMcpServers: Set<String> get() = selection.lockedMcpServers
     val extendedEffortSupported: Boolean get() = selection.extendedEffortSupported
     val thinkingDisplayUpdatesSupported: Boolean get() = selection.thinkingDisplayUpdatesSupported
     val inputText: String get() = composer.inputText
@@ -158,7 +215,18 @@ data class ChatUiState(
      * stored toggles under any active spec instead.
      */
     val activeSpecSkills: ModelSpecSkills?
-        get() = selectedSpec?.let { name -> selection.modelSpecs?.list?.firstOrNull { it.name == name } }?.skillsSetting
+        get() = activeSpec?.skillsSetting
+
+    /** The served spec the selection runs on, or null for a raw pick or a spec the config doesn't list. */
+    val activeSpec: ModelSpec? get() = selection.activeSpec
+
+    /**
+     * Whether the server, not the parameters sheet, sets this chat's parameters: under `enforce` it
+     * replaces the request body with the spec's preset (`mergeModelSpecPreset`, keeping only
+     * `chatProjectId`), so anything edited here would be shown and then discarded.
+     */
+    val parametersSetBySpec: Boolean
+        get() = selection.modelSpecs.requiresSpec && selectedSpec != null
 
     /**
      * Whether skills can be used in this chat at all: role SKILLS.USE (permissive until the role
@@ -232,7 +300,7 @@ data class ChatUiState(
      * `skills_enabled` governs — and no active model spec configures skills.
      */
     val isSkillsToolAvailable: Boolean
-        get() = skillsCapable && showEphemeralTools && activeSpecSkills == null
+        get() = skillsCapable && toolbarShown && activeSpecSkills == null
 
     /**
      * Whether the "Add to chat" quote affordance is offered (v0.8.7, upstream #13868).
@@ -333,6 +401,7 @@ data class ChatUiState(
     val displayMessages: List<MessageNode> get() = content.displayMessages
     val pendingResumeUserMessage: Message? get() = content.pendingResumeUserMessage
     val activeBranches: Map<String, Int> get() = content.activeBranches
+    val runStatusSettled: Boolean get() = content.runStatusSettled
     val justSettledMessageId: String? get() = content.justSettledMessageId
     val isStreaming: Boolean get() = content.isStreaming
 
@@ -463,37 +532,79 @@ data class ChatUiState(
         }
 
     /**
-     * Effective tool set that merges [enabledTools] with the web search state from
-     * [modelParameters]. This ensures the toolbar, bottom sheet, and dropdown all
-     * reflect the same web search toggle as the Model Parameters sheet.
+     * The tools in use, as the toolbar, tools sheet and pinned chips show them: the selection's
+     * [ModelSelectionState.effectiveTools] (web search and URL context from the parameters, or the
+     * spec's tools under one), plus the per-conversation Skills toggle where it would be sent. Web
+     * search only while a search can run ([webSearchAvailable]), so its chip never shows on what
+     * sends nothing.
      */
     val effectiveEnabledTools: Set<String>
         get() {
-            // web_search and url_context are model parameters, not entries in [enabledTools];
-            // synthesize them in so the toolbar, bottom sheet, and pinned chips all reflect
-            // the same toggle state as the Model Parameters sheet.
-            var tools = enabledTools
-            tools = if (modelParameters.webSearch) tools + ToolConstants.WEB_SEARCH else tools - ToolConstants.WEB_SEARCH
-            tools = if (modelParameters.urlContext) tools + ToolConstants.URL_CONTEXT else tools - ToolConstants.URL_CONTEXT
-            // The Skills toggle is per conversation and lives apart from [enabledTools]; it is
-            // synthesized in only where it would be sent.
-            tools = if (skillsToggle && isSkillsToolAvailable) tools + ToolConstants.SKILLS else tools - ToolConstants.SKILLS
-            return tools
+            var tools = selection.effectiveTools - ToolConstants.SKILLS
+            if (!webSearchAvailable) tools = tools - ToolConstants.WEB_SEARCH
+            return if (skillsToggle && isSkillsToolAvailable) tools + ToolConstants.SKILLS else tools
         }
 
     /**
-     * Whether the active provider is Google/Gemini, the only provider that supports the
-     * `url_context` toggle (upstream gates it to `googleConfig`). Computed (not folded into
-     * the static permission/config flow) because it depends on the live model selection:
-     * a direct `google` endpoint, or the agents endpoint backed by a Google-provider agent.
-     * Mirrors the provider resolution in [ChatRequestBuilder.buildModelParams].
+     * The provider whose built-in web search a send would run, or null when the selection has none
+     * (`builtInSearchProvider`). A saved agent sends no ephemeral tools, so it has none here either.
+     */
+    val builtInSearchProvider: BuiltInSearchProvider?
+        get() {
+            if (!showEphemeralTools) return null
+            val dropParams = EndpointDropParams.resolve(gates.dropParamsMap, selectedEndpoint, null, selectedModel)
+            return builtInSearchProvider(selectedEndpoint, dropParams)
+        }
+
+    /**
+     * Which web search a send runs: [webSearchTarget] while the control is on. Read by every send
+     * path, so a request carries `ephemeralAgent.web_search` or the provider's `web_search`, never
+     * both, and neither while it is [WebSearchRoute.CHECKING].
+     */
+    val webSearchRoute: WebSearchRoute
+        get() = if (ToolConstants.WEB_SEARCH in selection.effectiveTools) webSearchTarget else WebSearchRoute.NONE
+
+    /**
+     * Whether the web-search control is offered: the spec locks it on, or the control would run a
+     * search ([webSearchTarget], which applies the role and interface gates).
+     */
+    val webSearchAvailable: Boolean
+        get() = ToolConstants.WEB_SEARCH in lockedTools || webSearchTarget != WebSearchRoute.NONE
+
+    /**
+     * The search the control runs when on ([webSearchRoute]'s rules), which its caption names.
+     * NONE when neither search can run. LibreChat search needs `interface.webSearch` and the role,
+     * the built-in one only the role ([FeatureGatesState.webSearchPermitted]).
+     */
+    val webSearchTarget: WebSearchRoute
+        get() = webSearchRoute(
+            on = true,
+            sendsEphemeralTools = showEphemeralTools,
+            spec = selection.activeSpec,
+            comparing = comparisonState.isEnabled,
+            preference = prefs.webSearchFirst,
+            librechatUsable = webSearchEnabled && gates.librechatSearchReady,
+            builtInAvailable = gates.webSearchPermitted && builtInSearchProvider != null,
+            librechatChecking = webSearchEnabled && gates.librechatSearchChecking,
+        )
+
+    /** [webSearchTarget] with the provider it would run on, for the control's caption. */
+    val webSearchKind: WebSearchKind get() = WebSearchKind(webSearchTarget, builtInSearchProvider)
+
+    /** The parameter set the selection resolves to, for the sheet, the payload and a saved preset. */
+    val parameterTarget: ParameterTarget
+        get() = parameterTarget(selectedEndpoint, selectedModel, agents, endpointConfigs)
+
+    /**
+     * Whether the URL context toggle does anything here: a Google parameter set (upstream gates it
+     * to `googleConfig`), the google endpoint or a Google agent, on a model the server runs the tool
+     * on ([supportsUrlContext]; it skips it on others with only a debug log).
      */
     val urlContextProviderGate: Boolean
         get() {
-            if (selectedEndpoint.equals("google", ignoreCase = true)) return true
-            if (selectedEndpoint != EndpointConstants.AGENTS) return false
-            val agentProvider = agents.firstOrNull { it.id == selectedModel }?.provider
-            return agentProvider.equals("google", ignoreCase = true)
+            val target = parameterTarget
+            if (!target.settingsKey.equals("google", ignoreCase = true)) return false
+            return target.model?.let(::supportsUrlContext) == true
         }
 
     /**
@@ -504,10 +615,10 @@ data class ChatUiState(
      */
     val pinnedToolChips: List<String>
         get() {
-            if (!showEphemeralTools || pinnedTools.isEmpty()) return emptyList()
+            if (!toolbarShown || pinnedTools.isEmpty()) return emptyList()
             return pinnedTools.mapNotNull { key ->
                 when (key) {
-                    ToolConstants.WEB_SEARCH -> ToolConstants.WEB_SEARCH.takeIf { webSearchEnabled }
+                    ToolConstants.WEB_SEARCH -> ToolConstants.WEB_SEARCH.takeIf { webSearchAvailable }
                     ToolConstants.URL_CONTEXT -> ToolConstants.URL_CONTEXT.takeIf { urlContextProviderGate }
                     ToolConstants.FILE_SEARCH -> ToolConstants.FILE_SEARCH.takeIf { fileSearchEnabled }
                     ToolConstants.EXECUTE_CODE, ToolConstants.CODE_INTERPRETER ->
@@ -528,6 +639,14 @@ data class ChatUiState(
      */
     val showEphemeralTools: Boolean
         get() = selectedEndpoint != EndpointConstants.AGENTS
+
+    /**
+     * Whether the composer shows its tool controls (tools-sheet rows, MCP picker, pinned and active
+     * tool chips): [showEphemeralTools], unless the active spec sets `hideBadgeRow`, as web's
+     * `ChatForm` hides its badges. The request still carries the spec's own tools then.
+     */
+    val toolbarShown: Boolean
+        get() = showEphemeralTools && !selection.toolsHiddenBySpec
 
     /**
      * Whether a follow-up may be queued mid-stream: only on an existing single-stream
@@ -640,8 +759,10 @@ data class ChatUiState(
         get() = ChatInputGates(
             modelPickerShown = modelPickerShown,
             parametersEnabled = parametersEnabled,
-            showEphemeralTools = showEphemeralTools,
+            showEphemeralTools = toolbarShown,
             fileUploadEnabled = fileUploadEnabled,
+            lockedTools = lockedTools,
+            lockedMcpServers = lockedMcpServers,
         )
 
     /**

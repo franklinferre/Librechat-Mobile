@@ -3,8 +3,6 @@ package com.garfiec.librechat.feature.chat.screen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import com.garfiec.librechat.core.common.EndpointConstants
-import com.garfiec.librechat.core.model.config.EndpointDropParams
 import com.garfiec.librechat.feature.chat.components.ChatOptionsBottomSheet
 import com.garfiec.librechat.feature.chat.components.ChatOptionsSheetController
 import com.garfiec.librechat.feature.chat.components.ChatToolsPageParams
@@ -49,15 +47,12 @@ internal fun ChatOptionsSheetHost(
     val page = controller.openPage
     if (page == null || uiState.showModelSheet) return
 
-    // The agent behind the current selection, if the endpoint is "agents" — routes the parameters
-    // page to the agent's underlying provider rather than the "agents" pseudo-endpoint.
-    val activeAgent = remember(uiState.agents, uiState.selectedModel, uiState.selectedEndpoint) {
-        if (uiState.selectedEndpoint == EndpointConstants.AGENTS) {
-            uiState.agents.find { it.id == uiState.selectedModel }
-        } else {
-            null
+    // The parameter set the selection resolves to (an agent's provider's, a custom endpoint's type's),
+    // the same one the send payload is built from. Remembered: `uiState` emits per SSE delta.
+    val parameterTarget =
+        remember(uiState.agents, uiState.selectedModel, uiState.selectedEndpoint, uiState.endpointConfigs) {
+            uiState.parameterTarget
         }
-    }
 
     val error = uiState.error?.let { localizedStreamError(it) }
     val comparison = rememberComparisonSelectorRouting(
@@ -78,7 +73,7 @@ internal fun ChatOptionsSheetHost(
             enabledTools = uiState.effectiveEnabledTools,
             onToggleTool = viewModel::toggleTool,
             mcpServers = uiState.mcpServers,
-            selectedMcpServerNames = uiState.selectedMcpServerNames,
+            selectedMcpServerNames = uiState.effectiveMcpServerNames,
             onToggleMcpServer = viewModel::toggleMcpServer,
             onAttachFiles = onAttachFiles,
             onTakePhoto = onTakePhoto,
@@ -87,7 +82,8 @@ internal fun ChatOptionsSheetHost(
             selectedModelDisplay = selectedModelDisplay,
             comparisonModels = comparisonModelLabels(uiState),
             isCodeInterpreterAvailable = uiState.isCodeInterpreterAvailable,
-            webSearchEnabled = uiState.webSearchEnabled,
+            webSearchEnabled = uiState.webSearchAvailable,
+            webSearchKind = uiState.webSearchKind,
             urlContextEnabled = uiState.urlContextProviderGate,
             runCodeEnabled = uiState.runCodeEnabled,
             fileSearchEnabled = uiState.fileSearchEnabled,
@@ -139,34 +135,25 @@ internal fun ChatOptionsSheetHost(
         // parameters, so there is nothing else to point this at (pre-existing; porting web's
         // per-addedConvo parameters would be the real fix).
         parameters = ModelParametersPageParams(
-            parameters = uiState.modelParameters,
+            parameters = uiState.selection.sendParameters,
             onParametersChange = viewModel::updateModelParameters,
-            selectedEndpoint = uiState.selectedEndpoint,
+            selectedEndpoint = parameterTarget.settingsEndpoint,
             extendedEffortSupported = uiState.extendedEffortSupported,
             thinkingDisplayUpdatesSupported = uiState.thinkingDisplayUpdatesSupported,
-            selectedProvider = activeAgent?.provider,
-            selectedModel = activeAgent?.model ?: uiState.selectedModel,
+            selectedProvider = parameterTarget.settingsProvider,
+            selectedModel = parameterTarget.model,
             // Remembered: `uiState` emits per SSE delta, so an open sheet recomposes once per
             // token and this would walk the map and allocate a fresh list every time, for a value
             // that only moves when the endpoint, model or config does. `AgentAdvancedPanel` wraps
             // the identical call the same way.
-            dropParams = remember(
-                uiState.gates.dropParamsMap,
-                uiState.selectedEndpoint,
-                activeAgent?.provider,
-                activeAgent?.model ?: uiState.selectedModel,
-            ) {
-                EndpointDropParams.resolve(
-                    map = uiState.gates.dropParamsMap,
-                    endpoint = uiState.selectedEndpoint,
-                    provider = activeAgent?.provider,
-                    model = activeAgent?.model ?: uiState.selectedModel,
-                )
+            dropParams = remember(uiState.gates.dropParamsMap, parameterTarget) {
+                parameterTarget.dropParams(uiState.gates.dropParamsMap)
             },
             onSaveAsPreset = {
                 controller.close()
                 onShowSavePresetDialog()
             },
+            setBySpec = uiState.parametersSetBySpec,
         ),
     )
 }

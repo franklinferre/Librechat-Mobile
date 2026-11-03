@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,8 +36,9 @@ fun ConversationItem(
     data: ConversationDisplayData,
     onClick: () -> Unit,
     onActionsClick: () -> Unit,
+    // Required: a call site that leaves it out would show the ★ to a gated user.
+    bookmarksEnabled: Boolean,
     modifier: Modifier = Modifier,
-    bookmarksEnabled: Boolean = true,
 ) {
     // Keyed on the reference as well as the row: the reference is what advances with the wall clock,
     // so without it in the key this memo would outlive the label's correctness (see
@@ -58,8 +59,9 @@ fun ConversationItem(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         EndpointIcon(
-            endpointName = data.endpoint,
+            endpointName = data.iconEndpoint,
             iconUrl = data.endpointIconUrl,
+            provider = data.iconProvider,
             size = 24.dp,
             contentDescription = endpointLabel,
         )
@@ -132,10 +134,10 @@ fun ConversationItem(
             }
         }
 
-        if (bookmarksEnabled && data.isBookmarked) {
+        if (bookmarksEnabled && data.isFavorite) {
             Icon(
-                imageVector = Icons.Default.Bookmark,
-                contentDescription = stringResource(Res.string.cd_bookmarked),
+                imageVector = Icons.Default.Star,
+                contentDescription = stringResource(Res.string.cd_favorited),
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -153,7 +155,7 @@ fun ConversationItem(
 
 /** Provider brands stay as written; the generic endpoint kinds are translated. */
 @Composable
-private fun endpointDisplayLabel(endpoint: String?): String {
+internal fun endpointDisplayLabel(endpoint: String?): String {
     if (endpoint == null) return stringResource(Res.string.endpoint_label_chat)
     return when (EModelEndpoint.fromName(endpoint)) {
         EModelEndpoint.OPENAI -> "OpenAI"

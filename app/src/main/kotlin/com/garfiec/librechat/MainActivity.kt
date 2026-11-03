@@ -1,6 +1,7 @@
 package com.garfiec.librechat
 
 import android.annotation.SuppressLint
+import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -51,6 +52,10 @@ import com.garfiec.librechat.core.data.datastore.DateTimePrefsStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeMode
+import com.garfiec.librechat.core.data.repository.ConfigRepository
+import com.garfiec.librechat.core.model.SHORTCUT_CANDIDATE_FACTOR
+import com.garfiec.librechat.core.model.offeredSpecs
+import com.garfiec.librechat.core.model.reconciledWith
 import com.garfiec.librechat.core.ui.components.clearFocusOnTap
 import com.garfiec.librechat.core.ui.theme.LibreChatTheme
 import com.garfiec.librechat.feature.chat.ShareIntentConsumer
@@ -61,6 +66,7 @@ import com.garfiec.librechat.shared.navigation.AppShortcuts
 import com.garfiec.librechat.shared.navigation.DeepLinkResolution
 import com.garfiec.librechat.shared.navigation.DeepLinks
 import com.garfiec.librechat.shortcuts.ModelShortcuts
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
@@ -74,6 +80,7 @@ class MainActivity : ComponentActivity() {
     private val themeDataStore: ThemeDataStore by inject()
     private val settingsDataStore: SettingsDataStore by inject()
     private val dateTimePrefsStore: DateTimePrefsStore by inject()
+    private val configRepository: ConfigRepository by inject()
 
     private var deepLinkUri by mutableStateOf<Uri?>(null)
 
@@ -101,11 +108,16 @@ class MainActivity : ComponentActivity() {
 
         // Keep home-screen model shortcuts in sync with the account's most-used models. The flow
         // emits an empty list once the account resolves logged-out, which clears the shortcuts.
+        // Spec entries are checked against the server's current specs, so a removed spec loses its
+        // shortcut and a renamed one its old label; extra candidates refill the dropped slots.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                settingsDataStore.topUsedModels(ModelShortcuts.maxCount)
-                    // The backing flow re-emits on every settings write; only republish when the
-                    // ranked list actually changes to avoid redundant main-thread setDynamicShortcuts IPC.
+                combine(
+                    settingsDataStore.topUsedModels(ModelShortcuts.maxCount * SHORTCUT_CANDIDATE_FACTOR),
+                    configRepository.startupConfig,
+                ) { models, config -> models.reconciledWith(config.offeredSpecs).take(ModelShortcuts.maxCount) }
+                    // The backing flows re-emit on every settings write and config refresh; only republish when
+                    // the list actually changes to avoid redundant main-thread setDynamicShortcuts IPC.
                     .distinctUntilChanged()
                     .collect { models ->
                         ModelShortcuts.publish(this@MainActivity, models)
@@ -241,11 +253,19 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(intent: Intent?) {
         if (intent == null) return
 
-        when (intent.action) {
-            Intent.ACTION_SEND -> handleShareIntent(intent)
-            Intent.ACTION_SEND_MULTIPLE -> handleShareMultipleIntent(intent)
+        when {
+            intent.action == Intent.ACTION_SEND -> handleShareIntent(intent)
+            intent.action == Intent.ACTION_SEND_MULTIPLE -> handleShareMultipleIntent(intent)
+            intent.action == Intent.ACTION_VIEW && intent.data?.scheme == ContentResolver.SCHEME_CONTENT ->
+                handleOpenWithIntent(intent)
             else -> handleDeepLink(intent)
         }
+    }
+
+    private fun handleOpenWithIntent(intent: Intent) {
+        val uri = intent.data ?: return
+        Logger.d { "Open-with intent received" }
+        ShareIntentConsumer.setPendingShare(SharedContent(fileUris = listOf(uri)))
     }
 
     private fun handleDeepLink(intent: Intent) {

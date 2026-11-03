@@ -19,9 +19,7 @@
     <string name="cd_search">検索</string>
     <string name="cd_clear_search">検索をクリア</string>
     <string name="cd_close_search">検索を閉じる</string>
-    <string name="cd_bookmarked">ブックマーク済み</string>
     <string name="cd_conversation_actions">会話の操作</string>
-    <string name="cd_add_tag">タグを追加</string>
     <string name="cd_hide_tags">タグを非表示</string>
     <string name="cd_show_tags">タグを表示</string>
     <string name="cd_clear_filter">フィルターをクリア</string>
@@ -41,8 +39,6 @@
     <string name="copy_of">%1$s のコピー</string>
 
     <!-- Conversation actions -->
-    <string name="remove_bookmark">ブックマークを解除</string>
-    <string name="bookmark">ブックマーク</string>
     <string name="pin">ピン留め</string>
     <string name="unpin">ピン留めを解除</string>
     <string name="move_to_project">プロジェクトに移動</string>
@@ -59,7 +55,6 @@
     <string name="project_delete_confirm">プロジェクト「%1$s」を削除しますか？会話は残りますが、プロジェクトからは外されます。</string>
     <string name="project_unassigned">プロジェクト外</string>
     <string name="projects_all">すべてのプロジェクト</string>
-    <string name="projects_see_all">すべてのプロジェクトを表示</string>
     <string name="project_new">新しいプロジェクト</string>
     <string name="project_name_label">プロジェクト名</string>
     <string name="project_edit">プロジェクトを編集</string>
@@ -73,19 +68,17 @@
     <string name="projects_search">プロジェクトを検索</string>
     <string name="project_sort_activity">最近のアクティビティ</string>
     <string name="project_sort_name">名前</string>
+    <string name="project_sort_custom">カスタム順</string>
+    <string name="project_move_up">上へ移動</string>
+    <string name="project_move_down">下へ移動</string>
     <string name="projects_empty_description">プロジェクトは 1 つのテーマのチャットをまとめます。チャットはそのメニューからプロジェクトに移動できます。</string>
     <string name="projects_no_match">「%1$s」に一致するプロジェクトはありません</string>
-    <string name="tags">タグ</string>
     <string name="rename_conversation">会話の名前を変更</string>
     <string name="rename_dialog_message">この会話の新しいタイトルを入力してください。</string>
     <string name="title_label">タイトル</string>
     <string name="delete_conversation">会話を削除</string>
     <string name="delete_confirmation_message">「%1$s」を削除してもよろしいですか？この操作は取り消せません。</string>
     <string name="this_conversation">この会話</string>
-
-    <!-- Tag picker -->
-    <string name="no_tags_yet">タグはまだありません。下から追加してください。</string>
-    <string name="add_new_tag">新しいタグを追加</string>
 
     <!-- Tag filter bar -->
 
@@ -99,6 +92,8 @@
     <!-- Archived conversations screen -->
     <string name="archived_conversations">アーカイブ済みの会話</string>
     <string name="could_not_load_archived">アーカイブ済みの会話を読み込めませんでした</string>
+    <string name="could_not_load_more_archived">アーカイブ済みのチャットをこれ以上読み込めませんでした</string>
+    <string name="archived_load_more_retry">再試行</string>
     <string name="no_archived_conversations">アーカイブ済みの会話がありません</string>
     <string name="archived_will_appear_here">アーカイブした会話はここに表示されます</string>
 
@@ -234,4 +229,55 @@
     <plurals name="projects_count">
         <item quantity="other">%1$d 件のプロジェクト</item>
     </plurals>
+    <string name="favorite">お気に入りに追加</string>
+    <string name="remove_favorite">お気に入りから削除</string>
+    <string name="cd_favorited">お気に入り</string>
+    <string name="bookmarks_ellipsis">ブックマーク…</string>
+    <string name="bookmark_update_failed">ブックマークを更新できませんでした。もう一度お試しください。</string>
+    <string name="bookmark_create_failed">ブックマークを作成できませんでした。もう一度お試しください。</string>
+    <string name="bookmarks_load_failed">このチャットのブックマークを読み込めませんでした</string>
+    <string name="favorite_update_failed">お気に入りを更新できませんでした。もう一度お試しください。</string>
+    <plurals name="bookmarks_count">
+        <item quantity="other">%1$d 件のブックマーク</item>
+    </plurals>
+    <string name="bookmarks_reorder_hint">カードを長押しして並べ替え</string>
+    <string name="bookmark_no_chats">チャットはまだありません</string>
+    <string name="bookmarks_empty_description">チャットをブックマークすると、あとで見つけやすくなります。ここで作成するか、チャットのメニューから追加してください。</string>
+    <string name="bookmark_options">ブックマークのオプション</string>
+    <string name="bookmark_delete">ブックマークを削除</string>
+    <string name="bookmark_delete_title">「%1$s」を削除しますか？</string>
+    <plurals name="bookmark_delete_body">
+        <item quantity="other">%1$d 件のチャットから外れます。チャット自体は残ります。</item>
+    </plurals>
+    <string name="bookmarks_load_error">ブックマークを読み込めませんでした</string>
+    <string name="bookmark_save_failed">ブックマークを保存できませんでした。もう一度お試しください。</string>
+    <string name="bookmark_delete_failed">ブックマークを削除できませんでした。もう一度お試しください。</string>
+    <string name="bookmark_move_failed">ブックマークを移動できませんでした。もう一度お試しください。</string>
+    <string name="bookmark_chats_empty">このブックマークが付いたチャットはありません</string>
+    <string name="bookmark_chats_empty_description">チャットのメニューの「ブックマーク…」から追加できます</string>
+    <string name="bookmark_chats_load_error">これらのチャットを読み込めませんでした</string>
+    <string name="workspace">ワークスペース</string>
+    <string name="workspace_current">ワークスペース · %1$s</string>
+    <string name="workspace_expanded">展開</string>
+    <string name="workspace_collapsed">折りたたみ</string>
+    <string name="workspace_group_build">作成と自動化</string>
+    <string name="workspace_group_data">あなたのデータ</string>
+    <string name="workspace_prompts">プロンプト</string>
+    <string name="workspace_mcp_servers">MCPサーバー</string>
+    <string name="workspace_memories">メモリー</string>
+    <string name="workspace_shared_links">共有リンク</string>
+    <string name="workspace_archived">アーカイブ</string>
+    <string name="workspace_hint_agents">アシスタントを探す・作る</string>
+    <string name="workspace_hint_skills">エージェント用の再利用できる指示</string>
+    <string name="workspace_hint_prompts">保存したプロンプトとテンプレート</string>
+    <string name="workspace_hint_mcp_servers">ツールやサービスを接続</string>
+    <string name="workspace_hint_schedules">スケジュールで実行するチャット</string>
+    <string name="workspace_hint_memories">アシスタントが覚えていること</string>
+    <string name="workspace_hint_bookmarks">タグを付けたチャット</string>
+    <string name="workspace_hint_files">アップロードしたすべて</string>
+    <string name="workspace_hint_shared_links">共有したチャット</string>
+    <string name="workspace_hint_archived">しまったチャット</string>
+    <string name="workspace_pin">%1$sをドロワーに固定</string>
+    <string name="workspace_unpin">%1$sの固定を解除</string>
+    <string name="workspace_reorder">ドラッグして並べ替え</string>
 </resources>

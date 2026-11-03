@@ -20,7 +20,17 @@
     <string name="new_chat">新建聊天</string>
     <string name="load_preset">加载预设</string>
     <string name="save_as_preset">另存为预设</string>
-    <string name="save_and_submit">保存并提交</string>
+    <string name="saving">正在保存…</string>
+    <string name="rerun">重新运行</string>
+    <string name="update_and_rerun">更新并重新运行</string>
+    <string name="edit_part_response">回复</string>
+    <string name="edit_part_thoughts">思考</string>
+    <string name="edit_status_part_empty">消息的某个部分不能为空。</string>
+    <string name="edit_status_save_before_rerun">重新运行前请先保存更改。</string>
+    <string name="edit_status_unsaved_changes">有未保存的更改。</string>
+    <string name="edit_status_rerun_discards_changes">重新运行会重新生成这条回复并放弃你的更改。</string>
+    <string name="edit_status_rerun_needs_user_turn">重新运行需要一条可重放的用户消息。</string>
+    <string name="notice_message_save_failed">无法保存你的编辑。</string>
     <string name="preset_name_label">预设名称</string>
     <string name="code">代码</string>
     <string name="preview">预览</string>
@@ -79,6 +89,9 @@
     <string name="cd_more_options">更多选项</string>
     <string name="cd_scroll_to_bottom">滚动到底部</string>
     <string name="cd_select_model">选择模型</string>
+    <string name="cd_starter_send">发送</string>
+    <string name="cd_starter_edit">发送前编辑</string>
+    <string name="starters_try_asking">试着问问</string>
     <string name="cd_librechat">LID.IA</string>
     <string name="cd_comparison_enabled">已启用对比</string>
 
@@ -215,8 +228,15 @@
     <string name="tool_model">模型</string>
     <string name="tool_model_parameters">模型参数</string>
     <string name="tool_model_parameters_desc">调整温度、token 等参数</string>
+    <string name="param_set_by_spec">此模型的设置由服务器决定，无法在此更改。</string>
+    <string name="tool_set_by_spec">服务器已为此模型开启</string>
     <string name="tool_web_search">网络搜索</string>
     <string name="tool_web_search_desc">在网络上搜索信息</string>
+    <string name="web_search_librechat">LibreChat 搜索</string>
+    <string name="web_search_checking">正在检查 LibreChat 搜索…</string>
+    <string name="web_search_built_in">%1$s 内置搜索</string>
+    <string name="web_search_built_in_plain">内置搜索</string>
+    <string name="web_search_set_by_spec">%1$s,服务器已为此模型开启</string>
     <string name="web_searched">已搜索网络</string>
     <string name="tool_url_context">URL 上下文</string>
     <string name="tool_url_context_desc">让模型读取你引用的 URL 和 YouTube 视频</string>
@@ -269,8 +289,11 @@
     <string name="audio_decode_failed">音频解码失败</string>
 
     <!-- Citation -->
-    <string name="citation_number">引用 %1$d</string>
-    <string name="cd_open_citation_url">打开引用 URL</string>
+    <string name="citation_sources_title">来源</string>
+    <string name="cd_citation">来源：%1$s</string>
+    <plurals name="cd_citation_more">
+        <item quantity="other">来源：%1$s 等 %2$d 个</item>
+    </plurals>
 
     <!-- Fork options -->
     <string name="fork_conversation">分叉对话</string>
@@ -351,8 +374,12 @@
     <string name="cd_unpin_favorite">取消固定收藏</string>
     <string name="cd_collapse_section">收起 %1$s</string>
     <string name="cd_expand_section">展开 %1$s</string>
-    <string name="set_api_key_action">设置 API 密钥</string>
-    <string name="cd_set_api_key">为 %1$s 配置 API 密钥</string>
+    <string name="set_api_key_action">添加密钥</string>
+    <string name="cd_set_api_key">为 %1$s 添加密钥</string>
+    <!-- Under an endpoint or spec name in the model picker when its key is missing. -->
+    <string name="model_selector_needs_key">需要你的密钥</string>
+    <!-- Same place, in the minute before the server deletes an expired key. -->
+    <string name="model_selector_key_expired">密钥已过期</string>
 
     <!-- Preset picker -->
     <string name="select_preset">选择预设</string>
@@ -464,21 +491,31 @@
     <string name="dialog_title_fill_variables">填写变量</string>
 
     <!-- Comparison mode -->
-    <string name="continue_with_response">使用此回复继续</string>
+    <string name="keep_this_answer">保留此回答</string>
+    <string name="reply_stopped">已停止</string>
+    <string name="action_continue_reply">继续</string>
+    <string name="action_keep_and_continue">保留并继续</string>
 
     <!-- Provider Keys chat-time errors. -->
     <string name="provider_keys_chat_error_no_key">未找到密钥。请提供密钥后重试。</string>
-    <!-- {0} = endpoint name, {1} = expiredAt (server-locale string, NOT ISO) -->
+    <!-- {0} = endpoint name, {1} = expiry date and time, already formatted in the user's locale -->
     <string name="provider_keys_chat_error_expired">为 %1$s 提供的密钥已于 %2$s 过期。请提供新密钥后重试。</string>
     <string name="provider_keys_chat_error_invalid">提供的密钥无效。请提供有效的密钥后重试。</string>
-    <!-- Snackbar action label that deep-links to Settings → Provider Keys -->
-    <string name="provider_keys_chat_error_cta">打开密钥设置</string>
+    <string name="provider_keys_chat_error_no_key_for">未找到 %1$s 的密钥。请提供密钥后重试。</string>
+    <string name="provider_keys_chat_error_invalid_for">为 %1$s 提供的密钥无效。请提供有效的密钥后重试。</string>
+    <string name="provider_keys_chat_error_expired_no_label">提供的密钥已于 %1$s 过期。请提供新密钥后重试。</string>
+    <string name="provider_keys_chat_error_no_base_url">未找到基础 URL。请提供一个后重试。</string>
+    <string name="provider_keys_chat_error_no_base_url_for">未找到 %1$s 的基础 URL。请提供一个后重试。</string>
+    <string name="provider_keys_chat_error_invalid_base_url">你提供的基础 URL 指向受限地址。请使用有效的外部 URL 后重试。</string>
+    <string name="provider_keys_chat_error_invalid_base_url_for">你为 %1$s 提供的基础 URL 指向受限地址。请使用有效的外部 URL 后重试。</string>
     <string name="queued_messages_dropped_account_switch">切换账号后，排队的消息已被丢弃</string>
 
     <!-- Send block reasons (shown in error snackbar when send can't proceed) -->
     <string name="send_block_select_agent">发送消息前请先选择一个智能体。</string>
     <string name="send_block_select_model">发送消息前请先选择一个模型。</string>
+    <string name="send_block_select_second_model">发送前请从列表中选择模型 B。</string>
     <string name="send_block_agents_unavailable">此服务器不支持智能体。请选择其他模型。</string>
+    <string name="send_block_api_key_required">请先添加 %1$s 的 API 密钥再发送消息。</string>
     <string name="send_block_agent_not_available">所选智能体在此服务器上不可用。请选择其他智能体。</string>
     <string name="send_block_model_not_available">所选模型在此服务器上不可用。请选择其他模型。</string>
     <string name="send_block_model_load_failed">尚无法加载所选模型。请重试或选择其他模型。</string>
@@ -673,7 +710,8 @@
     <string name="compact_confirm_not_now">暂不</string>
     <string name="compact_confirm_action">压缩</string>
     <string name="cd_temporary_chat">临时聊天</string>
-    <string name="temporary_chat_banner">临时聊天：此对话不会保存到你的历史记录</string>
+    <string name="temporary_chat_title">临时聊天</string>
+    <string name="temporary_chat_subtitle">此对话不会保存到你的历史记录</string>
     <string name="notice_rename_failed">无法重命名对话</string>
     <string name="notice_delete_failed">无法删除对话</string>
     <string name="notice_archive_failed">无法归档对话</string>
@@ -684,6 +722,9 @@
     <string name="notice_continue_response_failed">无法使用所选回复继续</string>
     <string name="notice_favorites_limit">最多可固定 %1$d 个收藏。</string>
     <string name="notice_favorites_update_failed">无法更新收藏。</string>
+    <string name="notice_bookmark_update_failed">无法更新书签，请重试。</string>
+    <string name="notice_bookmark_create_failed">无法创建书签，请重试。</string>
+    <string name="notice_bookmarks_load_failed">无法加载此对话的书签</string>
     <string name="notice_upload_failed">无法上传 %1$s：%2$s</string>
     <string name="notice_upload_failed_unknown">无法上传 %1$s：未知错误</string>
     <string name="notice_upload_unreadable">无法上传 %1$s：无法读取文件</string>
@@ -749,6 +790,17 @@
     <string name="stt_speak_now">请说话…</string>
     <string name="stt_recognition_unavailable">此设备不支持语音识别</string>
     <string name="artifact_preview_failed">无法加载预览</string>
+    <string name="artifact_library_title">加载 %1$s？</string>
+    <string name="artifact_library_unmaintained">此 artifact 使用了 %1$s，这是一个已不再维护的库。</string>
+    <string name="artifact_library_deprecated">此 artifact 使用了 %1$s，这是一个已被作者弃用的库。</string>
+    <string name="artifact_library_vulnerable">此 artifact 使用了 %1$s，这是一个存在已知安全公告的库。</string>
+    <string name="artifact_library_sandbox">它在沙盒中运行，无法访问你的文件或账户。与任何 artifact 一样，它可以从网络加载图片。</string>
+    <string name="artifact_library_remember">为 %1$s 记住此选择</string>
+    <string name="artifact_library_load">加载</string>
+    <string name="artifact_library_skip">不加载</string>
+    <string name="artifact_library_declined">未加载：%1$s</string>
+    <string name="artifact_library_allowed">已加载：%1$s</string>
+    <string name="artifact_library_change">更改</string>
     <string name="cd_mcp_server_enabled">已启用 MCP 服务器 %1$s</string>
     <string name="cd_code_block">代码块</string>
     <string name="cd_code_block_language">%1$s 代码块</string>
@@ -756,7 +808,7 @@
     <string name="cd_attached_image">附加的图片</string>
     <string name="model_selector_search">搜索模型…</string>
     <string name="model_selector_my_agents">我的智能体</string>
-    <string name="model_selector_spec_only_note">此服务器仅接受上方列出的选项。</string>
+    <string name="model_selector_spec_only_top_note">只能发送服务器的模型规格；灰色的模型仅供参考。</string>
     <string name="agent_handoff_to">智能体 %1$s</string>
     <string name="agent_handoff_run">运行：%1$s</string>
     <string name="sibling_position">第 %1$d 个回复，共 %2$d 个</string>
@@ -806,4 +858,36 @@
     <string name="shared_chat_load_failed">无法加载此共享聊天</string>
     <string name="shared_chat_user">用户</string>
     <string name="shared_chat_file_failed">无法打开此文件</string>
+
+    <!-- Web and file search sources -->
+    <string name="web_searching">正在搜索网络</string>
+    <string name="web_searching_again">正在重新搜索网络</string>
+    <string name="web_search_processing">正在处理结果</string>
+    <string name="web_search_reading">正在读取结果</string>
+    <string name="web_search_details">搜索详情</string>
+    <string name="web_search_query">查询</string>
+    <string name="web_search_images">图片结果</string>
+    <string name="web_search_shopping">购物结果</string>
+    <string name="web_search_places">地点</string>
+    <string name="files_searching">正在搜索你的文件</string>
+    <string name="searching_web_and_files">正在搜索网络和文件</string>
+    <string name="searched_web_and_files">已搜索网络和文件</string>
+    <string name="search_cancelled">已取消</string>
+    <string name="sources_tab_all">全部</string>
+    <string name="sources_tab_news">新闻</string>
+    <string name="sources_tab_images">图片</string>
+    <string name="sources_tab_files">文件</string>
+    <string name="sources_agent_files">智能体文件</string>
+    <string name="sources_agent_file">源文件</string>
+    <string name="web_search_load_images">加载图片</string>
+    <string name="cd_open_cited_file">打开 %1$s</string>
+    <plurals name="web_search_sources">
+        <item quantity="other">%1$d 个来源</item>
+    </plurals>
+    <plurals name="sources_more">
+        <item quantity="other">+%1$d 个来源</item>
+    </plurals>
+    <plurals name="files_more">
+        <item quantity="other">+%1$d 个文件</item>
+    </plurals>
 </resources>

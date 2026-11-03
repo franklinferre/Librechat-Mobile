@@ -4,16 +4,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -42,7 +42,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -54,9 +53,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -72,12 +73,14 @@ import com.garfiec.librechat.core.ui.components.AdaptiveScaffold
 import com.garfiec.librechat.core.ui.components.AdaptiveSnackbarHost
 import com.garfiec.librechat.core.ui.components.EmptyState
 import com.garfiec.librechat.core.ui.components.InitialTile
+import com.garfiec.librechat.core.ui.components.UnderBarsPullToRefreshBox
 import com.garfiec.librechat.core.ui.components.UpToTwoColumns
 import com.garfiec.librechat.core.ui.components.topbar.AdaptiveTopBar
 import com.garfiec.librechat.core.ui.components.topbar.AdaptiveTopBarSpec
 import com.garfiec.librechat.core.ui.components.topbar.BarIcons
 import com.garfiec.librechat.core.ui.components.topbar.BarNavigation
 import com.garfiec.librechat.core.ui.components.topbar.BarTitle
+import com.garfiec.librechat.core.ui.components.topbar.MaterialBarStyle
 import com.garfiec.librechat.feature.agents.AgentCardDisplayData
 import com.garfiec.librechat.feature.agents.components.agentCategoryLabel
 import com.garfiec.librechat.feature.agents.components.categoryValueLabel
@@ -99,6 +102,9 @@ import org.koin.compose.viewmodel.koinViewModel
 private val AgentCardMinWidth = 300.dp
 private val CardShape = RoundedCornerShape(16.dp)
 private const val PLACEHOLDER_COUNT = 4
+
+/** The Top pick star; the meta line is never shorter than it. */
+private val MetaIconSize = 16.dp
 
 /** Room under the last card for the extended FAB. */
 private val FAB_CLEARANCE = 96.dp
@@ -204,6 +210,7 @@ internal fun AgentMarketplaceContent(
                     navigation = onBack?.let { BarNavigation(BarIcons.Back, stringResource(Res.string.cd_back), it) },
                     title = BarTitle(stringResource(Res.string.agents)),
                 ),
+                materialStyle = MaterialBarStyle(translucent = true),
             )
         },
         floatingActionButton = {
@@ -229,12 +236,13 @@ internal fun AgentMarketplaceContent(
             )
             return@AdaptiveScaffold
         }
-        PullToRefreshBox(
+        UnderBarsPullToRefreshBox(
             isRefreshing = uiState.isRefreshing,
             onRefresh = actions.onRefresh,
-            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            barPadding = innerPadding,
+            modifier = Modifier.fillMaxSize(),
         ) {
-            AgentGrid(uiState = uiState, actions = actions, gridState = gridState)
+            AgentGrid(uiState = uiState, actions = actions, gridState = gridState, barPadding = innerPadding)
         }
     }
 }
@@ -244,6 +252,7 @@ internal fun AgentGrid(
     uiState: AgentMarketplaceUiState,
     actions: AgentMarketplaceActions,
     gridState: LazyGridState,
+    barPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
     val categoriesByValue = remember(uiState.categories) { uiState.categories.associateBy { it.value } }
@@ -253,7 +262,7 @@ internal fun AgentGrid(
     LazyVerticalGrid(
         columns = remember(minCardWidth) { UpToTwoColumns(minCardWidth) },
         state = gridState,
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = FAB_CLEARANCE),
+        contentPadding = barPadding + PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = FAB_CLEARANCE),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier.fillMaxSize(),
@@ -495,17 +504,16 @@ internal fun AgentCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                val description = agent.description
-                if (description != null) {
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
+                // Every slot keeps its height when empty, so cards in a grid row line up.
+                Text(
+                    text = agent.description.orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    minLines = 2,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
                 AgentMetaRow(isPromoted = agent.isPromoted, details = listOfNotNull(categoryLabel, agent.contactName))
             }
         }
@@ -513,28 +521,25 @@ internal fun AgentCard(
 }
 
 /**
- * Top pick, then category and contact. A flow row, so at a large font or in a long translation the
- * details wrap under the Top pick mark instead of being squeezed to nothing beside it.
+ * Top pick, then category and contact, on one line that is there even when empty. The details
+ * ellipsize rather than wrap, so a long category or a large font doesn't make one card taller.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AgentMetaRow(isPromoted: Boolean, details: List<String>) {
-    if (!isPromoted && details.isEmpty()) return
-    FlowRow(
-        modifier = Modifier.padding(top = 8.dp),
+    val style = MaterialTheme.typography.labelMedium
+    val color = MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier = Modifier.padding(top = 8.dp).heightIn(min = MetaIconSize),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-        itemVerticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        val style = MaterialTheme.typography.labelMedium
-        val color = MaterialTheme.colorScheme.onSurfaceVariant
         if (isPromoted) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     Icons.Default.Star,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(MetaIconSize),
                 )
                 Spacer(Modifier.width(4.dp))
                 Text(
@@ -546,22 +551,26 @@ private fun AgentMetaRow(isPromoted: Boolean, details: List<String>) {
                 )
             }
         }
-        if (details.isNotEmpty()) {
-            Text(
-                text = details.joinToString(" · "),
-                style = style,
-                color = color,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        Text(
+            text = details.joinToString(" · "),
+            style = style,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
     }
 }
 
-/** First-load stand-in, sized like a card with a description, so the grid doesn't jump on arrival. */
+/** First-load stand-in that mirrors the card's slots, so the grid doesn't jump on arrival. */
 @Composable
 internal fun AgentCardPlaceholder() {
     val block = MaterialTheme.colorScheme.surfaceContainerHighest
+    val typography = MaterialTheme.typography
+    val density = LocalDensity.current
+    val nameLine = with(density) { typography.titleMedium.lineHeight.toDp() }
+    val descriptionLine = with(density) { typography.bodyMedium.lineHeight.toDp() }
+    val metaLine = maxOf(with(density) { typography.labelMedium.lineHeight.toDp() }, MetaIconSize)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -571,10 +580,20 @@ internal fun AgentCardPlaceholder() {
     ) {
         Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(block))
         Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.fillMaxWidth(0.5f).height(16.dp).clip(RoundedCornerShape(4.dp)).background(block))
-            Box(Modifier.fillMaxWidth(0.9f).height(12.dp).clip(RoundedCornerShape(4.dp)).background(block))
-            Box(Modifier.fillMaxWidth(0.4f).height(12.dp).clip(RoundedCornerShape(4.dp)).background(block))
+        Column(modifier = Modifier.weight(1f)) {
+            PlaceholderLine(block, lineHeight = nameLine, barHeight = 16.dp, widthFraction = 0.5f)
+            Spacer(Modifier.height(4.dp))
+            PlaceholderLine(block, lineHeight = descriptionLine, barHeight = 12.dp, widthFraction = 0.9f)
+            PlaceholderLine(block, lineHeight = descriptionLine, barHeight = 12.dp, widthFraction = 0.6f)
+            Spacer(Modifier.height(8.dp))
+            PlaceholderLine(block, lineHeight = metaLine, barHeight = 12.dp, widthFraction = 0.4f)
         }
+    }
+}
+
+@Composable
+private fun PlaceholderLine(color: Color, lineHeight: Dp, barHeight: Dp, widthFraction: Float) {
+    Box(Modifier.fillMaxWidth().height(lineHeight), contentAlignment = Alignment.CenterStart) {
+        Box(Modifier.fillMaxWidth(widthFraction).height(barHeight).clip(RoundedCornerShape(4.dp)).background(color))
     }
 }

@@ -287,6 +287,12 @@
     <string name="new_chat_start_desc">Cuando tu servidor elige un modelo para los chats nuevos, decide si usarlo o el último modelo que usaste. Se ignora si el servidor oculta el selector de modelos. Si el servidor exige uno de sus propios modelos, tu último modelo solo cuenta si era uno de ellos.</string>
     <string name="new_chat_start_server">Elección del servidor</string>
     <string name="new_chat_start_last_used">Mi último modelo usado</string>
+    <string name="web_search_first_title">Búsqueda web</string>
+    <string name="web_search_first_desc">Qué búsqueda ejecuta el interruptor de búsqueda web de un chat cuando ambas son posibles. Si tu elección no está disponible en un chat, se usa la otra. La búsqueda propia de una especificación de modelo tiene prioridad, y Comparar usa la búsqueda de LibreChat cuando puede, para que busquen los dos modelos.</string>
+    <string name="web_search_first_librechat">Primero la búsqueda de LibreChat</string>
+    <string name="web_search_first_librechat_desc">La búsqueda de tu servidor, con fuentes. Usa la búsqueda integrada del modelo cuando el servidor no tiene ninguna configurada.</string>
+    <string name="web_search_first_built_in">Primero la búsqueda integrada</string>
+    <string name="web_search_first_built_in_desc">La búsqueda propia del proveedor del modelo (OpenAI, Claude, Gemini, OpenRouter). Usa la búsqueda de LibreChat con otros modelos.</string>
     <string name="chat_header_title">Encabezado del chat</string>
     <string name="chat_header_summary_format">%1$s · %2$s</string>
     <string name="chat_header_content_label">Contenido</string>
@@ -331,6 +337,16 @@
     <string name="artifact_mode_fullscreen_desc">Se abre como una página a pantalla completa con más espacio.</string>
     <string name="artifact_inline_title">Renderizar en línea</string>
     <string name="artifact_inline_enabled_count">%1$d de %2$d activados</string>
+    <string name="artifact_libraries_title">Bibliotecas señaladas</string>
+    <string name="artifact_libraries_desc">Los artefactos pueden usar algunas bibliotecas que ya no reciben mantenimiento o tienen problemas conocidos. Elige si cada una se carga, o deja que cada artefacto pregunte. Se ejecutan en un entorno aislado, sin acceso a tus archivos ni a tu cuenta.</string>
+    <string name="artifact_libraries_none_set">Preguntar cada vez</string>
+    <string name="artifact_libraries_some_set">%1$d de %2$d configuradas</string>
+    <string name="artifact_libraries_ask">Preguntar</string>
+    <string name="artifact_libraries_allow">Cargar</string>
+    <string name="artifact_libraries_decline">No cargar</string>
+    <string name="artifact_libraries_unmaintained">Ya no recibe mantenimiento</string>
+    <string name="artifact_libraries_deprecated">Declarada obsoleta por sus autores</string>
+    <string name="artifact_libraries_vulnerable">Tiene un aviso de seguridad conocido</string>
     <string name="artifacts_section_desc">Renderiza los artefactos directamente en el chat en lugar de detrás de una tarjeta que se abre al tocar. Toca un artefacto en línea para abrir la vista a pantalla completa.</string>
     <string name="inline_artifact_mermaid">Diagramas de Mermaid</string>
     <string name="inline_artifact_mermaid_desc">Renderiza diagramas de flujo y diagramas de Mermaid en línea</string>
@@ -609,11 +625,8 @@
     <!-- Provider API Keys -->
     <string name="provider_keys_title">Claves de API de proveedores</string>
     <string name="provider_keys_subtitle">Establece tus propias claves para los endpoints que las requieran</string>
-    <string name="provider_keys_dialog_title">Establecer clave de API para %1$s</string>
-    <string name="provider_keys_status_set_expires">Caduca en %1$s</string>
-    <string name="provider_keys_status_set_never">Tu clave nunca caducará</string>
     <string name="provider_keys_status_unset">No establecida</string>
-    <string name="provider_keys_status_expired">Caducada</string>
+    <string name="provider_keys_status_unknown">No se pudo comprobar</string>
     <string name="provider_keys_status_loading">Comprobando el estado de la clave…</string>
     <string name="provider_keys_field_api_key_label">Clave</string>
     <string name="provider_keys_field_base_url_label">URL base</string>
@@ -634,35 +647,63 @@
     <string name="provider_keys_field_google_imported">Clave JSON de cuenta de servicio importada correctamente</string>
     <string name="provider_keys_field_google_paste_label">O pega el JSON de la cuenta de servicio</string>
     <string name="provider_keys_field_google_paste_only_hint">Pega abajo el JSON de la cuenta de servicio.</string>
-    <string name="provider_keys_field_google_service_key_or_gemini">Clave de servicio de Google o clave de API de Gemini</string>
 
     <string name="provider_keys_field_bedrock_access_key_id">ID de clave de acceso</string>
     <string name="provider_keys_field_bedrock_secret_access_key">Clave de acceso secreta</string>
     <string name="provider_keys_field_bedrock_session_token">Token de sesión</string>
     <string name="provider_keys_field_bedrock_session_token_optional_suffix">(Opcional)</string>
+    <string name="provider_keys_field_bedrock_bearer_token">Token de portador</string>
+    <string name="provider_keys_field_bedrock_bearer_token_placeholder">Clave de API de Bedrock</string>
+    <string name="provider_keys_field_required">Obligatorio</string>
+    <string name="provider_keys_bedrock_or_access_keys">O usa claves de acceso en su lugar</string>
+    <string name="provider_keys_field_google_either_required">Añade una clave de servicio o una clave de API de Gemini</string>
 
-    <string name="provider_keys_required_fields">Los siguientes campos son obligatorios: %1$s</string>
     <string name="provider_keys_revoke">Revocar</string>
     <string name="provider_keys_revoke_failed">Error al revocar la clave de API. Inténtalo de nuevo.</string>
     <string name="provider_keys_revoke_success">Clave de API revocada correctamente</string>
-    <string name="provider_keys_revoke_all">Revocar claves</string>
     <string name="provider_keys_revoke_all_confirm">¿Seguro que quieres revocar todas las claves?</string>
     <string name="provider_keys_revoke_all_failed">Error al revocar todas las claves</string>
     <string name="provider_keys_save_failed">Error al guardar la clave de API. Inténtalo de nuevo.</string>
     <string name="provider_keys_save_success">Clave de API guardada correctamente</string>
 
-    <string name="provider_keys_expiry_label">Caduca</string>
-    <string name="provider_keys_expiry_30m">en 30 minutos</string>
-    <string name="provider_keys_expiry_2h">en 2 horas</string>
-    <string name="provider_keys_expiry_12h">en 12 horas</string>
-    <string name="provider_keys_expiry_1d">en 1 día</string>
-    <string name="provider_keys_expiry_7d">en 7 días</string>
-    <string name="provider_keys_expiry_30d">en 30 días</string>
-    <string name="provider_keys_expiry_never">nunca</string>
+    <string name="provider_keys_expiry_label">La nueva clave caduca</string>
+    <string name="provider_keys_expiry_30m">30 min</string>
+    <string name="provider_keys_expiry_2h">2 h</string>
+    <string name="provider_keys_expiry_12h">12 h</string>
+    <string name="provider_keys_expiry_1d">1 día</string>
+    <string name="provider_keys_expiry_7d">7 días</string>
+    <string name="provider_keys_expiry_30d">30 días</string>
+    <string name="provider_keys_expiry_never">Nunca</string>
 
     <string name="provider_keys_empty_title">Ningún endpoint requiere claves proporcionadas por el usuario</string>
     <string name="provider_keys_empty_desc">Los endpoints que necesiten tu propia clave de API aparecerán aquí.</string>
-    <string name="provider_keys_revoke_all_action">Revocar todo</string>
+    <string name="provider_keys_load_failed_title">No se pudieron cargar tus proveedores</string>
+    <string name="provider_keys_load_failed_desc">Comprueba tu conexión e inténtalo de nuevo.</string>
+    <string name="provider_keys_status_never_expires">No caduca nunca</string>
+    <string name="provider_keys_status_expires_at">Caduca el %1$s</string>
+    <string name="provider_keys_status_expires_at_time">Caduca a las %1$s</string>
+    <string name="provider_keys_retry_check_cd">Volver a comprobar %1$s</string>
+    <string name="provider_keys_status_unset_needs">No establecida · %1$s</string>
+    <string name="provider_keys_needs_azure">clave, instancia, implementación, versión</string>
+    <string name="provider_keys_needs_key_and_url">clave, URL base</string>
+    <string name="provider_keys_needs_base_url">URL base</string>
+    <string name="provider_keys_needs_google">clave de servicio o clave de Gemini</string>
+    <string name="provider_keys_needs_access_keys">claves de acceso</string>
+    <string name="provider_keys_needs_bearer_or_access_keys">token bearer o claves de acceso</string>
+    <string name="provider_keys_summary_note">Las claves se guardan en tu servidor y se eliminan cuando caducan.</string>
+    <string name="provider_keys_revoke_all_button">Revocar todas las claves</string>
+    <plurals name="provider_keys_status_expires_in_minutes">
+        <item quantity="one">Caduca en %1$d min</item>
+        <item quantity="other">Caduca en %1$d min</item>
+    </plurals>
+    <plurals name="provider_keys_summary">
+        <item quantity="one">%1$d de %2$d clave establecida.</item>
+        <item quantity="other">%1$d de %2$d claves establecidas.</item>
+    </plurals>
+    <plurals name="provider_keys_row_summary">
+        <item quantity="one">%1$d de %2$d establecida</item>
+        <item quantity="other">%1$d de %2$d establecidas</item>
+    </plurals>
 
     <!-- Admin: role skill access -->
     <string name="role_skills_settings_row">Permisos de habilidades</string>
@@ -825,7 +866,6 @@
     <string name="mcp_empty_title">Dale herramientas a tus chats</string>
     <string name="mcp_empty_body">Un servidor MCP permite a los modelos buscar, leer y actuar en otra app, como GitHub o tu calendario. Añade uno con su URL.</string>
     <string name="mcp_empty_body_no_create">Un servidor MCP permite a los modelos buscar, leer y actuar en otra app, como GitHub o tu calendario. Pide a un administrador que añada uno.</string>
-    <string name="cd_server_options">Opciones de %1$s</string>
     <string name="mcp_tools_title">Herramientas</string>
     <string name="mcp_tools_filter_hint">Filtrar herramientas</string>
     <string name="mcp_tools_no_match">Ninguna herramienta coincide</string>

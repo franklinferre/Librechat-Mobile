@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.garfiec.librechat.core.model.response.UploadRoute
 import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.feature.chat.components.AttachedFile
+import com.garfiec.librechat.feature.chat.util.SpecTools
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PickedFile
 
 /**
@@ -110,10 +111,19 @@ data class UploadRoutingContext(
 sealed interface SendBlockReason {
     data object SelectAgent : SendBlockReason
     data object SelectModel : SendBlockReason
+
+    /** Compare's second model needs a spec on this server; the selector opens on lane B. */
+    data object SelectSecondaryModel : SendBlockReason
     data object AgentsUnavailable : SendBlockReason
     data object AgentNotAvailable : SendBlockReason
     data object ModelNotAvailable : SendBlockReason
     data object ModelLoadFailed : SendBlockReason
+
+    /**
+     * The selected endpoint takes the user's own API key, and none is set (or it expired).
+     * [endpointLabel] is the name the picker shows for it.
+     */
+    data class ApiKeyRequired(val endpointLabel: String) : SendBlockReason
 }
 
 /**
@@ -132,6 +142,8 @@ data class ComposerSnapshot(
     val choice: ModelChoice,
     val enabledTools: Set<String> = emptySet(),
     val mcpServerNames: Set<String> = emptySet(),
+    /** The tools added on top of a spec, which ride the swap like the user's own toggles. */
+    val specTools: SpecTools? = null,
     val modelParameters: ModelParameters = ModelParameters.DEFAULT,
     /** The pending skill chips: the draft's while stashed, the queued item's picks while editing. */
     val manualSkills: List<String> = emptyList(),

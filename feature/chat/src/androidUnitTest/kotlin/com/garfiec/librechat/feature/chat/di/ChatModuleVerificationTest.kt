@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
+import com.garfiec.librechat.core.data.datastore.ConversationWebSearchStore
 import com.garfiec.librechat.core.data.datastore.PreferenceStore
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
@@ -30,8 +31,10 @@ import com.garfiec.librechat.core.data.repository.ShareRepository
 import com.garfiec.librechat.core.data.repository.SkillsRepository
 import com.garfiec.librechat.core.data.repository.SpeechRepository
 import com.garfiec.librechat.core.data.repository.SubagentRepository
+import com.garfiec.librechat.core.data.repository.TagRepository
 import com.garfiec.librechat.core.data.repository.TraceRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
+import com.garfiec.librechat.core.data.repository.WebSearchReadinessRepository
 import com.garfiec.librechat.core.data.share.ShareLinkControllerFactory
 import com.garfiec.librechat.core.data.update.AppUpdateRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
@@ -81,11 +84,14 @@ class ChatModuleVerificationTest {
                 PermissionGate::class,
                 ShareRepository::class,
                 ShareLinkControllerFactory::class,
+                TagRepository::class,
                 SubagentRepository::class,
                 TraceRepository::class,
                 SpeechRepository::class,
                 McpRepository::class,
                 MemoryRepository::class,
+                WebSearchReadinessRepository::class,
+                ConversationWebSearchStore::class,
                 SkillsRepository::class,
                 UserRepository::class,
                 ConnectivityObserver::class,

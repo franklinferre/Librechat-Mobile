@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.feature.conversations.drawer.DrawerContent
+import com.garfiec.librechat.feature.conversations.drawer.WorkspaceDestination
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -16,10 +17,7 @@ fun SidebarScaffold(
     onNewChat: () -> Unit,
     onConversationClick: (String) -> Unit,
     onSettingsClick: () -> Unit,
-    onAgentsClick: () -> Unit,
-    onFilesClick: () -> Unit,
-    onSkillsClick: () -> Unit,
-    onSchedulesClick: () -> Unit,
+    onWorkspaceClick: (WorkspaceDestination) -> Unit,
     modifier: Modifier = Modifier,
     onOpenProjectsIndex: () -> Unit = {},
     onNewChatInProject: (projectId: String, projectName: String) -> Unit = { _, _ -> },
@@ -37,6 +35,8 @@ fun SidebarScaffold(
     // Whether the host is showing the sidebar (phone drawer open / tablet sidebar expanded); gates
     // the drawer's active-jobs poll.
     isOpen: Boolean = true,
+    // The Workspace destination the tablet's content pane shows; null on a phone.
+    currentWorkspace: WorkspaceDestination? = null,
     viewModel: NavHostViewModel = koinViewModel(),
 ) {
     // Account list + switching stay in the nav shell; the drawer only renders the footer chip/sheet,
@@ -49,10 +49,8 @@ fun SidebarScaffold(
         onActiveConversationDelete = onActiveConversationDelete,
         onConversationClick = onConversationClick,
         onSettingsClick = onSettingsClick,
-        onAgentsClick = onAgentsClick,
-        onFilesClick = onFilesClick,
-        onSkillsClick = onSkillsClick,
-        onSchedulesClick = onSchedulesClick,
+        onWorkspaceClick = onWorkspaceClick,
+        currentWorkspace = currentWorkspace,
         accounts = accounts,
         onOpenProjectsIndex = onOpenProjectsIndex,
         onNewChatInProject = onNewChatInProject,

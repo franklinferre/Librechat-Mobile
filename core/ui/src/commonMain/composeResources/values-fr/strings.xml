@@ -28,6 +28,8 @@
     <string name="pdf_password_incorrect">Mot de passe incorrect. Réessayez.</string>
     <string name="pdf_password_show">Afficher le mot de passe</string>
     <string name="pdf_password_hide">Masquer le mot de passe</string>
+    <string name="cd_show_secret">Afficher</string>
+    <string name="cd_hide_secret">Masquer</string>
     <string name="pdf_password_confirm">Déchiffrer et envoyer</string>
     <string name="pdf_password_cancel">Annuler</string>
     <string name="param_thinking_between_tools_description">Active la réflexion adaptative contrôlée par le paramètre Effort. Ce modèle ne peut pas désactiver entièrement la réflexion : la désactiver utilise son niveau le plus bas, qui ignore la réflexion étendue et ne conserve que de brèves notes entre les appels d’outils. L’effort est plafonné à Élevé lorsque l’option est désactivée.</string>
@@ -154,6 +156,8 @@
     <string name="param_label_prompt_caching">Mise en cache du prompt</string>
     <string name="param_label_reasoning_effort">Effort de raisonnement</string>
     <string name="param_label_reasoning_summary">Résumé du raisonnement</string>
+    <string name="param_label_reasoning_mode">Mode de raisonnement</string>
+    <string name="param_label_reasoning_context">Contexte du raisonnement</string>
     <string name="param_label_reasoning_visibility">Visibilité du raisonnement</string>
     <string name="param_label_region">Région</string>
     <string name="param_label_resend_files">Renvoyer les fichiers</string>
@@ -179,6 +183,10 @@
     <string name="param_option_auto">Auto</string>
     <string name="param_option_concise">Concis</string>
     <string name="param_option_detailed">Détaillé</string>
+    <string name="param_option_standard">Standard</string>
+    <string name="param_option_pro">Pro</string>
+    <string name="param_option_current_turn">Tour actuel</string>
+    <string name="param_option_all_turns">Tous les tours</string>
     <string name="param_option_summarized">Résumé</string>
     <string name="param_option_omitted">Omis</string>
     <string name="param_option_updates">Mises à jour</string>
@@ -205,6 +213,8 @@
     <string name="param_desc_frequency_penalty">Pénalise les jetons selon leur fréquence dans le texte.</string>
     <string name="param_desc_url_context">Permet au modèle de récupérer les URL (et YouTube) que vous citez et de s’y appuyer.</string>
     <string name="param_desc_reasoning_summary">Manière dont le résumé du raisonnement apparaît dans la réponse.</string>
+    <string name="param_desc_reasoning_mode">Responses API uniquement : choisit le mode de raisonnement. Pro active le raisonnement étendu sur les modèles compatibles.</string>
+    <string name="param_desc_reasoning_context">Responses API uniquement : quelle part du raisonnement précédent le modèle réutilise.</string>
     <string name="param_desc_prompt_cache_duration">Durée de conservation du cache de prompt (Anthropic). S’applique quand la mise en cache est activée.</string>
     <string name="param_desc_thinking_level">Contrôle l’ampleur de la réflexion du modèle.</string>
     <string name="param_desc_reasoning_effort">Contrôle l’ampleur du raisonnement du modèle.</string>
@@ -293,4 +303,34 @@
     <string name="acl_error_owner_protected">L'accès du propriétaire ne peut pas être modifié.</string>
     <string name="acl_error_generic">Impossible de mettre à jour l'accès. Réessayez.</string>
     <string name="acl_error_load">Impossible de charger la liste des personnes ayant accès.</string>
+    <string name="bookmarks">Signets</string>
+    <string name="bookmark_new">Nouveau signet</string>
+    <string name="bookmark_edit">Modifier le signet</string>
+    <string name="bookmark_name">Nom</string>
+    <string name="bookmark_description">Description</string>
+    <string name="bookmark_description_hint">Facultatif</string>
+    <string name="bookmark_add_to_chat">Ajouter à cette discussion</string>
+    <string name="bookmark_create">Créer</string>
+    <string name="bookmark_save">Enregistrer</string>
+    <string name="bookmark_saving">Enregistrement…</string>
+    <string name="bookmark_cancel">Annuler</string>
+    <string name="bookmark_error_blank">Saisissez un nom</string>
+    <string name="bookmark_error_duplicate">Vous avez déjà un signet portant ce nom</string>
+    <string name="bookmark_error_reserved">« Saved » est réservé aux favoris. Choisissez un autre nom.</string>
+    <string name="bookmark_char_counter">%1$d/%2$d</string>
+    <string name="bookmarks_none_yet">Aucun signet pour l'instant</string>
+    <string name="bookmarks_no_match">Aucun signet ne correspond à « %1$s »</string>
+    <string name="search_bookmarks">Rechercher des signets</string>
+    <string name="cd_bookmarked">Ajouté</string>
+    <string name="cd_not_bookmarked">Non ajouté</string>
+    <plurals name="bookmark_chat_count">
+        <item quantity="one">%1$d discussion</item>
+        <item quantity="many">%1$d discussions</item>
+        <item quantity="other">%1$d discussions</item>
+    </plurals>
+    <plurals name="bookmark_error_too_long">
+        <item quantity="one">%1$d caractère maximum</item>
+        <item quantity="many">%1$d caractères maximum</item>
+        <item quantity="other">%1$d caractères maximum</item>
+    </plurals>
 </resources>

@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.model.config
 
+import com.garfiec.librechat.core.model.ArtifactsMode
 import com.garfiec.librechat.core.model.Preset
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -9,6 +10,19 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 
+/**
+ * One entry of the server's `modelSpecs.list`, as `GET /api/config` serves it (upstream `TModelSpec`,
+ * `packages/data-provider/src/models.ts`). Which field is honoured where is the "Model spec fields"
+ * table in `feature/chat/CLAUDE.md`.
+ *
+ * Served but deliberately not decoded. Don't add these in a sync without something that reads them:
+ * - `runInBackground`, `describeIntent`: the server resolves both from its own config by spec name
+ *   when it builds the run, and web reads neither. What they produce already renders here (tool
+ *   intent labels, the background-task cards).
+ * - `subagents`: applied by the server (`enabled`, `allowSelf`; `sanitizeModelSpecs` strips
+ *   `agent_ids` and `shareFiles`). Web reads it nowhere.
+ * - `authType`: dead upstream. Only the schema and web's fake picker data mention it.
+ */
 @Serializable
 data class ModelSpec(
     val name: String,
@@ -17,10 +31,10 @@ data class ModelSpec(
     val iconURL: String? = null,
     val description: String? = null,
     /**
-     * Whether the spec is offered in the model picker. The server already drops
-     * `showInMenu: false` specs from `/api/config`, so mobile never receives one —
-     * the field is modeled for round-trip completeness only. A hidden spec stays
-     * resolvable by name (`spec: "<name>"`) on a conversation.
+     * Whether the spec is offered in the model picker. The server drops `showInMenu: false` specs
+     * from `/api/config` (`excludeHiddenModelSpecs`), so v0.8.8 never sends one; `visibleSpecs`
+     * filters on it anyway, in case one arrives. A hidden spec stays resolvable by name
+     * (`spec: "<name>"`) on a conversation.
      */
     val showInMenu: Boolean? = null,
     /** The spec new chats open on when the server prioritizes specs. */
@@ -46,7 +60,55 @@ data class ModelSpec(
      * upstream starts sending the key.
      */
     val skills: JsonElement? = null,
+    /** Shown on the new-chat screen when the spec's agent, if it has one, has none of its own. */
+    @SerialName("conversation_starters") val conversationStarters: List<String> = emptyList(),
+    /**
+     * Raw `artifacts` key: `true` or an artifacts mode (`"default"`, `"shadcnui"`, `"custom"`). Kept
+     * as a [JsonElement] because the key is a union; read it through [artifactsMode].
+     */
+    val artifacts: JsonElement? = null,
+    /** Hides the composer's tool controls (web's badge row) while this spec is selected. */
+    val hideBadgeRow: Boolean? = null,
+    /**
+     * Tools this spec turns on. The server ORs each with the request's `ephemeralAgent` flag, so the
+     * client can add tools to a spec chat but can't turn these off.
+     */
+    val webSearch: Boolean? = null,
+    val fileSearch: Boolean? = null,
+    val executeCode: Boolean? = null,
+    val memory: Boolean? = null,
+    /** Applied by the server alone: the composer has no ask-user control, and web sends none. */
+    val askUserQuestion: Boolean? = null,
+    /** MCP servers the server adds to the request's own, even ones hidden from the chat picker. */
+    val mcpServers: List<String>? = null,
+    /**
+     * The picker section this spec sits in: an endpoint's key nests it in that endpoint's section,
+     * any other name heads a group of its own, as web's `CustomGroup`. Exact and case-sensitive.
+     */
+    val group: String? = null,
+    /** The custom group's icon: the first spec in the group that has one sets it. */
+    val groupIcon: String? = null,
+    /** False hides the spec's icon in the picker. */
+    val showIconInMenu: Boolean? = null,
+    /** False hides the spec's icon in web's header. Decoded only: the header chip here has no icon. */
+    val showIconInHeader: Boolean? = null,
+    /** The new chat's title and description become the spec's label and description. */
+    val showOnLanding: Boolean? = null,
 ) {
+    /**
+     * The `ephemeralAgent.artifacts` this spec turns on, or null for none. As web's
+     * `applyModelSpecEphemeralAgent` (`client/src/utils/endpoints.ts`, registered in
+     * `scripts/mirrors.json` as `model-spec-artifacts-web`): `true` is the default mode
+     * and a string is sent as is. The server reads artifacts from the ephemeral agent only, never
+     * from the spec, so a client that doesn't send it gets no artifacts.
+     */
+    val artifactsMode: String?
+        get() {
+            val value = artifacts as? JsonPrimitive ?: return null
+            if (value.booleanOrNull == true) return ArtifactsMode.DEFAULT.wire
+            return value.takeIf { it.isString }?.contentOrNull?.takeIf { it.isNotEmpty() }
+        }
+
     /**
      * What this spec says about skills, or null when it configures none.
      *

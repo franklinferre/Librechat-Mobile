@@ -60,6 +60,28 @@ object AppPreferences {
      */
     val PreferLastUsedModel = boolPreference("prefer_last_used_model", default = always(false))
 
+    /** Which search the chat's web-search control tries first ([WebSearchPreference]). Mobile-only. */
+    val WebSearchFirst = stringPreference(
+        "web_search_first",
+        default = always(WebSearchPreference.LIBRECHAT_FIRST),
+        decode = WebSearchPreference::fromStorage,
+        encode = { it.storageValue },
+    )
+
+    /**
+     * Drawer destinations pinned as rows under Workspace, in the user's order: their stable ids,
+     * comma-separated. Device-wide, not per account. The key and the ids are persisted: never rename.
+     * Ids this build doesn't know are kept here and skipped by the reader.
+     */
+    val DrawerPinned = stringListPreference("drawer_pinned_destinations")
+
+    /**
+     * Remembered answers about flagged libraries (unmaintained, deprecated or vulnerable) in React
+     * artifacts, as `allow|<library>|<advisory>` / `decline|…` entries. Device-wide. One key for all
+     * of them so a change is one write. Encoded and read only by [ArtifactLibraryConsentStore].
+     */
+    val ArtifactLibraryAnswers = stringListPreference("artifact_library_answers")
+
     val all: List<PreferenceSpec<*, *>> =
         listOf(
             SiteIcons,
@@ -70,5 +92,8 @@ object AppPreferences {
             AdvancedSearch,
             CompareSyncScroll,
             PreferLastUsedModel,
+            WebSearchFirst,
+            DrawerPinned,
+            ArtifactLibraryAnswers,
         )
 }
