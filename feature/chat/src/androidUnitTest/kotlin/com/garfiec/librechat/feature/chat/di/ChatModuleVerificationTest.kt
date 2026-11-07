@@ -2,15 +2,20 @@ package com.garfiec.librechat.feature.chat.di
 
 import android.app.Application
 import android.content.Context
+import com.garfiec.librechat.core.common.AppInfo
 import com.garfiec.librechat.core.common.identity.ActiveAccountProvider
 import com.garfiec.librechat.core.common.network.ConnectivityObserver
+import com.garfiec.librechat.core.data.datastore.CodeWorkspacePreferenceStore
 import com.garfiec.librechat.core.data.datastore.ConversationWebSearchStore
+import com.garfiec.librechat.core.data.datastore.McpAppLocationConsentStore
 import com.garfiec.librechat.core.data.datastore.PreferenceStore
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.BackgroundTaskRepository
 import com.garfiec.librechat.core.data.repository.ChatRepository
+import com.garfiec.librechat.core.data.repository.CodeEnvironmentRepository
+import com.garfiec.librechat.core.data.repository.CodeRunRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.ConversationRepository
 import com.garfiec.librechat.core.data.repository.DraftRepository
@@ -18,13 +23,17 @@ import com.garfiec.librechat.core.data.repository.EndpointTokenRepository
 import com.garfiec.librechat.core.data.repository.FavoritesRepository
 import com.garfiec.librechat.core.data.repository.FileRepository
 import com.garfiec.librechat.core.data.repository.KeyRepository
+import com.garfiec.librechat.core.data.repository.McpAppsRepository
+import com.garfiec.librechat.core.data.repository.McpOAuthLauncher
 import com.garfiec.librechat.core.data.repository.McpRepository
 import com.garfiec.librechat.core.data.repository.MemoryRepository
 import com.garfiec.librechat.core.data.repository.MessageRepository
 import com.garfiec.librechat.core.data.repository.PresetRepository
 import com.garfiec.librechat.core.data.repository.ProjectRepository
 import com.garfiec.librechat.core.data.repository.PromptRepository
+import com.garfiec.librechat.core.data.repository.PullRequestRepository
 import com.garfiec.librechat.core.data.repository.QueuedTurnRepository
+import com.garfiec.librechat.core.data.repository.ReasoningCapabilitiesRepository
 import com.garfiec.librechat.core.data.repository.ResumePinStore
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.ShareRepository
@@ -72,6 +81,7 @@ class ChatModuleVerificationTest {
                 ConversationRepository::class,
                 DraftRepository::class,
                 EndpointTokenRepository::class,
+                ReasoningCapabilitiesRepository::class,
                 FavoritesRepository::class,
                 FileRepository::class,
                 KeyRepository::class,
@@ -89,9 +99,17 @@ class ChatModuleVerificationTest {
                 TraceRepository::class,
                 SpeechRepository::class,
                 McpRepository::class,
+                McpOAuthLauncher::class,
+                McpAppsRepository::class,
+                AppInfo::class,
                 MemoryRepository::class,
                 WebSearchReadinessRepository::class,
                 ConversationWebSearchStore::class,
+                McpAppLocationConsentStore::class,
+                CodeEnvironmentRepository::class,
+                CodeWorkspacePreferenceStore::class,
+                PullRequestRepository::class,
+                CodeRunRepository::class,
                 SkillsRepository::class,
                 UserRepository::class,
                 ConnectivityObserver::class,

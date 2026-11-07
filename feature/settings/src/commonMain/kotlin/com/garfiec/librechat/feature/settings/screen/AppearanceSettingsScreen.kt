@@ -99,7 +99,7 @@ fun AppearanceSettingsScreen(
                         ThemeSelector(
                             selected = uiState.themeMode,
                             uiStyle = uiState.uiStyle,
-                            accentColor = Color(uiState.accentColor),
+                            accentColor = Color(uiState.shownAccentColor),
                             useDynamicColor = uiState.useDynamicColor,
                             onSelect = viewModel::setThemeMode,
                         )

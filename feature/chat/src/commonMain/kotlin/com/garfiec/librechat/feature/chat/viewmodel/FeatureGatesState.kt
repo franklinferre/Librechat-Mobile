@@ -2,6 +2,8 @@ package com.garfiec.librechat.feature.chat.viewmodel
 
 import androidx.compose.runtime.Immutable
 import com.garfiec.librechat.core.model.config.CurrencyConfig
+import com.garfiec.librechat.core.model.config.DEFAULT_STEER_ARM_CONFIRMATION_TIMEOUT_MS
+import com.garfiec.librechat.core.model.queuedturn.QUEUED_TURN_RECONCILIATION_MS
 import kotlinx.serialization.json.JsonElement
 
 /**
@@ -21,6 +23,26 @@ data class FeatureGatesState(
     val mcpServersEnabled: Boolean = true,
     val multiConvoEnabled: Boolean = true,
     val temporaryChatEnabled: Boolean = true,
+    /**
+     * `interface.retentionMode: "ephemeral"` (v0.8.9-rc1): the server forces every new chat
+     * temporary, so a new chat is temporary whatever the toggle says and the toggle is locked on.
+     */
+    val temporaryChatEnforced: Boolean = false,
+    /**
+     * `interface.landingHeading: "greeting"` (v0.8.9-rc1): the time-of-day greeting heads the new
+     * chat even with an agent or a branded spec selected (see `landingText`).
+     */
+    val landingGreetingHeading: Boolean = false,
+    /**
+     * `interface.queuedTurnReconciliationTimeoutMs` (v0.8.9-rc1): how long a queued turn whose
+     * enqueue outcome the transport hid stays polled for. Default upstream's 60 s.
+     */
+    val queuedTurnReconciliationMs: Long = QUEUED_TURN_RECONCILIATION_MS,
+    /**
+     * `interface.steerArmConfirmationTimeoutMs`: how long an "Interrupt now" waits for the server
+     * before the client says it couldn't confirm. Default upstream's 10 s.
+     */
+    val steerArmConfirmationMs: Long = DEFAULT_STEER_ARM_CONFIRMATION_TIMEOUT_MS,
     /** LibreChat search allowed: `WEB_SEARCH.USE` AND `interface.webSearch`. */
     val webSearchEnabled: Boolean = true,
     /**
@@ -62,7 +84,7 @@ data class FeatureGatesState(
      *  never coming. */
     val feedbackEnabled: Boolean = true,
     /** `interface.defaultPinnedTools` (v0.8.7): tool keys the server pins to the prompt bar.
-     *  Raw, as sent; mapped/filtered to renderable chips by [ChatUiState.pinnedToolChips]. */
+     *  Raw, as sent; mapped and gated into the settings line by `settingChipsOf`. */
     val pinnedTools: List<String> = emptyList(),
     /** `endpointsDropParamsMap` (v0.8.8-rc3): parameters this server strips before calling the
      *  provider. Raw, as sent — the endpoint/model lookup is a union shape and is resolved inside

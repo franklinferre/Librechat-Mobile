@@ -407,6 +407,7 @@ internal fun BoxScope.ChatPullUpSheetOverlay(
     onTakePhoto: () -> Unit,
     onPickPhotos: () -> Unit,
     onAttachFromServer: () -> Unit,
+    onAttachToCode: (() -> Unit)?,
 ) {
     val coroutineScope = rememberCoroutineScope()
     val hide: () -> Unit = { coroutineScope.launch { state.hide() } }
@@ -492,6 +493,7 @@ internal fun BoxScope.ChatPullUpSheetOverlay(
                 onTakePhoto = onTakePhoto,
                 onPickPhotos = onPickPhotos,
                 onAttachFromServer = onAttachFromServer,
+                onAttachToCode = onAttachToCode,
                 onOpenModelParameters = {
                     optionsController.open(ChatOptionsPage.ModelParameters)
                     hide()
@@ -503,14 +505,8 @@ internal fun BoxScope.ChatPullUpSheetOverlay(
                 selectedModelDisplay = selectedModelDisplay,
                 comparisonModels = comparisonModelLabels(uiState),
                 onDismiss = hide,
-                isCodeInterpreterAvailable = uiState.isCodeInterpreterAvailable,
-                webSearchEnabled = uiState.webSearchAvailable,
+                openTools = uiState.openTools,
                 webSearchKind = uiState.webSearchKind,
-                urlContextEnabled = uiState.urlContextProviderGate,
-                runCodeEnabled = uiState.runCodeEnabled,
-                fileSearchEnabled = uiState.fileSearchEnabled,
-                memoryEnabled = uiState.isMemoryToolAvailable,
-                skillsEnabled = uiState.isSkillsToolAvailable,
                 mcpServersEnabled = uiState.mcpServersEnabled,
                 gates = uiState.chatInputGates,
                 contextGauge = uiState.contextGaugeDetails,

@@ -43,6 +43,16 @@ interface McpRepository {
     ): Result<McpServer>
     suspend fun deleteServer(serverName: String): Result<Unit>
     suspend fun reinitialize(serverName: String): Result<McpReinitializeResponse>
+
+    /**
+     * Has the server set the OAuth binding cookies for [serverName] and returns them as `Set-Cookie`
+     * values (see `McpApi.bindOAuth`), for an in-app sign-in to seed into its WebView.
+     */
+    suspend fun bindOAuth(serverName: String): Result<List<String>>
+
+    /** Cancels this user's pending OAuth flow for [serverName] (see `McpApi.cancelOAuth`). */
+    suspend fun cancelOAuth(serverName: String): Result<Unit>
+
     suspend fun getTools(): Result<McpToolCatalog>
     suspend fun getConnectionStatus(): Result<Map<String, McpServerStatus>>
 }

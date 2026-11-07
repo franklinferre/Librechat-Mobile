@@ -11,6 +11,7 @@ import com.garfiec.librechat.feature.chat.components.ChatOverflowItem.DELETE
 import com.garfiec.librechat.feature.chat.components.ChatOverflowItem.DUPLICATE
 import com.garfiec.librechat.feature.chat.components.ChatOverflowItem.LOAD_PRESET
 import com.garfiec.librechat.feature.chat.components.ChatOverflowItem.PROMPTS_LIBRARY
+import com.garfiec.librechat.feature.chat.components.ChatOverflowItem.PULL_REQUEST
 import com.garfiec.librechat.feature.chat.components.ChatOverflowItem.RENAME
 import com.garfiec.librechat.feature.chat.components.ChatOverflowItem.SAVE_PRESET
 import com.garfiec.librechat.feature.chat.components.ChatOverflowItem.SEARCH
@@ -45,11 +46,13 @@ class ChatOverflowSectionsTest {
         firstTurnStreaming: Boolean = false,
         bookmarksEnabled: Boolean = true,
         isTemporaryChat: Boolean = false,
+        hasPullRequest: Boolean = false,
+        openApps: Int = 0,
     ) = chatOverflowSections(
         ChatOverflowGates(
             conversationId, hasShowAllMedia, presetsEnabled, hasPromptsLibrary, promptsEnabled, multiConvoEnabled,
             traceViewerAvailable, contextUsage, contextUsageEnabled, contextBarPlacement, sharedLinksEnabled,
-            compactNudgeVisible, firstTurnStreaming, bookmarksEnabled, isTemporaryChat,
+            compactNudgeVisible, firstTurnStreaming, bookmarksEnabled, isTemporaryChat, hasPullRequest, openApps,
         ),
     )
 
@@ -74,6 +77,13 @@ class ChatOverflowSectionsTest {
             ),
             sections(),
         )
+    }
+
+    @Test
+    fun aKnownPullRequestLeadsTheConversationSectionAndIsAbsentOtherwise() {
+        assertEquals(listOf(PULL_REQUEST, SHARE, BOOKMARKS, RENAME, DUPLICATE, ARCHIVE), sections(hasPullRequest = true)[1])
+        assertFalse(PULL_REQUEST in sections().flatten())
+        assertFalse(PULL_REQUEST in sections(conversationId = null, hasPullRequest = true).flatten())
     }
 
     @Test
@@ -145,5 +155,13 @@ class ChatOverflowSectionsTest {
         assertEquals(false, CONTEXT_USAGE in sections(contextBarPlacement = ContextBarPlacement.OPTIONS_SHEET)[0])
         assertEquals(false, CONTEXT_USAGE in sections(contextUsageEnabled = false)[0])
         assertEquals(false, CONTEXT_USAGE in sections(contextUsage = ContextUsage())[0])
+    }
+
+    @Test
+    fun minimizedAppsPutOpenAppsAtTheTopEvenOnTheLanding() {
+        assertEquals(ChatOverflowItem.OPEN_APPS, sections(openApps = 2).first().first())
+        assertEquals(listOf(ChatOverflowItem.OPEN_APPS), sections(conversationId = null, hasShowAllMedia = false, presetsEnabled = false,
+            hasPromptsLibrary = false, multiConvoEnabled = false, traceViewerAvailable = false, contextUsage = null, openApps = 1).first())
+        assertFalse(ChatOverflowItem.OPEN_APPS in sections(openApps = 0).flatten())
     }
 }

@@ -9,34 +9,34 @@ import com.garfiec.librechat.core.data.datastore.LastUsedSelection
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.AgentRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
-import com.garfiec.librechat.core.data.repository.McpRepository
 import com.garfiec.librechat.core.data.util.PermissionGate
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.Conversation
 import com.garfiec.librechat.core.model.EndpointConfig
+import com.garfiec.librechat.core.model.ReasoningOverrideKeys
 import com.garfiec.librechat.core.model.config.ModelSpec
 import com.garfiec.librechat.core.model.config.ModelSpecs
-import com.garfiec.librechat.core.model.mcp.McpServer
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.ui.components.ModelParameters
-import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
+import com.garfiec.librechat.feature.chat.util.DroppedSpecMemo
 import com.garfiec.librechat.feature.chat.util.SpecSeed
 import com.garfiec.librechat.feature.chat.util.StartChatPick
 import com.garfiec.librechat.feature.chat.util.demotedForLastUsed
 import com.garfiec.librechat.feature.chat.util.fallbackSpecSeeds
-import com.garfiec.librechat.feature.chat.util.offeredOrUnchecked
+import com.garfiec.librechat.feature.chat.util.heldAgainst
 import com.garfiec.librechat.feature.chat.util.reopenedPick
 import com.garfiec.librechat.feature.chat.util.requiresSpec
 import com.garfiec.librechat.feature.chat.util.resolveDefaultModelSpec
 import com.garfiec.librechat.feature.chat.util.resolvedAgainst
 import com.garfiec.librechat.feature.chat.util.seedableLastUsed
+import com.garfiec.librechat.feature.chat.util.stored
 import com.garfiec.librechat.feature.chat.util.toChoice
 import com.garfiec.librechat.feature.chat.util.toSeed
 import com.garfiec.librechat.feature.chat.util.withChoice
 import com.garfiec.librechat.feature.chat.util.withSpecsRefreshed
-import com.garfiec.librechat.feature.chat.util.withoutStale
+import com.garfiec.librechat.feature.chat.util.withUngatedDefault
 import com.garfiec.librechat.feature.chat.viewmodel.ModelChoice
 import com.garfiec.librechat.feature.chat.viewmodel.ModelSelectionHandle
 import com.garfiec.librechat.feature.chat.viewmodel.ModelSelectionState
@@ -50,6 +50,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /** Failure banner published by [ModelSelectionDelegate.loadAgents]; cleared by a later success. */
 private const val AGENTS_LOAD_ERROR = "Could not load available agents"
@@ -65,7 +68,6 @@ class ModelSelectionDelegate(
     private val handle: ModelSelectionHandle,
     private val configRepository: ConfigRepository,
     private val agentRepository: AgentRepository,
-    private val mcpRepository: McpRepository,
     private val settingsDataStore: SettingsDataStore,
     private val permissionGate: PermissionGate,
     private val connectivityObserver: ConnectivityObserver,
@@ -147,8 +149,7 @@ class ModelSelectionDelegate(
      * and by [ChatViewModel]'s conversation reads — so the flags can't drift from the value.
      */
     fun applyResolvedConversationModel(endpoint: String, model: String?, spec: String? = null) {
-        val config = configRepository.startupConfig.value
-        val choice = spec.offeredOrUnchecked(endpoint, model, config?.modelSpecs, checkable = config != null)
+        val choice = ModelChoice.stored(endpoint, model, spec, configRepository.startupConfig.value?.modelSpecs)
         applySelection(choice, reason = "conversationResolved", specPreset = false)
         conversationModelLoaded = true
         conversationModelResolved = true
@@ -317,16 +318,16 @@ class ModelSelectionDelegate(
     private fun resolveAgentProvider(agentId: String?) {
         agentProviderJob?.cancel()
         if (agentId == null) {
-            publishAgentView(provider = null, starters = null)
+            publishAgentView(AgentViewFacts.UNRESOLVED)
             return
         }
         agentViews[agentId]?.let {
-            publishAgentView(it.provider, it.conversationStarters)
+            publishAgentView(it)
             return
         }
         // Clear first: the previous agent's provider must not linger over the new selection while
         // the fetch runs, or an attachment routes against the wrong provider for a network RTT.
-        publishAgentView(provider = null, starters = null)
+        publishAgentView(AgentViewFacts.UNRESOLVED)
         agentProviderJob = handle.scope.launch { fetchAgentView(agentId) }
     }
 
@@ -388,16 +389,16 @@ class ModelSelectionDelegate(
         agentViews[agentId]?.let { return it }
         return when (val result = agentRepository.getAgentForViewing(agentId)) {
             is Result.Success -> {
-                val facts = AgentViewFacts(result.data.provider, result.data.conversationStarters)
+                val facts = AgentViewFacts.of(result.data)
                 agentViews[agentId] = facts
                 // The selection may have moved while the fetch was in flight.
-                if (currentAgentId() == agentId) publishAgentView(facts.provider, facts.conversationStarters)
+                if (currentAgentId() == agentId) publishAgentView(facts)
                 facts
             }
 
             is Result.Error -> {
                 Logger.d(result.exception) { "Failed to resolve agent provider" }
-                if (currentAgentId() == agentId) publishAgentView(provider = null, starters = emptyList())
+                if (currentAgentId() == agentId) publishAgentView(AgentViewFacts.UNRESOLVED.copy(conversationStarters = emptyList()))
                 null
             }
 
@@ -405,16 +406,10 @@ class ModelSelectionDelegate(
         }
     }
 
-    private fun publishAgentView(provider: String?, starters: List<String>?) {
-        val current = handle.state.selection
-        if (current.selectedAgentProvider == provider && current.selectedAgentStarters == starters) return
-        handle.update {
-            selection = selection.copy(selectedAgentProvider = provider, selectedAgentStarters = starters)
-        }
+    private fun publishAgentView(facts: AgentViewFacts) {
+        if (AgentViewFacts.of(handle.state.selection) == facts) return
+        handle.update { selection = facts.applyTo(selection) }
     }
-
-    /** The single-agent read's answers this delegate keeps: the two the list projection omits. */
-    private data class AgentViewFacts(val provider: String?, val conversationStarters: List<String>)
 
     /**
      * Re-filters availableModels into UI state and, for EXISTING conversations,
@@ -564,7 +559,8 @@ class ModelSelectionDelegate(
                     agents = agents.agents,
                     agentsLoaded = agents.loaded,
                     conversationId = agents.conversationId,
-                    serverSpecSeed = resolveDefaultModelSpec(specConfig.modelSpecs, specConfig.modelSelect, lastUsed.spec),
+                    serverSpecSeed = resolveDefaultModelSpec(specConfig.modelSpecs, specConfig.modelSelect, lastUsed.spec)
+                        .withUngatedDefault(specConfig.modelSpecs),
                     modelSpecs = specConfig.modelSpecs,
                     modelSelect = specConfig.modelSelect,
                     preferLastUsed = specConfig.preferLastUsed,
@@ -582,7 +578,9 @@ class ModelSelectionDelegate(
                         tier0AwaitingSpecs = null
                         tier0SpecsArrived = true
                     }
-                    val current = handle.state.selection.choice.withoutStale(input.modelSpecs)
+                    val seeded = onLanding && handle.state.selection.choice == seederChoice
+                    val before = handle.state.selection
+                    val current = before.choice.heldAgainst(input.modelSpecs, seeded)
                     // Still the raw pair the entry point applied before the config: resolve it now.
                     val resolved = awaiting
                         ?.takeIf { current == ModelChoice.Raw(it.endpoint, it.model) }
@@ -598,9 +596,10 @@ class ModelSelectionDelegate(
                     selectionWatches.configRewrite {
                         handle.update {
                             selection = resolved?.let { selection.withChoice(it, input.modelSpecs) }
-                                ?: selection.withSpecsRefreshed(input.modelSpecs)
+                                ?: selection.withSpecsRefreshed(input.modelSpecs, seeded)
                         }
                     }
+                    droppedSpec.record(before, handle.state.selection)
                 }
                 // Keep the cached last-used fresh for refilterModels' existing-
                 // conversation corrective fallback. This runs for every conversation
@@ -700,7 +699,6 @@ class ModelSelectionDelegate(
             preferLastUsed = input.preferLastUsed,
             modelSelect = input.modelSelect,
             lastUsed = lastUsed,
-            specs = input.modelSpecs,
         )
         // Switching the setting on while this landing sits on the spec should hand it to last-used,
         // which the re-sync below does only for a last-used it hasn't applied yet. Only when the
@@ -915,7 +913,8 @@ class ModelSelectionDelegate(
         val previous = handle.state
         val changed = previous.selectedEndpoint != choice.endpoint || previous.selectedModel != choice.model
         reseedCarried = false
-        handle.update { selection = if (specPreset) selection.withChoice(choice) else selection.copy(choice = choice) }
+        val from = droppedSpec.take(previous.selection, choice) ?: previous.selection.choice
+        handle.update { selection = if (specPreset) selection.withChoice(choice, from = from) else selection.copy(choice = choice) }
         if (changed) {
             Diag.d(
                 tag = "ModelSel",
@@ -988,6 +987,8 @@ class ModelSelectionDelegate(
     }
 
     private enum class Selectability { VALID, PENDING, INVALID }
+
+    private val droppedSpec = DroppedSpecMemo()
 
     // Transport-only snapshots: no copy, destructuring or structural equality is used.
     // Avoid generating equality/hash code over the full config and agent graphs on Native.
@@ -1159,30 +1160,6 @@ class ModelSelectionDelegate(
         }
     }
 
-    fun loadMcpServers() {
-        handle.scope.launch {
-            when (val serversResult = mcpRepository.listServers()) {
-                is Result.Success -> {
-                    val servers = serversResult.data
-                    // Enrich servers with connection status
-                    val statusResult = mcpRepository.getConnectionStatus()
-                    val statusMap = (statusResult as? Result.Success)?.data ?: emptyMap()
-                    val enriched = servers.map { server ->
-                        val status = statusMap[server.name]
-                        server.copy(isConnected = status?.isConnected ?: false)
-                    }
-                    handle.update {
-                        selection = selection.copy(mcpServers = enriched.map { it.toDisplayData() })
-                    }
-                }
-                is Result.Error -> {
-                    Logger.d(serversResult.exception) { "Failed to load MCP servers: ${serversResult.message}" }
-                }
-                is Result.Loading -> { /* no-op */ }
-            }
-        }
-    }
-
     /**
      * Switches an MCP server for this chat. Under a spec only the chat's additions change, and
      * nothing is stored ([ModelSelectionState.toggledSpecMcpServer]); otherwise the user's own
@@ -1212,7 +1189,10 @@ class ModelSelectionDelegate(
             // feature/chat/CLAUDE.md, "Web search: one control, two searches").
             val current = handle.state.modelParameters.webSearch
             handle.update {
-                selection = selection.copy(modelParameters = selection.modelParameters.copy(webSearch = !current))
+                selection = selection.copy(
+                    modelParameters = selection.modelParameters.copy(webSearch = !current),
+                    keepsBuiltInSearch = selection.keepsBuiltInSearch && !current,
+                )
             }
         } else if (toolName == ToolConstants.URL_CONTEXT) {
             // URL context (Google-only) is backed by modelParameters.urlContext, like web search.
@@ -1261,11 +1241,47 @@ internal fun filterModelsByEndpoint(
             (endpointConfigs.isEmpty() || endpoint in endpointConfigs)
     }.mapValues { (_, models) -> models.distinct() }
 
-// --- Display data mapping extensions ---
+/** The agent's saved reasoning values, by key, as strings: what the Thinking chip shows as its setting. */
+private fun reasoningParameters(modelParameters: JsonElement?): Map<String, String> {
+    val params = modelParameters as? JsonObject ?: return emptyMap()
+    return ReasoningOverrideKeys.ALL.mapNotNull { key ->
+        (params[key] as? JsonPrimitive)?.let { key to it.content }
+    }.toMap()
+}
 
-internal fun McpServer.toDisplayData() = McpServerDisplayData(
-    name = name,
-    title = title,
-    description = description,
-    isConnected = isConnected,
-)
+/**
+ * The single-agent read's answers this delegate keeps: what the list projection omits (provider,
+ * starters, and the model and reasoning values the composer's Thinking chip resolves against).
+ */
+private data class AgentViewFacts(
+    val provider: String?,
+    val conversationStarters: List<String>?,
+    val model: String? = null,
+    val reasoning: Map<String, String> = emptyMap(),
+) {
+    fun applyTo(selection: ModelSelectionState) = selection.copy(
+        selectedAgentProvider = provider,
+        selectedAgentStarters = conversationStarters,
+        selectedAgentModel = model,
+        selectedAgentReasoning = reasoning,
+    )
+
+    companion object {
+        val UNRESOLVED = AgentViewFacts(provider = null, conversationStarters = null)
+
+        fun of(agent: Agent) = AgentViewFacts(
+            provider = agent.provider,
+            conversationStarters = agent.conversationStarters,
+            model = agent.model,
+            reasoning = reasoningParameters(agent.modelParameters),
+        )
+
+        /** What [selection] currently shows. */
+        fun of(selection: ModelSelectionState) = AgentViewFacts(
+            provider = selection.selectedAgentProvider,
+            conversationStarters = selection.selectedAgentStarters,
+            model = selection.selectedAgentModel,
+            reasoning = selection.selectedAgentReasoning,
+        )
+    }
+}

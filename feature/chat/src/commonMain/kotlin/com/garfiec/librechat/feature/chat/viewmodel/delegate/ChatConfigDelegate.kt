@@ -12,6 +12,10 @@ import com.garfiec.librechat.core.data.repository.UserRepository
 import com.garfiec.librechat.core.data.repository.WebSearchReadinessRepository
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.config.InterfaceConfig
+import com.garfiec.librechat.core.model.config.isForcedTemporaryRetention
+import com.garfiec.librechat.core.model.config.landingHeadingIsGreeting
+import com.garfiec.librechat.core.model.config.queuedTurnReconciliationTimeoutMs
+import com.garfiec.librechat.core.model.config.steerArmConfirmationTimeoutMs
 import com.garfiec.librechat.core.model.permissions.Permission
 import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.model.permissions.UserRolePermissions
@@ -153,6 +157,10 @@ class ChatConfigDelegate(
                         mcpServersEnabled = role.hasAccessOrPermissive(PermissionType.MCP_SERVERS, Permission.USE),
                         multiConvoEnabled = gate(PermissionType.MULTI_CONVO, Permission.USE) { it.multiConvo },
                         temporaryChatEnabled = gate(PermissionType.TEMPORARY_CHAT, Permission.USE) { it.temporaryChat },
+                        temporaryChatEnforced = isForcedTemporaryRetention(iface?.retentionMode),
+                        landingGreetingHeading = iface.landingHeadingIsGreeting(),
+                        queuedTurnReconciliationMs = iface.queuedTurnReconciliationTimeoutMs(),
+                        steerArmConfirmationMs = iface.steerArmConfirmationTimeoutMs(),
                         webSearchEnabled = librechatSearchAllowed(role, iface),
                         webSearchPermitted = role.hasAccessOrPermissive(PermissionType.WEB_SEARCH, Permission.USE),
                         runCodeEnabled = gate(PermissionType.RUN_CODE, Permission.USE) { it.runCode },
@@ -181,7 +189,7 @@ class ChatConfigDelegate(
                         // like the Data tab row that opens the same page: USE + READ.
                         memoriesPageEnabled = role.canOpenMemories(),
                         skillsEnabled = role.hasAccessOrPermissive(PermissionType.SKILLS, Permission.USE),
-                        // Pinned tools (v0.8.7): raw interface list; mapped/filtered by pinnedToolChips.
+                        // Pinned tools (v0.8.7): raw interface list; mapped and gated by settingChipsOf.
                         pinnedTools = iface?.defaultPinnedTools ?: emptyList(),
                         dropParamsMap = inputs.dropParamsMap,
                         compactionEnabled = inputs.compactionEnabled == true,
@@ -211,6 +219,8 @@ class ChatConfigDelegate(
             ) { config, role, account ->
                 config?.webSearch?.takeIf { librechatSearchAllowed(role, config.interfaceConfig) } to account
             }.distinctUntilChanged().collectLatest { (searchConfig, _) ->
+                // Unknown, not unusable, while cached() waits out another screen's check.
+                handle.update { gates = gates.copy(librechatSearchChecking = searchConfig != null) }
                 val cached = searchConfig?.let { webSearchReadiness.cached(it) }
                 handle.update {
                     gates = gates.copy(

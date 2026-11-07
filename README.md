@@ -1,10 +1,10 @@
 # Switchboard: LibreChat Mobile Client
 
-[![LibreChat](https://img.shields.io/badge/LibreChat-v0.8.4_–_v0.8.8-blue)](https://github.com/LibreChat-AI/LibreChat/releases/tag/v0.8.8)
+[![LibreChat](https://img.shields.io/badge/LibreChat-v0.8.4_–_v0.8.9--rc1-blue)](https://github.com/LibreChat-AI/LibreChat/releases/tag/v0.8.9-rc1)
 
 All of [LibreChat](https://www.librechat.ai/), built for Android and iOS. Switchboard keeps the experience you're used to while making it faster and more natural to use on a phone. It also brings new possibilities, from offline chats to interactive content you can keep on your home screen.
 
-> **Backend compatibility:** Tested against LibreChat **v0.8.4 – v0.8.8**. Older releases may work but are not guaranteed; newer releases are supported on a best-effort basis until the next sync.
+> **Backend compatibility:** Tested against LibreChat **v0.8.4 – v0.8.9-rc1**. Older releases may work but are not guaranteed; newer releases are supported on a best-effort basis until the next sync.
 
 ## Get it
 
@@ -160,7 +160,7 @@ Without this setting, the server's violation system may accumulate ban points ag
 
 - **Registration** — The app respects your server's registration settings. If registration is disabled server-side, only the login form is shown.
 - **Access gateways** — If your server sits behind Cloudflare Access, Authelia, Authentik or oauth2-proxy, add the headers your gateway expects under **Advanced** on the server URL screen, or later in **Settings → Account → Server connection**.
-- **Self-signed TLS certificates** — Both platforms enforce certificate requirements stricter than browsers, and Android additionally does not trust user-installed CAs by default. See [FAQ.md](FAQ.md#can-i-use-a-self-signed-tls-certificate) for details and workarounds.
+- **Self-signed TLS certificates** — Both platforms enforce certificate requirements stricter than browsers. Install your private CA on the device and the app trusts it; on Android, sign-in and **Settings → General** say when a server relies on one. See [FAQ.md](FAQ.md#can-i-use-a-self-signed-tls-certificate) for the requirements and setup.
 
 ## Requirements
 
@@ -170,7 +170,7 @@ Without this setting, the server's violation system may accumulate ban points ag
 | Android Studio or IntelliJ IDEA | Latest stable (recommended IDE for all code editing) |
 | Xcode | 15+ (iOS only, Apple Silicon Mac required — IDE not needed, CLI only) |
 | iOS Deployment Target | 16.0+ |
-| Gradle | 9.5.1 (via wrapper) |
+| Gradle | 9.8.2 (via wrapper) |
 | Kotlin | 2.4.10 |
 
 ## Building from Source

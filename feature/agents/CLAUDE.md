@@ -40,6 +40,12 @@
   through `startLoad`, which cancels the previous read and any next-page read and bumps a generation; a late
   answer from an older generation is dropped. Search is trimmed and debounced 300ms; a search that trims to
   the request already made doesn't read again.
+- **Sort and "My agents" (v0.8.9-rc1, `sortAvailable`)**: a row under the chips (`AgentSortRow`): an
+  `AdaptiveFilterChip` toggle (`mine=1`) and a Sort menu (`AgentSort`, sent as `sort=` on every rc1 read,
+  newest by default, as the web does). Both are part of `AgentListQuery`, so a change goes through
+  `startLoad` like a chip. Mine on under Top picks selects All. Not remembered across visits. A next
+  page answered 409 `cursor_ordering_mismatch` restarts the list once per query (`mismatchRecoveredFor`),
+  then shows the footer error. Mine with nothing authored is `AgentListState.MineEmpty` (keeps the chips).
 - `loadMore()` appends the page after `nextCursor`; no-ops while any read runs, with no cursor, or after a
   failed page (`loadMoreFailed`) until `retryLoadMore()` (the footer's Retry). Without that stop, the scroll
   trigger re-arms and re-reads a failing page forever.
@@ -148,6 +154,23 @@
   gates) and instantly-saved files/avatar from counting as edits. `applyAgentData` sets
   `loadedAgent`, so load and revert both move the baseline.
 
+### Tool approval modes (v0.8.9-rc1)
+- MCP tool rows in "Tools & Actions" get a mode icon button (`ToolApprovalModeButton`) when
+  `isToolApprovalModesAvailable` (rc1+ AND `/api/endpoints` `agents.toolApproval.agentModes`). Rows
+  are mapped in the VM (`mcpToolRows`, `selectedMcpToolRows()`), not in composition. Whole-server rows
+  and tools whose server is gone get no picker (upstream's per-server bulk mode is not ported).
+- **`tool_options` keys are the full MCP id** `<tool>_mcp_<normalizedServer>`, the same string as the
+  `agent.tools` entry. `selectedMcpTools` holds bare names, so never match options against it alone:
+  `pruneToolOptions` keeps full ids, ids under a whole-server marker and legacy bare keys, and an
+  update that drops the last option sends `{}` (an omitted map leaves the stored one in place).
+- A mode change goes through `withApprovalMode` (port of upstream `withApprovalModes`): a fresh
+  `approval_revision` on every change; inherit removes both fields and keeps the rest. It edits the
+  form only and saves with the agent. The admin constraint (`toolApprovalConstraint`, a hand-written
+  glob, not Regex) leaves only inherit and Always ask. Both are in `scripts/mirrors.json`.
+- Reset: per tool in the mode menu, only when the SAVED mode is chat/always (the server checks the
+  saved agent); per agent in the agent page ⋮ for every viewer (VIEW access is enough). The MCP server
+  card menu stays removed.
+
 ### Unified tools picker (v0.8.8)
 - `ToolsMarketplaceDialog` is the ONE picker for what an agent can do — built-in capabilities,
   plugin tools, MCP servers and skills in one searchable list with kind filter chips. It replaced
@@ -165,6 +188,11 @@
   catalog — those are run-behaviour knobs, not things an agent can be given.
 - The catalog is DERIVED, not stored: `AgentEditorUiState.marketplaceCatalog()` builds it from the
   reference lists the editor already loads, so it cannot go stale against them.
+- **Builtins need the role's grant too** (web `BUILTIN_ROLE_PERMISSIONS`): the code interpreter
+  RUN_CODE.USE, web search WEB_SEARCH.USE, file search FILE_SEARCH.USE (plus its own `file_search`
+  capability). `is…Offered` (capability AND grant, fail-open on an unknown role) hides the catalog row
+  and the editor section. **Never the save**: `buildToolsList` reads only `is…Available` and the flag,
+  so a user who can't see a builtin the agent has saves it back unchanged, as web's form keeps it.
 - **Gotcha**: a row's toggle routes back through the existing per-kind entry point
   (`onCodeInterpreterToggled`, `onToolToggled`, …), never straight into state. Code interpreter
   hangs an auth check off its toggle and the picker must not be a second path that skips it.
@@ -178,4 +206,32 @@
 - Version history is fetched lazily (`AgentLoaderDelegate.loadVersions`) because v0.8.8 stopped
   inlining `versions[]`. The active-revision comparison runs against `versionBasis`, captured at
   load — reading live form state would compare against whatever the user has since typed.
-- Not ported from upstream's rework: OrchestrationHub and StatefulSessions.
+- Not ported from upstream's rework: OrchestrationHub's placement (v0.8.9-rc1 folds subagents and
+  handoffs into a native "Orchestration" tool row; mobile edits them in `AgentSubagentsSection` and
+  `AgentHandoffsSection`).
+
+### Code section (stateful sessions, machines, workspace, Git identity)
+- `AgentCodeSettingsSection` under the code interpreter, web's `SidePanel/Agents/Code/Settings.tsx`.
+  The draft is `AgentEditorUiState.code` (`AgentCodeSettings`, loaded from the `/expanded` record:
+  the VIEW route carries none of these fields); `agentCodeSection` maps it with
+  `statefulCodeConfig` and the machine's status into `AgentCodeSectionView` (`codeSection` flow);
+  `AgentCodeSettingsDelegate` takes `AgentCodeEvent`s and reads the default-workspace machine's status.
+- **Send only what changed** (`updateFields`): a field set on the web survives a save that never
+  touched it. Back to the deployment default machine and clearing the Git identity are explicit JSON
+  `null`s (`JsonNull`), which `explicitNulls = false` would otherwise drop. Code off saves stateful
+  sessions off, as web does.
+- Turning stateful sessions on applies the user's Settings default scope (`personalization`), else
+  the first allowed one. Picking a default workspace also writes the effective machine. A
+  half-filled or malformed Git identity blocks Save (`codeGitIdentityError`).
+- **Background execution** (`AgentCodeBackgroundRow`, web `Code/Background.tsx`): one switch under the
+  code interpreter, shown while it is on and `agents.capabilities` has `run_in_background` (opt-in,
+  fail-closed like web). It edits `tool_options` for BOTH `execute_code` and `bash_tool`
+  (`withCodeBackground`, port of `withNativeBooleanOptOut`): off writes `run_in_background: false`, on
+  removes the key (on is the native default) and an entry left empty; every other key stays. Read as
+  `bash_tool`'s key, then `execute_code`'s. `pruneToolOptions` keeps `bash_tool` while `execute_code` is
+  saved (it is never an `agent.tools` entry) and drops both with the code interpreter; web keeps them.
+- **Only handoff edges reach `AgentHandoffsSection`** (`isHandoffEdge`, upstream
+  `Tools/items/orchestration.ts`): `edgeType: "direct"` and an untyped, unconditional one-to-many
+  edge (the SDK runs it as direct) stay raw in `unparsedHandoffEdges` and are re-sent untouched.
+  `HandoffEdge` defaults a missing `edgeType` to `handoff`, so classify on the raw JSON, never after
+  decoding. Not version-gated: it is the SDK's own reading of an edge on every server.

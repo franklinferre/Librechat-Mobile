@@ -22,24 +22,26 @@ static inline nw_parameters_t librechat_make_default_tls_tcp_parameters(void) {
     );
 }
 
-// C-level wrapper around nw_connection_receive that drops the content-context
-// argument before Kotlin sees it. When a connection completes, Network.framework
-// may pass a global block literal as the context; Kotlin/Native's bridge for the
-// completion lambda converts every object argument, takes the block for a Kotlin
-// function, and aborts with "Converting Obj-C blocks with non-reference-typed
-// return value to kotlin.Any is not supported". The transport never reads the
-// context, so it stays on this side of the bridge.
-typedef void (^librechat_receive_handler_t)(dispatch_data_t content, bool is_complete, nw_error_t error);
+// nw_connection_receive with the content context dropped before Kotlin sees it.
+// Network.framework's predefined contexts (NW_CONNECTION_DEFAULT_MESSAGE_CONTEXT,
+// _FINAL_MESSAGE_CONTEXT, _DEFAULT_STREAM_CONTEXT) are static objects whose class
+// is __NSGlobalBlock__. When a receive completion carries one, Kotlin/Native's
+// block bridge converts the argument as a block, and a void-returning block can't
+// become kotlin.Any: it throws NSGenericException ("Converting Obj-C blocks with
+// non-reference-typed return value to kotlin.Any is not supported (v)") on the
+// connection queue, which kills the app. The transport never reads the context.
+typedef void (^librechat_receive_completion_t)(
+    dispatch_data_t _Nullable content, bool is_complete, nw_error_t _Nullable error);
 
-static inline void librechat_connection_receive(
+static inline void librechat_nw_connection_receive(
     nw_connection_t connection,
     uint32_t minimum_incomplete_length,
     uint32_t maximum_length,
-    librechat_receive_handler_t handler
+    librechat_receive_completion_t completion
 ) {
     nw_connection_receive(connection, minimum_incomplete_length, maximum_length,
         ^(dispatch_data_t content, nw_content_context_t context, bool is_complete, nw_error_t error) {
             (void)context;
-            handler(content, is_complete, error);
+            completion(content, is_complete, error);
         });
 }

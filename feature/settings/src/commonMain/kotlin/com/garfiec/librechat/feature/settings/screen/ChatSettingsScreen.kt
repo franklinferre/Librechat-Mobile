@@ -160,6 +160,11 @@ fun ChatSettingsContent(
                         starredModelsDisplay = uiState.starredModelsDisplay,
                         preferLastUsedModel = uiState.preferLastUsedModel,
                         webSearchFirst = uiState.webSearchFirst,
+                        collapseLongUserMessages = uiState.collapseLongUserMessages,
+                        clientImageResize = uiState.clientImageResizeAdmin ?: uiState.clientImageResizePreference,
+                        clientImageResizeEnforced = uiState.clientImageResizeAdmin != null,
+                        onClientImageResizeChange = viewModel::setClientImageResize,
+                        onCollapseLongUserMessagesChange = viewModel::setCollapseLongUserMessages,
                         chatHeaderContent = uiState.chatHeaderContent,
                         chatHeaderAlignment = uiState.chatHeaderAlignment,
                         onAutoScrollChange = viewModel::setAutoScrollEnabled,
@@ -295,6 +300,7 @@ fun ChatSettingsContent(
                     when (it) {
                         DuringRunAction.QUEUE -> stringResource(Res.string.during_run_action_queue_desc)
                         DuringRunAction.STEER -> stringResource(Res.string.during_run_action_steer_desc)
+                        DuringRunAction.INTERRUPT -> stringResource(Res.string.during_run_action_interrupt_desc)
                     }
                 },
             )

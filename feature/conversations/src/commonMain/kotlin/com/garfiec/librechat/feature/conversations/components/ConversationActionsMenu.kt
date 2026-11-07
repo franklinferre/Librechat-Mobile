@@ -1,6 +1,5 @@
 package com.garfiec.librechat.feature.conversations.components
 
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Bookmark
@@ -9,6 +8,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.MarkChatRead
+import androidx.compose.material.icons.filled.MarkChatUnread
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
@@ -24,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.ui.components.AdaptiveDropdownMenu
 import com.garfiec.librechat.core.ui.components.MenuDragSelection
 import com.garfiec.librechat.core.ui.components.dragSelectRowIcon
@@ -33,9 +33,14 @@ import com.garfiec.librechat.feature.conversations.resources.*
 import com.garfiec.librechat.feature.conversations.resources.Res
 import org.jetbrains.compose.resources.stringResource
 
+/**
+ * The menu's read-state item: "Mark as unread" on a chat that is read and not open, "Mark as read"
+ * (Switchboard's addition, the same `/seen` call) on one that is unread.
+ */
+enum class ReadStateAction { MarkUnread, MarkRead }
+
 // Rounded to match the app's other surfaces (dialogs/sheets) rather than the menu default's
 // near-square corners.
-private val MenuShape = RoundedCornerShape(16.dp)
 
 /**
  * Anchored dropdown variant of [ConversationActions]. Same action set, but presented as a
@@ -72,6 +77,9 @@ fun ConversationActionsMenu(
     onMoveToProject: () -> Unit = {},
     showMoveToProject: Boolean = false,
     showShareAction: Boolean = false,
+    /** The read-state item under Rename (v0.8.9-rc1); null leaves it out. */
+    readStateAction: ReadStateAction? = null,
+    onReadStateAction: (ReadStateAction) -> Unit = {},
     // Position offset relative to the anchor; callers feed the long-press point so the menu
     // opens with its left edge under the finger.
     offset: DpOffset = DpOffset.Zero,
@@ -81,7 +89,6 @@ fun ConversationActionsMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
         offset = offset,
-        shape = MenuShape,
         // A step above the drawer's surfaceContainerLow so the menu reads as a distinct surface
         // floating over it instead of blending into the panel.
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -97,6 +104,24 @@ fun ConversationActionsMenu(
                 onRenameRequest()
             },
         )
+
+        if (readStateAction != null) {
+            MenuActionItem(
+                dragSelection = dragSelection,
+                icon = when (readStateAction) {
+                    ReadStateAction.MarkUnread -> Icons.Default.MarkChatUnread
+                    ReadStateAction.MarkRead -> Icons.Default.MarkChatRead
+                },
+                label = when (readStateAction) {
+                    ReadStateAction.MarkUnread -> stringResource(Res.string.mark_as_unread)
+                    ReadStateAction.MarkRead -> stringResource(Res.string.mark_as_read)
+                },
+                onClick = {
+                    onDismiss()
+                    onReadStateAction(readStateAction)
+                },
+            )
+        }
 
         if (showPinAction) {
             MenuActionItem(

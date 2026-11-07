@@ -5,8 +5,12 @@ import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.AgentAction
 import com.garfiec.librechat.core.model.AgentCategory
 import com.garfiec.librechat.core.model.AgentTool
+import com.garfiec.librechat.core.model.code.CodeRunRequest
+import com.garfiec.librechat.core.model.code.CodeRunResponse
+import com.garfiec.librechat.core.model.code.ToolCallRecord
 import com.garfiec.librechat.core.model.request.CreateActionRequest
 import com.garfiec.librechat.core.model.request.CreateAgentRequest
+import com.garfiec.librechat.core.model.request.ResetToolApprovalsRequest
 import com.garfiec.librechat.core.model.request.RevertAgentRequest
 import com.garfiec.librechat.core.model.request.UpdateAgentRequest
 import com.garfiec.librechat.core.model.response.AgentListResponse
@@ -48,6 +52,10 @@ class AgentsApi constructor(
      * [promoted] narrows to Top picks and is sent as `promoted=1`, the only "on" value the route
      * matches. [requiredPermission] is the permission bit the caller needs on each agent; omitted,
      * the server uses VIEW.
+     *
+     * [sort] (`newest` | `oldest` | `popular` | `author`) and [mine] (`mine=1`, agents the caller
+     * authored) are v0.8.9-rc1; an older server ignores both. A cursor read under one sort and sent
+     * with another answers 409 `{ error: "cursor_ordering_mismatch" }`.
      */
     suspend fun getAgentsPaginated(
         limit: Int,
@@ -56,6 +64,8 @@ class AgentsApi constructor(
         category: String? = null,
         promoted: Boolean = false,
         requiredPermission: Int? = null,
+        sort: String? = null,
+        mine: Boolean = false,
     ): AgentListResponse =
         client.get {
             url { path("api/agents") }
@@ -65,6 +75,8 @@ class AgentsApi constructor(
             if (category != null) parameter("category", category)
             if (promoted) parameter("promoted", "1")
             if (requiredPermission != null) parameter("requiredPermission", requiredPermission)
+            if (sort != null) parameter("sort", sort)
+            if (mine) parameter("mine", "1")
         }.body()
 
     suspend fun getAgent(agentId: String): Agent {
@@ -195,5 +207,36 @@ class AgentsApi constructor(
     suspend fun getAvailableTools(): List<AgentTool> =
         client.get {
             url { path("api/agents/tools") }
+        }.body()
+
+    /**
+     * Forgets the caller's remembered tool approvals for an agent (v0.8.9-rc1), answering
+     * `{ reset: true }`. VIEW access is enough. 403 `APPROVAL_RESET_FORBIDDEN` when the agent is
+     * gone or unviewable, or for a per-tool reset whose SAVED mode is not chat/always; 503
+     * `APPROVAL_RESET_FAILED`; rate-limited by the tool-call limiter.
+     */
+    suspend fun resetToolApprovals(request: ResetToolApprovalsRequest) {
+        client.post {
+            url { path("api/agents/tools/approvals/reset") }
+            setBody(request)
+        }
+    }
+
+    /**
+     * Runs a fenced code block of a saved reply (web `RunCode.tsx`). `404` the message is not the
+     * caller's or has expired, `403` no RUN_CODE.USE, `429` the tool-call limiter, `500` the sandbox
+     * failed. A POST, so the shared retry never replays it.
+     */
+    suspend fun runCode(request: CodeRunRequest): CodeRunResponse =
+        client.post {
+            url { path("api/agents/tools/execute_code/call") }
+            setBody(request)
+        }.body()
+
+    /** Every stored code run of [conversationId] (`GET /api/agents/tools/calls`), oldest first. */
+    suspend fun getToolCalls(conversationId: String): List<ToolCallRecord> =
+        client.get {
+            url { path("api/agents/tools/calls") }
+            parameter("conversationId", conversationId)
         }.body()
 }

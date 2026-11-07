@@ -1,8 +1,11 @@
 package com.garfiec.librechat.core.network.api
 
 import com.garfiec.librechat.core.model.User
+import com.garfiec.librechat.core.model.auth.EmailChangeResponse
+import com.garfiec.librechat.core.model.auth.RequestEmailChangeRequest
 import com.garfiec.librechat.core.model.request.OtpVerificationRequest
 import com.garfiec.librechat.core.model.request.ResendVerificationRequest
+import com.garfiec.librechat.core.model.request.UserPreferencesRequest
 import com.garfiec.librechat.core.model.request.VerifyEmailRequest
 import com.garfiec.librechat.core.model.response.AvatarUploadResponse
 import com.garfiec.librechat.core.model.response.TermsAcceptResponse
@@ -13,6 +16,7 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.Headers
@@ -46,6 +50,28 @@ class UserApi constructor(
     suspend fun resendVerification(request: ResendVerificationRequest) {
         client.post {
             url { path("api/user/verify/resend") }
+            setBody(request)
+        }
+    }
+
+    /**
+     * `POST /api/user/email/change` (v0.8.9-rc1): sends a confirmation link to the new address. The
+     * change happens only when that link is opened, on the web. Never retried: every attempt that
+     * gets past validation mails the old address, and a 429 counts toward a ban.
+     */
+    suspend fun requestEmailChange(request: RequestEmailChangeRequest): EmailChangeResponse =
+        client.post {
+            url { path("api/user/email/change") }
+            setBody(request)
+        }.body()
+
+    /**
+     * `PATCH /api/user/preferences` (v0.8.9-rc1): the default stateful workspace scope new agents
+     * get. `400` an unknown value, `403` one this deployment doesn't allow.
+     */
+    suspend fun updatePreferences(request: UserPreferencesRequest) {
+        client.patch {
+            url { path("api/user/preferences") }
             setBody(request)
         }
     }

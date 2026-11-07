@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -70,7 +71,17 @@ fun CodeBlock(
     // While streaming, [code] grows every flush and the highlight re-runs from scratch, so it is
     // computed off the main thread with the previous result retained.
     streaming: Boolean = false,
+    /**
+     * Wrap long lines to the block's width instead of scrolling sideways. Tool input and output
+     * wrap, as web's `whitespace-pre-wrap break-words` does: a single long line (a file listing,
+     * a JSON result) is otherwise read through a sideways scroll inside a vertically scrolling
+     * chat, which on a phone reads as text running off the screen.
+     */
+    wrap: Boolean = false,
+    /** A reply's fence the chat can run ([rememberCodeRunTarget]); null draws no Run button. */
+    run: CodeRunTarget? = null,
 ) {
+    val runHost = LocalCodeRunHost.current.takeIf { run != null }
     val clipboard = rememberClipboardWriter()
     var showCopied by remember { mutableStateOf(false) }
 
@@ -112,11 +123,17 @@ fun CodeBlock(
                 )
             }
             Spacer(modifier = Modifier.weight(1f))
+            if (run != null && runHost != null) RunCodeButton(run, runHost)
+            // Inside a tool card whose content is still a preview, Copy would copy shortened text:
+            // it waits (disabled, keeping its label) until the full part lands.
+            val copyEnabled = !toolContentIsPreview()
             IconButton(
                 onClick = {
                     clipboard.copy(code, "Code")
                     showCopied = true
                 },
+                enabled = copyEnabled,
+                modifier = if (copyEnabled) Modifier else Modifier.alpha(DISABLED_ALPHA),
             ) {
                 AnimatedContent(
                     targetState = showCopied,
@@ -140,7 +157,7 @@ fun CodeBlock(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
+                .then(if (wrap) Modifier else Modifier.horizontalScroll(rememberScrollState()))
                 .padding(12.dp),
         ) {
             val isDarkTheme = isSystemInDarkTheme()
@@ -167,6 +184,7 @@ fun CodeBlock(
                 modifier = Modifier.reportFocusedMatchPosition(layoutResult, focusedRange, onFocusedMatchPosition),
             )
         }
+        if (run != null && runHost != null) CodeRunOutput(run, runHost)
     }
 }
 
@@ -292,6 +310,8 @@ private data class TokenRule(
 // Color palette for syntax highlighting (works on both light and dark themes)
 // These are chosen to be visible on dark backgrounds (surfaceContainerHighest)
 // and also acceptable on light backgrounds.
+private const val DISABLED_ALPHA = 0.38f
+
 private val commentStyle = SpanStyle(color = Color(0xFF6A9955), fontStyle = FontStyle.Italic)
 private val stringStyle = SpanStyle(color = Color(0xFFCE9178))
 private val keywordStyle = SpanStyle(color = Color(0xFF569CD6))

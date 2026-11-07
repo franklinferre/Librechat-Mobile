@@ -1,5 +1,6 @@
 package com.garfiec.librechat.feature.settings.viewmodel
 
+import com.garfiec.librechat.core.common.DetectedBackend
 import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.Result
@@ -8,6 +9,7 @@ import com.garfiec.librechat.core.data.repository.AuthRepository
 import com.garfiec.librechat.core.data.repository.BalanceRepository
 import com.garfiec.librechat.core.data.repository.ConfigRepository
 import com.garfiec.librechat.core.data.repository.KeyRepository
+import com.garfiec.librechat.core.data.repository.PasskeyRepository
 import com.garfiec.librechat.core.data.repository.RoleRepository
 import com.garfiec.librechat.core.data.repository.UserRepository
 import com.garfiec.librechat.core.model.Balance
@@ -20,6 +22,8 @@ import com.garfiec.librechat.core.model.permissions.UserRolePermissions
 import com.garfiec.librechat.core.model.response.BackupCodesResponse
 import com.garfiec.librechat.core.ui.media.PreparedImage
 import com.garfiec.librechat.feature.settings.model.AutoRefillInfo
+import com.garfiec.librechat.feature.settings.resources.Res
+import com.garfiec.librechat.feature.settings.resources.account_profile_load_failed
 import com.garfiec.librechat.feature.settings.util.ContentReader
 import com.garfiec.librechat.feature.settings.viewmodel.delegate.ProviderKeysSummary
 import com.google.common.truth.Truth.assertThat
@@ -57,6 +61,8 @@ class AccountSettingsViewModelTest {
     private val startupConfig = MutableStateFlow<StartupConfig?>(null)
     private val endpointConfigs = MutableStateFlow<Map<String, EndpointConfig>>(emptyMap())
     private val keyRepository = mockk<KeyRepository>(relaxed = true)
+    private val passkeyRepository = mockk<PasskeyRepository>(relaxed = true)
+    private val detectedBackend = MutableStateFlow<DetectedBackend?>(null)
     private val roleRepository = mockk<RoleRepository> {
         every { userPermissions } returns MutableStateFlow<UserRolePermissions?>(null)
     }
@@ -80,6 +86,7 @@ class AccountSettingsViewModelTest {
         coEvery { balanceRepository.getBalance() } returns Result.Error(message = "Not available")
         every { configRepository.startupConfig } returns startupConfig
         every { configRepository.endpointConfigs } returns endpointConfigs
+        every { configRepository.detectedBackend } returns detectedBackend
         coEvery { keyRepository.fetchKeyState(any()) } returns Result.Success(KeyState.Unset)
     }
 
@@ -101,6 +108,7 @@ class AccountSettingsViewModelTest {
         serverDataStore = serverDataStore,
         keyRepository = keyRepository,
         roleRepository = roleRepository,
+        passkeyRepository = passkeyRepository,
         serverLock = serverLock,
         ioDispatcher = testDispatcher,
         clock = clock,
@@ -262,7 +270,7 @@ class AccountSettingsViewModelTest {
 
         val state = viewModel.uiState.value
         assertThat(state.user).isNull()
-        assertThat(state.profileLoadError).isEqualTo("Network error")
+        assertThat(state.profileLoadError).isEqualTo(Res.string.account_profile_load_failed)
         assertThat(state.error).isNull()
     }
 
@@ -271,7 +279,7 @@ class AccountSettingsViewModelTest {
         coEvery { userRepository.getUser() } returns Result.Error(message = "Network error")
         val viewModel = createViewModel()
         advanceUntilIdle()
-        assertThat(viewModel.uiState.value.profileLoadError).isEqualTo("Network error")
+        assertThat(viewModel.uiState.value.profileLoadError).isEqualTo(Res.string.account_profile_load_failed)
 
         coEvery { userRepository.getUser() } returns Result.Success(testUser)
         viewModel.retry()

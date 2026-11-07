@@ -8,6 +8,7 @@ import com.garfiec.librechat.core.common.result.failureKind
 import com.garfiec.librechat.core.logging.Diag
 import com.garfiec.librechat.core.logging.LogOrigin
 import com.garfiec.librechat.core.logging.redact.LogRedactor
+import com.garfiec.librechat.core.model.error.ServerErrorCode
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngineFactory
 import io.ktor.client.plugins.DefaultRequest.DefaultRequestBuilder
@@ -19,6 +20,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -28,6 +30,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.util.AttributeKey
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
@@ -177,6 +180,7 @@ object LibreChatHttpClient {
                         }
                     }
 
+                    if (statusCode == HttpStatusCode.Forbidden.value) reportAuthGate(tokenManager, response, bodyText)
                     throw ApiException(
                         statusCode = statusCode,
                         message = extracted.message,
@@ -216,6 +220,28 @@ object LibreChatHttpClient {
      * wording below is shown as-is.
      */
     private data class ExtractedError(val message: String, val serverAuthored: Boolean)
+
+    /**
+     * Turns a 403 that is one of the server's required steps (v0.8.9-rc1) into an [AuthGate]:
+     * the 2FA enrollment gate every authenticated route answers, and the terms gate on writes.
+     *
+     * Keyed on the body's code, never on the status: the user-agent soft-ban, a ban, an access
+     * gateway and a WAF all answer 403 too, and none of them is a step the user can take in the app.
+     * Scoped to the request's account like the ban report; a pending add-flow request is the add
+     * flow's own business (its sign-in answers the enrollment 200 itself).
+     */
+    private fun reportAuthGate(tokenManager: TokenManager, response: HttpResponse, bodyText: String) {
+        val identity = response.call.request.attributes.getOrNull(RequestIdentityKey)
+        if (identity?.isPending == true) return
+        val accountId = identity?.accountId
+        val setupToken = ServerErrorCode.twoFactorEnrollmentToken(bodyText)
+        val gate = when {
+            setupToken != null -> AuthGate.TwoFactorSetupRequired(accountId, setupToken)
+            ServerErrorCode.isTermsNotAccepted(bodyText) -> AuthGate.TermsNotAccepted(accountId)
+            else -> return
+        }
+        tokenManager.reportAuthGate(gate)
+    }
 
     /**
      * True only for LibreChat's **own** ban response: `checkBan`'s `banResponse` answers
@@ -311,10 +337,12 @@ internal fun HttpRequestRetryConfig.configureRetryPolicy() {
     // ApiException (retryOnExceptionIf) — so both predicates carry the same method and status gate,
     // whichever path a non-2xx takes.
     retryIf(maxRetries = 2) { request, response ->
-        request.method.isRetrySafe() && response.status.value.isTransientServerError()
+        request.method.isRetrySafe() && NoServerErrorRetry !in request.attributes &&
+            response.status.value.isTransientServerError()
     }
     retryOnExceptionIf(maxRetries = 2) { request, cause ->
         request.method.isRetrySafe() &&
+            (NoServerErrorRetry !in request.attributes || cause !is ApiException) &&
             cause !is kotlinx.coroutines.CancellationException &&
             (cause !is ApiException || cause.statusCode.isTransientServerError()) &&
             // Deterministic until the user edits the credential, so retrying only delays the report.
@@ -325,6 +353,17 @@ internal fun HttpRequestRetryConfig.configureRetryPolicy() {
             cause.failureKind() != FailureKind.Tls
     }
     exponentialDelay()
+}
+
+/**
+ * Marks a request whose caller owns its 5xx backoff, so [configureRetryPolicy] sends it once on a
+ * server error (a transport failure still retries). Set it with [noServerErrorRetry].
+ */
+internal val NoServerErrorRetry = AttributeKey<Unit>("NoServerErrorRetry")
+
+/** See [NoServerErrorRetry]. */
+internal fun HttpRequestBuilder.noServerErrorRetry() {
+    attributes.put(NoServerErrorRetry, Unit)
 }
 
 private val RETRY_SAFE_METHODS = setOf(HttpMethod.Get, HttpMethod.Head, HttpMethod.Options)
