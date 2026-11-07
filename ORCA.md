@@ -75,6 +75,13 @@ projeto estão no `CLAUDE.md` raiz e nos `CLAUDE.md` de cada módulo — este ar
   ou lista cada item que falhou (código 1). Rode antes de abrir PR; o plano 3 reutiliza o script.
 - **Conta de teste**: a senha fica só no Keychain (serviço `lideri-chat-test`), lida com
   `security find-generic-password -s lideri-chat-test -w`. Nunca em git, log, PR ou print.
+- **APK de release (Android)**: `scripts/lideri/android-release.sh` → `app/build/outputs/apk/play/release/app-play-release.apk`,
+  assinado com a chave oficial da Lideri (`~/.lideri/lideri-release.jks`, alias `lideri`, SHA-256
+  `D2:08:DD:77:…:21:30:13`). A senha fica só no Keychain (serviço `lideri-android-release`, conta `lideri`).
+  Chave e senha nunca vão para o git; perder qualquer uma impede atualizar o app instalado. Sem elas o
+  script recusa, em vez de cair na chave pública de debug. No Google Play, use esta mesma chave como
+  chave de assinatura do app (Play App Signing → "usar chave existente"), para que quem instalou o APK
+  receba as atualizações da loja.
 - **Verificação em device**: APK `app/build/outputs/apk/play/debug/app-play-debug.apk`; AVD
   `switchboard_api36`; simulador "iPhone 17 Pro". O login real só é testado com a conta de teste acima.
 - **Identidade visual** (plano 2): paleta em `core/ui/.../theme/LideriColors.kt` (azul `#0424D9` claro /
