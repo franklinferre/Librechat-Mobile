@@ -1,6 +1,7 @@
 package com.garfiec.librechat.feature.settings.viewmodel
 
 import com.garfiec.librechat.core.common.DetectedBackend
+import com.garfiec.librechat.core.common.brand.ServerLock
 import com.garfiec.librechat.core.common.result.ApiException
 import com.garfiec.librechat.core.common.result.FailureKind
 import com.garfiec.librechat.core.common.result.Result
@@ -83,6 +84,7 @@ class AccountEmailChangeAndPasskeysTest {
         keyRepository = mockk<KeyRepository>(relaxed = true),
         roleRepository = roleRepository,
         passkeyRepository = passkeyRepository,
+        serverLock = ServerLock(null),
         ioDispatcher = testDispatcher,
     )
 

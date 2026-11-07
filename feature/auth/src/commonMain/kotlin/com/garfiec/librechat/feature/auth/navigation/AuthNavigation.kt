@@ -88,6 +88,8 @@ class SignInEscape(val available: StateFlow<Boolean>, val open: () -> Unit) {
     }
 }
 
+// onReplace (the locked-server step, Lideri) is the ninth: one past detekt's limit.
+@Suppress("LongParameterList")
 fun EntryProviderScope<NavKey>.authEntries(
     onNavigate: (NavKey) -> Unit,
     onBack: () -> Unit,
