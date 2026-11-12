@@ -125,6 +125,14 @@ class AccountSwitcher(
         private set
 
     /**
+     * Whether a sign-in now re-authenticates the active roster account whose session ended (expiry,
+     * renewal block, declined terms, 2FA setup) rather than starting a new identity. Logout, remove
+     * and [prepareForSignIn] clear the active account, and add-account sets [pendingAdd].
+     */
+    fun signInReauthenticatesActive(): Boolean =
+        pendingAdd == null && activeAccountProvider.currentAccountId() != null
+
+    /**
      * Enter normal sign-in on [serverUrl], ending any identity left behind by a sign-in route.
      * Clear the old credentials and persisted binding before publishing the new URL, under the same
      * barrier as account switches. Roster entries and account data remain available for re-auth.
@@ -416,15 +424,17 @@ class AccountSwitcher(
     suspend fun failOverFromActive(): FailoverResult = switchGate.withSwitch {
         val active = activeAccountProvider.currentAccountId()?.value
             ?: return@withSwitch FailoverResult.NoLiveAccount
-        if (hasSession(active)) return@withSwitch FailoverResult.ActiveStillLive
+        // Slot presence, not [hasSession]: a hard expiry empties the slot, and a clock-judged check would
+        // fail over from a working account on a device clock that runs ahead.
+        if (tokenManager.getAccessTokenFor(active) != null) return@withSwitch FailoverResult.ActiveStillLive
         val successor = liveSuccessor(roster.snapshot().entries, excluding = active)
             ?: return@withSwitch FailoverResult.NoLiveAccount
         flipTo(successor)
         FailoverResult.Switched(successor)
     }
 
-    /** Whether [accountId]'s keyed slot still holds a session. A hard expiry empties it. */
-    suspend fun hasSession(accountId: String): Boolean = tokenManager.getAccessTokenFor(accountId) != null
+    /** Whether [accountId]'s keyed slot still holds a live session ([TokenManager.hasLiveSession]). */
+    suspend fun hasSession(accountId: String): Boolean = tokenManager.hasLiveSession(accountId)
 
     /**
      * True when [accountId] lost its session because its server now requires 2FA setup (see

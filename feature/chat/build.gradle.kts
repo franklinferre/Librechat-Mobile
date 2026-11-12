@@ -19,6 +19,7 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":core:network"))
             implementation(project(":core:logging"))
+            implementation(project(":core:notifications"))
             implementation(libs.atomicfu)
             implementation(libs.kermit)
             implementation(libs.kotlinx.serialization.json)
@@ -44,6 +45,9 @@ kotlin {
             implementation(libs.robolectric)
             implementation(libs.compose.ui.test)
             implementation(libs.compose.ui.test.manifest)
+        }
+        iosTest.dependencies {
+            implementation(libs.compose.multiplatform.ui.test)
         }
         named("androidInstrumentedTest").dependencies {
             implementation(libs.junit)

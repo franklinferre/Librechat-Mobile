@@ -10,12 +10,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.model.config.displayLabel
 import com.garfiec.librechat.core.model.config.labelFor
+import com.garfiec.librechat.core.model.media.IconSource
+import com.garfiec.librechat.core.model.media.isImageUrl
 import com.garfiec.librechat.core.model.media.resolveAvatarUrl
 import com.garfiec.librechat.core.model.media.resolveIconSource
 import com.garfiec.librechat.core.ui.components.LoadingIndicator
@@ -64,9 +67,11 @@ internal fun ColumnScope.ChatContent(
     showAvatars: Boolean,
     showBubbles: Boolean,
     useKatex: Boolean,
-    bottomContentPadding: Dp,
-    /** Where side-by-side comparison cards end: just above the measured composer. */
-    paneBottomInset: Dp,
+    /**
+     * The measured bottom bar (composer and the rows above it), 0 before it is measured. Read here, not
+     * by the screen: it changes every frame while the composer folds, and only the thread needs it.
+     */
+    bottomBarHeightPx: () -> Int,
     topContentPadding: Dp,
     onShowSecondaryModelSheet: () -> Unit,
     onComparisonTabChange: (Int) -> Unit,
@@ -87,6 +92,17 @@ internal fun ColumnScope.ChatContent(
     projectName: String? = null,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val barHeight = bottomBarHeightPx()
+    // 160dp stands in for the bar only until it is measured: the folded bar is far shorter.
+    val density = LocalDensity.current
+    val bottomContentPadding = with(density) { if (barHeight > 0) barHeight.toDp() + 16.dp else 160.dp }
+    // Side-by-side comparison panes are cards that stop above the composer, not lists that
+    // scroll under it, so they sit on the measured bar itself. The list floor above would
+    // leave a band of empty space, widest with the keyboard up (the bar loses its nav-bar inset).
+    val paneBottomInset = with(density) { if (barHeight > 0) barHeight.toDp() + 8.dp else bottomContentPadding }
+    // The jump-to-bottom button sits on the measured composer: the default placement, 30dp
+    // into the list's reserve, overlaps a tall composer.
+    val scrollToBottomPadding = with(density) { if (barHeight > 0) barHeight.toDp() + 8.dp else null }
     val clipboard = rememberClipboardWriter()
     val fallbackSenderName = stringResource(Res.string.sender_assistant)
     // Non-scrolling bodies (landing, loading, comparison panes) clear the floating bar with a
@@ -129,6 +145,7 @@ internal fun ColumnScope.ChatContent(
             useKatex = useKatex,
             bottomContentPadding = bottomContentPadding,
             paneBottomInset = paneBottomInset,
+            scrollToBottomPadding = scrollToBottomPadding,
             onCopyMessage = { messageId -> copyMessageToClipboard(viewModel, clipboard, messageId) },
             onShowSecondaryModelSheet = onShowSecondaryModelSheet,
             onComparisonTabChange = onComparisonTabChange,
@@ -210,6 +227,7 @@ internal fun ColumnScope.ChatContent(
                         activeToolCalls = uiState.activeToolCalls,
                         streamingSenderName = senderName,
                         bottomContentPadding = bottomContentPadding,
+                        scrollToBottomPadding = scrollToBottomPadding,
                         modifier = Modifier
                             .weight(1f)
                             .then(listPullUpModifier),
@@ -273,6 +291,7 @@ private fun ChatMessageListPane(
     activeToolCalls: List<ActiveToolCall>,
     streamingSenderName: String,
     bottomContentPadding: Dp,
+    scrollToBottomPadding: Dp?,
     listState: LazyListState,
     modifier: Modifier = Modifier,
 ) {
@@ -337,6 +356,7 @@ private fun ChatMessageListPane(
         jumpPending = uiState.jumpPending,
         onSearchScrollHandle = viewModel::onSearchScrollHandled,
         bottomContentPadding = bottomContentPadding,
+        scrollToBottomPadding = scrollToBottomPadding,
         topContentPadding = topContentPadding,
         pendingAction = uiState.renderablePendingAction,
         onNearBottomChange = onNearBottomChange,
@@ -345,42 +365,58 @@ private fun ChatMessageListPane(
 }
 
 /**
- * The new chat's icon, as web's landing draws it (`ConvoIcon`): the selected spec's ([iconSource]: its
+ * The selection's icon, as web's landing draws it (`ConvoIcon`): the selected spec's ([iconSource]: its
  * `iconURL`, its preset's, its agent's avatar, else its endpoint's brand), the selected agent's avatar
- * (the agents glyph without one), else the selected endpoint's brand. Null, before anything is
- * selected, keeps the app tile.
+ * (the agents glyph without one), else the selected endpoint's configured `iconURL` (`iconURL ||
+ * configured`), else its brand. Null before anything is selected. The landing hero and the "+" sheet's
+ * Model cell both draw it.
  */
-internal fun ChatUiState.landingHeroIcon(): LandingHeroIcon? {
+internal fun ChatUiState.selectionIcon(): IconSource? {
     val spec = modelSpecs?.list?.find { it.name == selectedSpec }
-    val icon = when {
+    return when {
         spec != null -> spec.iconSource(agents, serverUrl, endpointConfigs)
-        selectedEndpoint.isBlank() -> return null
+        selectedEndpoint.isBlank() -> null
         // No agent yet is the selection before seeding, not a choice to draw.
-        selectedEndpoint == EndpointConstants.AGENTS ->
-            return if (selectedModel == null) {
-                null
-            } else {
-                LandingHeroIcon(
-                    endpointName = EndpointConstants.AGENTS,
-                    iconUrl = selectedAgent()?.avatarUrl?.let { resolveAvatarUrl(it, serverUrl) },
-                )
-            }
-        else -> resolveIconSource(null, selectedEndpoint, serverUrl, endpointConfigs)
+        selectedEndpoint == EndpointConstants.AGENTS -> selectedModel?.let {
+            IconSource(
+                endpointName = EndpointConstants.AGENTS,
+                imageUrl = selectedAgent()?.avatarUrl?.let { resolveAvatarUrl(it, serverUrl) },
+            )
+        }
+        else -> resolveIconSource(
+            endpointConfigs[selectedEndpoint]?.iconURL?.takeIf(::isImageUrl),
+            selectedEndpoint,
+            serverUrl,
+            endpointConfigs,
+        )
     }
-    return LandingHeroIcon(endpointName = icon.endpointName, iconUrl = icon.imageUrl, provider = icon.provider)
 }
+
+/** The new chat's icon: [selectionIcon]; null keeps the app tile. */
+internal fun ChatUiState.landingHeroIcon(): LandingHeroIcon? =
+    selectionIcon()?.let { LandingHeroIcon(endpointName = it.endpointName, iconUrl = it.imageUrl, provider = it.provider) }
 
 /**
  * The name a reply in progress goes by until the server's saved one replaces it: the agent's name
- * under the agents endpoint, else the selected spec's label (the names the server saves those
- * replies under), else the model, where the server's own name (`getResponseSender`) isn't ported.
+ * under the agents endpoint, else the server's sender chain (`getEphemeralSender`): the custom name
+ * (under `enforce`, the spec preset's, as the server sends the preset), the spec's label, the
+ * endpoint's `modelDisplayLabel`. Then the model, where `getResponseSender` isn't ported.
  */
 internal fun ChatUiState.replySenderName(fallback: String): String {
     val model = selectedModel
     if (selectedEndpoint == EndpointConstants.AGENTS && model != null) {
         return agents.find { it.id == model }?.name ?: model
     }
-    return modelSpecs?.labelFor(selectedSpec) ?: model ?: fallback
+    val customName = if (parametersSetBySpec) {
+        activeSpec?.preset?.let { it.modelLabel ?: it.chatGptLabel }
+    } else {
+        modelParameters.customName
+    }
+    return customName?.takeIf { it.isNotBlank() }
+        ?: modelSpecs?.labelFor(selectedSpec)
+        ?: endpointConfigs[selectedEndpoint]?.modelDisplayLabel
+        ?: model
+        ?: fallback
 }
 
 private fun ChatUiState.selectedAgent() =

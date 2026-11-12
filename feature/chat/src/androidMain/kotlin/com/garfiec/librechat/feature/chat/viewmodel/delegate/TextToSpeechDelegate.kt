@@ -9,7 +9,9 @@ import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.common.result.suspendRunCatching
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.repository.SpeechRepository
+import com.garfiec.librechat.core.model.speech.TtsVoice
 import com.garfiec.librechat.feature.chat.util.SERVER_TTS_SEGMENT_CHARS
+import com.garfiec.librechat.feature.chat.util.serverVoiceToUse
 import com.garfiec.librechat.feature.chat.util.splitForSpeech
 import com.garfiec.librechat.feature.chat.viewmodel.TtsHandle
 import kotlinx.coroutines.CoroutineDispatcher
@@ -45,6 +47,13 @@ class TextToSpeechDelegate(
      */
     @Volatile
     private var finalUtteranceId: String? = null
+
+    /** The server's voice list from the last successful read, so a read-aloud doesn't wait on it again. */
+    private var serverVoices: List<TtsVoice>? = null
+
+    private suspend fun offeredServerVoices(): Result<List<TtsVoice>> =
+        serverVoices?.let { Result.Success(it) }
+            ?: speechRepository.getVoices().also { if (it is Result.Success) serverVoices = it.data }
 
     private fun getOrInitTts(onReady: () -> Unit) {
         if (ttsReady && ttsEngine != null) {
@@ -87,23 +96,28 @@ class TextToSpeechDelegate(
             return
         }
 
-        // Stop any current playback first
-        stopReading()
-
         val text = getMessageText(messageId)
-        if (text.isBlank()) return
+        if (text.isBlank()) {
+            stopReading()
+            return
+        }
+        startRead(messageId, text)
+    }
 
-        handle.update { voice = voice.copy(currentlyReadingMessageId = messageId) }
+    /** Every read starts here, so whatever was reading is stopped and the new read is the one Stop cancels. */
+    private fun startRead(readingId: String, text: String) {
+        stopReading()
+        handle.update { voice = voice.copy(currentlyReadingMessageId = readingId) }
 
         readJob = handle.scope.launch {
             val source = settingsDataStore.ttsSource.first()
-            if (source == "server") {
+            if (source == SettingsDataStore.TTS_SOURCE_SERVER) {
                 readAloudViaServer(text)
             } else {
                 val rate = settingsDataStore.ttsSpeechRate.first()
                 val pitch = settingsDataStore.ttsPitch.first()
                 val voiceName = settingsDataStore.ttsVoiceName.first()
-                readAloudViaDevice(messageId, text, rate, pitch, voiceName)
+                readAloudViaDevice(readingId, text, rate, pitch, voiceName)
             }
         }
     }
@@ -116,6 +130,9 @@ class TextToSpeechDelegate(
         voiceName: String,
     ) {
         getOrInitTts {
+            // A first engine starts after this read's job has ended, so Stop (or a newer read) can
+            // only reach it through the reading id.
+            if (handle.state.currentlyReadingMessageId != messageId) return@getOrInitTts
             val engine = ttsEngine ?: return@getOrInitTts
             engine.setSpeechRate(speechRate)
             engine.setPitch(pitch)
@@ -143,11 +160,13 @@ class TextToSpeechDelegate(
      * Reads [text] through the server, one segment per request, each played to its end before the
      * next is asked for. v0.8.9-rc1 synthesizes only the first `speech.tts.maxInputChars` (default
      * 20,000) characters of a request and drops the rest silently, so a long reply sent whole
-     * stops partway. Older servers take the segments the same way.
+     * stops partway. Older servers take the segments the same way. Every segment names one voice: a
+     * request without one gets a random voice from the server, so a reply would change voice mid-read.
      */
     internal suspend fun readAloudViaServer(text: String) {
+        val serverVoice = serverVoiceToUse(settingsDataStore.selectedVoiceId.first(), ::offeredServerVoices)
         for (segment in splitForSpeech(text, SERVER_TTS_SEGMENT_CHARS)) {
-            when (val result = speechRepository.synthesizeSpeech(segment)) {
+            when (val result = speechRepository.synthesizeSpeech(segment, voice = serverVoice)) {
                 is Result.Success -> {
                     val played = suspendRunCatching { playServerAudio(result.data) }
                         .onFailure { e ->
@@ -230,33 +249,13 @@ class TextToSpeechDelegate(
     }
 
     /**
-     * Checks the auto-read preference and, if enabled, reads the completed AI
-     * response aloud via TTS. Skips auto-read when the user has already started
-     * typing a new message (inputText is not blank).
-     *
-     * Uses a synthetic message ID ("auto_read") because the real message ID
-     * may not be available yet (Room observer hasn't emitted the final message).
+     * Reads a completed reply under [messageId] when auto-read is on. It runs after every completed
+     * send, so a read already playing is touched only once auto-read is known to be on.
      */
-    fun maybeAutoReadResponse(responseText: String) {
-        // Don't auto-read if the user has already started typing
-        if (handle.state.inputText.isNotBlank()) return
-
-        readJob = handle.scope.launch {
-            val autoRead = settingsDataStore.autoReadEnabled.first()
-            if (!autoRead) return@launch
-
-            val syntheticId = "auto_read_${System.currentTimeMillis()}"
-            handle.update { voice = voice.copy(currentlyReadingMessageId = syntheticId) }
-
-            val source = settingsDataStore.ttsSource.first()
-            if (source == "server") {
-                readAloudViaServer(responseText)
-            } else {
-                val rate = settingsDataStore.ttsSpeechRate.first()
-                val pitch = settingsDataStore.ttsPitch.first()
-                val voiceName = settingsDataStore.ttsVoiceName.first()
-                readAloudViaDevice(syntheticId, responseText, rate, pitch, voiceName)
-            }
+    fun maybeAutoReadResponse(messageId: String, responseText: String) {
+        handle.scope.launch {
+            if (!settingsDataStore.autoReadEnabled.first()) return@launch
+            startRead(messageId, responseText)
         }
     }
 

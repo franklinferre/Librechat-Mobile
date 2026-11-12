@@ -5,6 +5,7 @@ import com.garfiec.librechat.core.common.EndpointConstants
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.pdf.PdfPasswordProtectedException
 import com.garfiec.librechat.core.data.repository.FileRepository
+import com.garfiec.librechat.core.logging.redact.LogRedactor
 import com.garfiec.librechat.core.model.FileObject
 import com.garfiec.librechat.core.model.response.UploadRoute
 import com.garfiec.librechat.core.model.response.toolResource
@@ -139,7 +140,7 @@ class IosFileHandler(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Logger.e(e) { "IosFileHandler: unexpected exception for $filename" }
+                Logger.e(e) { "IosFileHandler: unexpected exception for ${LogRedactor.redactFileName(filename)}" }
                 updateTrayEntry(key) { it.copy(uploadFailed = true, uploadProgress = null) }
                 handle.setError(ChatNotice.uploadFailed(filename, e.message))
             }
@@ -264,13 +265,14 @@ class IosFileHandler(
     override fun submitPdfPassword(prompt: PdfPasswordPrompt, password: String) {
         if (!pdfPrompts.take(prompt)) return
         val fileData = prompt.file.ref as? IosFileData ?: return
+        val stored = _attachedFiles.value.firstOrNull { it.key == prompt.chipKey }?.route
         _attachedFiles.update { list -> list.filter { it.key != prompt.chipKey } }
         prune()
-        // Routed against the live selection, as the Android handler's password retry is.
+        // Keeps the chip's route while the live selection still offers it, as a retry does.
         upload(
             key = Uuid.random().toString(),
             data = fileData,
-            route = handle.state.uploadRouteFor(fileData.mimeType),
+            route = handle.state.retryUploadRoute(stored, fileData.mimeType),
             pdfPassword = password,
         )
     }

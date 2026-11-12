@@ -1110,7 +1110,7 @@
         "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/viewmodel/delegate/QueueOrchestrationDelegate.kt",
         "symbol": "serverOwnedSpec"
       },
-      "why": "The server's queued turn has no `spec` field, so under `modelSpecs.enforce` a turn queued on the server is refused by `buildEndpointOption` when it drains, even if the composer held a spec. `serverOwnedSpec` keeps such a follow-up on the local drain instead.",
+      "why": "The server's queued turn has no `spec` field. Under `modelSpecs.enforce` the server can run it only because v0.8.9-rc1's `restoreAgentTriggerModelSpec` puts the conversation's agents spec back (see queued-turn-enforced-spec-restore); any other spec is refused by `buildEndpointOption` at drain. `serverOwnedSpec` keeps those follow-ups on the local drain.",
       "failure_mode": "Upstream adds `spec` to the enqueue schema and mobile keeps routing enforce-mode follow-ups locally -- harmless but stale. Or the schema stays and someone removes the local fallback: the queued turn is silently refused at drain time."
     },
     {
@@ -1123,8 +1123,22 @@
         "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/viewmodel/delegate/QueueOrchestrationDelegate.kt",
         "symbol": "serverOwnedSpec"
       },
-      "why": "The other half of queued-turn-enqueue-no-spec: the worker re-posts a drained queued turn to the chat route without a `spec`. If it starts carrying one, enforce-mode follow-ups could go to the server queue like any other.",
+      "why": "The other half of queued-turn-enqueue-no-spec: the worker re-posts a drained queued turn to the chat route with `endpoint: agents`, the agent's id and no `spec`, which is what restoreAgentTriggerModelSpec matches on. If it starts carrying the spec, every enforce-mode follow-up could go to the server queue like any other.",
       "failure_mode": "Upstream's worker starts sending the spec and mobile keeps the local-drain detour it no longer needs, or the reverse."
+    },
+    {
+      "id": "queued-turn-enforced-spec-restore",
+      "upstream": {
+        "file": "packages/api/src/modelSpecs/continuation.ts",
+        "symbol": "restoreAgentTriggerModelSpec",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/viewmodel/delegate/QueueOrchestrationDelegate.kt",
+        "symbol": "enforcedSpecRestored"
+      },
+      "why": "Under `enforce`, a queued turn re-posted without a `spec` runs only when this restores the conversation's spec: an agents spec whose preset `agent_id` is the turn's agent, with a name no other spec shares. `enforcedSpecRestored` copies those conditions to decide which follow-ups may go to the server queue.",
+      "failure_mode": "Upstream narrows the restore and mobile keeps handing those follow-ups to the server, which accepts them, refuses the re-post with \"No model spec selected\" and leaves the row claimed, blocking that chat's server queue. Or it widens and mobile keeps them local, where they are lost with the app."
     },
     {
       "id": "oauth-browser-flow-routes",
@@ -1600,8 +1614,22 @@
         "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/util/SpecSeed.kt",
         "symbol": "SPEC_REFUSALS (isSpecRefusal); also ModelChoice.stored"
       },
-      "why": "The start POST's spec refusals, matched verbatim to open the model picker: 'No model spec selected' and 'Invalid model spec' under `enforce`, 'Model spec mismatch' with or without it. The same middleware decides which stored specs the server applies (the enforce branch replaces the body with the preset; the other applies only private fields and refuses only an endpoint mismatch), which `ModelChoice.stored` mirrors.",
+      "why": "The start POST's spec refusals, matched verbatim to open the model picker: 'No model spec selected' and 'Invalid model spec' under `enforce`, 'Model spec mismatch' with or without it. 'Error parsing model spec' is left out on purpose: it is a server fault (the preset failed to parse), which picking another model doesn't fix. The same middleware decides which stored specs the server applies (the enforce branch replaces the body with the preset; the other applies only private fields and refuses only an endpoint mismatch), which `ModelChoice.stored` mirrors.",
       "failure_mode": "Upstream rewords a refusal and the picker no longer opens (the sentence still shows). Or it changes when a stored spec is refused, and mobile keeps or drops specs the server now treats the other way."
+    },
+    {
+      "id": "model-spec-enforced-reasoning-keys",
+      "upstream": {
+        "file": "packages/api/src/modelSpecs/index.ts",
+        "symbol": "applyModelSpecPreset",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/util/ComposerReasoning.kt",
+        "symbol": "reasoningKeys"
+      },
+      "why": "Under `enforce` the server records every key the spec's preset sets (`enforcedFields = Object.keys(preset)`) and `reasoningOverride.ts` refuses an override of one of them. The client can't read that list, so `reasoningKeys` copies the four reasoning keys a preset can set (web's twin is `Thinking.tsx`'s `blockedReasoningKeys`) to hide the chip for them.",
+      "failure_mode": "Upstream adds a reasoning key or stops locking preset keys: the chip offers a level the server refuses with an `Invalid reasoning override` error frame, or hides itself for a key it would take. Nothing fails to decode."
     },
     {
       "id": "model-spec-preset-web",
@@ -2243,7 +2271,7 @@
       },
       "kotlin": {
         "file": "feature/agents/src/commonMain/kotlin/com/garfiec/librechat/feature/agents/util/AgentDescriptionMarkup.kt",
-        "symbol": "AGENT_DESCRIPTION_TAGS / isAgentDescriptionHtml; HtmlDescription.kt safeHref and HtmlRenderer.tag"
+        "symbol": "AGENT_DESCRIPTION_TAGS / isAgentDescriptionHtml; core/ui/src/commonMain/kotlin/com/garfiec/librechat/core/ui/text/ConfigHtml.kt safeHref and HtmlRenderer.tag"
       },
       "why": "Which tags an agent description may use as HTML (a, strong, b, em, i, br, code, span, p, div, ul, ol, li) and which links survive (CONFIG_HTML_SAFE_URI: http(s), mailto, tel, or relative). Detection (a description is HTML only when it starts with an allowlisted tag, decisions C7) is the separate agent-description-html-detection entry; the card strips it with core/common HtmlText.kt htmlToPlainText.",
       "failure_mode": "Upstream widens or narrows the allowlist or the safe-URI rule, and the same description renders differently on the web and in the app: a tag the web styles shows as bare text, or a link the web drops becomes tappable here. Nothing errors."
@@ -3454,8 +3482,22 @@
         "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/viewmodel/delegate/ChatConfigDelegate.kt",
         "symbol": "ChatConfigDelegate.loadWebSearchReadiness"
       },
-      "why": "The tool-definition path adds `web_search` on capability and permission alone; the search keys are checked only when the tool executes (`handleTools`, `loadWebSearchAuth`). So the app must check the keys itself (`GET /api/agents/tools/web_search/auth`) before sending LibreChat search, or the model gets a tool that fails when called and, on Anthropic and Google, loses its built-in search too. The capability half (`filteredTools`, the agents `capabilities` from `resolveAgentCapabilities`, which falls back to the defaults on an empty list) is `ChatUiState.librechatSearchCapable`.",
+      "why": "The tool-definition path adds `web_search` on capability and permission alone; the search keys are checked only when the tool executes (`handleTools`, `loadWebSearchAuth`). So the app must check the keys itself (`GET /api/agents/tools/web_search/auth`) before sending LibreChat search, or the model gets a tool that fails when called and, on Anthropic and Google, loses its built-in search too. The capability half is mirrored by `agent-capabilities-empty-list`.",
       "failure_mode": "If upstream starts checking the keys before adding the definition, the app's own check becomes redundant (harmless). If the auth route changes shape, the app reads every server as not set up and always uses the built-in search."
+    },
+    {
+      "id": "agent-capabilities-empty-list",
+      "upstream": {
+        "file": "api/server/services/ToolService.js",
+        "symbol": "resolveAgentCapabilities",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/viewmodel/ChatUiState.kt",
+        "symbol": "ChatUiState.agentCapabilityAllows"
+      },
+      "why": "The served agents `capabilities` decide which ephemeral tools a run loads (`filteredTools`: web_search, file_search, execute_code; also artifacts and file context). A missing list is the defaults (zod's `.default(defaultAgentCapabilities)` fires on `undefined`); an admin's explicit `[]` stays empty, and the fallback here re-reads the same `[]` from appConfig. So the app allows a capability when the list is missing and denies every one on an empty list.",
+      "failure_mode": "If upstream starts treating an empty list as the defaults, the app hides LibreChat search, artifacts and file context on a server that runs them. If it stops falling back on a missing list, the app offers tools the server drops silently."
     },
     {
       "id": "web-search-toggle-per-conversation",
@@ -3808,7 +3850,63 @@
       "failure_mode": "If web reorders the rules or adds one, the same endpoint draws different art on mobile than on web; nothing fails to decode."
     },
     {
+      "id": "provider-id-values",
+      "upstream": {
+        "file": "packages/data-provider/src/providers.ts",
+        "symbol": "ProviderId",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "ProviderId"
+      },
+      "why": "The `ProviderId` wire ids the server serves as `EndpointConfig.providerId`, which `resolveProviderId` matches by normalised id.",
+      "failure_mode": "A new provider id upstream decodes fine (`providerId` is a String) and just draws the generic glyph on mobile."
+    },
+    {
+      "id": "provider-id-endpoint-map",
+      "upstream": {
+        "file": "packages/data-provider/src/providers.ts",
+        "symbol": "endpointToProvider",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "endpointToProvider"
+      },
+      "why": "Which first-class endpoint draws which provider's brand.",
+      "failure_mode": "Upstream remaps or adds a first-class endpoint, and mobile draws the old brand or the generic glyph where web draws the new one."
+    },
+    {
       "id": "provider-id-aliases",
+      "upstream": {
+        "file": "packages/data-provider/src/providers.ts",
+        "symbol": "providerAliases",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAliases"
+      },
+      "why": "The alias table that turns a free-form name or `iconURL` (`claude`, `vertexai`, `mistralai`) into a provider. `knownEndpointToProvider` isn't ported: normalisation and the aliases cover its keys.",
+      "failure_mode": "Upstream adds an alias, and an endpoint or spec named by it draws the generic glyph on mobile where web draws the brand."
+    },
+    {
+      "id": "provider-id-normalize",
+      "upstream": {
+        "file": "packages/data-provider/src/providers.ts",
+        "symbol": "normalize",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "normalize"
+      },
+      "why": "How a name is normalised before the id and alias lookups: lowercased, with spaces, dots, underscores and hyphens stripped.",
+      "failure_mode": "Upstream strips or keeps another separator, and a name web resolves to a brand draws the generic glyph on mobile, or the reverse."
+    },
+    {
+      "id": "provider-id-resolve",
       "upstream": {
         "file": "packages/data-provider/src/providers.ts",
         "symbol": "resolveProviderId",
@@ -3818,8 +3916,8 @@
         "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
         "symbol": "resolveProviderId"
       },
-      "why": "The `ProviderId` wire ids the server serves as `EndpointConfig.providerId`, `endpointToProvider`, and the alias table plus normalisation (lowercase, separators stripped) that turn a free-form name or `iconURL` into a provider. `knownEndpointToProvider` isn't ported: normalisation and the aliases cover its keys.",
-      "failure_mode": "A new provider id or alias upstream decodes fine (`providerId` is a String) and just draws the generic glyph on mobile."
+      "why": "The lookup order: the normalised id first, then the aliases.",
+      "failure_mode": "Upstream adds a step (a prefix match, a third table), and mobile resolves fewer names to a brand than web."
     },
     {
       "id": "endpoint-alternate-names",
@@ -3845,8 +3943,8 @@
         "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
         "symbol": "providerAssetFiles"
       },
-      "why": "Which providers have served art and its file name (the registry's `asset('assets/<file>')` entries, loaded from the user's server at `{server}/assets/<file>`), and each provider's `label` (`ProviderId.label`, the monogram letter and content description). No logo art is bundled in the app. Mono component art (Anthropic, Azure, Bedrock, xAI, Moonshot, Vercel) has no served file and draws a monogram. The model-level refinement (`byModel`: OpenAI colour by model, Gemini/Gemma art) isn't ported.",
-      "failure_mode": "A renamed or removed asset 404s and silently falls to the monogram; a new provider or a new served file draws the monogram (or the generic glyph) until mapped."
+      "why": "Which providers have art on the user's server and its file name (`providerAssetFiles`, loaded from `{server}/assets/<file>`), and each provider's `label` (`ProviderId.label`, the content description). No logo art is bundled in the app. Since v0.8.9-rc1 web draws every provider as an inline mark and references none of these files; they are the legacy files `client/public/assets/` still ships, each watched by its own `provider-asset-*` entry. Anthropic, Azure, Bedrock, xAI, Moonshot and Vercel have no file and draw a tinted two-letter monogram (`ProviderId.monogram`, unique per provider); web draws its own marks for them, which mobile doesn't bundle (brand terms, F-Droid non-free assets). Not ported: the model-level refinement (`byModel`) and the model-maker override (`modelMakers`, `getProviderIconDef`), so a model id naming its maker (`meta-llama/…`) draws the host's brand on mobile and the maker's mark on web.",
+      "failure_mode": "A new provider draws the monogram (or the generic glyph) until mapped. A file removed from `client/public/assets/` 404s and silently falls to the monogram."
     },
     {
       "id": "provider-icon-assets",
@@ -3859,8 +3957,268 @@
         "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
         "symbol": "providerAssetUrl"
       },
-      "why": "Production builds copy `client/public/assets/` into the served `dist/assets/`; the client loads provider art from there (`openai.svg` and `google.svg` included, which the registry draws as components) relative to the server's base URL, as web's `base: ''` relative srcs resolve.",
+      "why": "Production builds copy `client/public/assets/` into the served `dist/assets/`, relative to the server's base URL as web's `base: ''` relative srcs resolve. Mobile loads every provider's art from there (`providerAssetFiles`), though web itself no longer does (v0.8.9-rc1 inline marks).",
       "failure_mode": "If the build stops copying public assets, or serves them elsewhere, every provider silently draws its monogram."
+    },
+    {
+      "id": "provider-asset-openai",
+      "upstream": {
+        "file": "client/public/assets/openai.svg",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws OpenAI's art from `{server}/assets/openai.svg`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-google",
+      "upstream": {
+        "file": "client/public/assets/google.svg",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws Google's art from `{server}/assets/google.svg`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-anyscale",
+      "upstream": {
+        "file": "client/public/assets/anyscale.png",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws Anyscale's art from `{server}/assets/anyscale.png`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-apipie",
+      "upstream": {
+        "file": "client/public/assets/apipie.png",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws APIpie's art from `{server}/assets/apipie.png`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-cohere",
+      "upstream": {
+        "file": "client/public/assets/cohere.png",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws Cohere's art from `{server}/assets/cohere.png`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-deepseek",
+      "upstream": {
+        "file": "client/public/assets/deepseek.svg",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws DeepSeek's art from `{server}/assets/deepseek.svg`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-fireworks",
+      "upstream": {
+        "file": "client/public/assets/fireworks.png",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws Fireworks's art from `{server}/assets/fireworks.png`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-groq",
+      "upstream": {
+        "file": "client/public/assets/groq.png",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws Groq's art from `{server}/assets/groq.png`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-helicone",
+      "upstream": {
+        "file": "client/public/assets/helicone.svg",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws Helicone's art from `{server}/assets/helicone.svg`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-huggingface",
+      "upstream": {
+        "file": "client/public/assets/huggingface.svg",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws Hugging Face's art from `{server}/assets/huggingface.svg`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-lemonade",
+      "upstream": {
+        "file": "client/public/assets/lemonade.png",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws AMD Lemonade's art from `{server}/assets/lemonade.png`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-mistral",
+      "upstream": {
+        "file": "client/public/assets/mistral.png",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws Mistral's art from `{server}/assets/mistral.png`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-mlx",
+      "upstream": {
+        "file": "client/public/assets/mlx.png",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws MLX's art from `{server}/assets/mlx.png`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-ollama",
+      "upstream": {
+        "file": "client/public/assets/ollama.png",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws Ollama's art from `{server}/assets/ollama.png`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-openrouter",
+      "upstream": {
+        "file": "client/public/assets/openrouter.png",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws OpenRouter's art from `{server}/assets/openrouter.png`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-perplexity",
+      "upstream": {
+        "file": "client/public/assets/perplexity.png",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws Perplexity's art from `{server}/assets/perplexity.png`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-qwen",
+      "upstream": {
+        "file": "client/public/assets/qwen.svg",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws Qwen's art from `{server}/assets/qwen.svg`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-shuttleai",
+      "upstream": {
+        "file": "client/public/assets/shuttleai.png",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws ShuttleAI's art from `{server}/assets/shuttleai.png`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-together",
+      "upstream": {
+        "file": "client/public/assets/together.png",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws Together AI's art from `{server}/assets/together.png`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
+    },
+    {
+      "id": "provider-asset-unify",
+      "upstream": {
+        "file": "client/public/assets/unify.webp",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/ProviderIcons.kt",
+        "symbol": "providerAssetFiles"
+      },
+      "why": "Mobile draws Unify's art from `{server}/assets/unify.webp`. No web code references it at v0.8.9-rc1 (web draws inline marks), so upstream can delete or replace it without any web change.",
+      "failure_mode": "Deleted: the provider silently draws its monogram tile. Replaced: mobile shows the new art, which may no longer match web's mark."
     },
     {
       "id": "endpoint-icon-rule",
@@ -3870,10 +4228,90 @@
       },
       "kotlin": {
         "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/Conversation.kt",
-        "symbol": "Conversation.iconEndpoint"
+        "symbol": "Conversation.iconEndpoint / Conversation.iconProvider"
       },
-      "why": "How a conversation row picks its icon: an image `iconURL` wins; a non-image `iconURL` switches the icon endpoint only when it is an endpoints-config key (`getIconEndpoint`); the provider art is then resolved for that endpoint without the conversation's own `iconURL`.",
+      "why": "How a conversation row picks its icon: an image `iconURL` wins; a non-image `iconURL` switches the icon endpoint only when it is an endpoints-config key (`getIconEndpoint`, `icon-endpoint-rule`); the provider art is then resolved for that endpoint without the conversation's own `iconURL`. The drawer's endpoint filter chips draw the same icon (`filterEndpointOption`). Web then passes `model` to `MinimalIcon` for the model-maker override, which mobile doesn't port (`provider-icon-registry`).",
       "failure_mode": "Drawer, list and archive rows draw different icons than web's sidebar."
+    },
+    {
+      "id": "icon-endpoint-rule",
+      "upstream": {
+        "file": "client/src/utils/endpoints.ts",
+        "symbol": "getIconEndpoint",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/IconUrls.kt",
+        "symbol": "iconEndpoint"
+      },
+      "why": "Which endpoint's icon an `iconURL` stands for: the `iconURL` itself when the endpoints config lists it as a key, else the conversation's or message's endpoint. Conversation rows, filter chips and reply avatars all use it.",
+      "failure_mode": "Upstream widens the match (labels, case), and rows and replies draw a different endpoint's brand than web's."
+    },
+    {
+      "id": "message-icon-rule",
+      "upstream": {
+        "file": "client/src/components/Chat/Messages/MessageIcon.tsx",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/util/ReplyAvatars.kt",
+        "symbol": "replyIconSource"
+      },
+      "why": "What a reply's avatar draws: an image `iconURL` is loaded; any other value counts only as an endpoint key (`getIconEndpoint`), and that endpoint's configured image `iconURL` is loaded, else its brand drawn, so a spec icon naming a provider (`groq`) draws the reply's endpoint, unlike the picker. An agents reply draws its agent's avatar (found by the message's `model`, else the chat's agent, as `useMessageActions` does) ahead of the endpoint's image. The streaming reply and Compare's lane B use the same rule (`ModelSpec.replyIconSource`). Web passes `model` for the model-maker override, which mobile doesn't port.",
+      "failure_mode": "If web changes the rule, mobile's reply avatars disagree with web's, or with the drawer row for the same chat."
+    },
+    {
+      "id": "spec-icon-rule",
+      "upstream": {
+        "file": "client/src/components/Chat/Menus/Endpoints/components/SpecIcon.tsx",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/IconUrls.kt",
+        "symbol": "resolveIconSource"
+      },
+      "why": "What a spec draws in the picker, the landing hero and Compare's quick picks: `agents` draws the agents mark, an image is loaded, a value naming a provider draws that brand, else the spec endpoint's brand. Mobile draws `assistants` as OpenAI, on purpose, where web draws its entity mark.",
+      "failure_mode": "If web changes the order (entity, image, brand), mobile's picker draws a different icon for the same spec."
+    },
+    {
+      "id": "spec-group-icon",
+      "upstream": {
+        "file": "client/src/components/Chat/Menus/Endpoints/components/GroupIcon.tsx",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/components/ModelSelectorSheet.kt",
+        "symbol": "PickerHeader (HeaderIcon.Group)"
+      },
+      "why": "What a custom spec group's header draws for its `groupIcon`: an image is loaded, a value naming a provider draws that brand. Mobile also draws an endpoint key's served brand, which web's `GroupIcon` doesn't.",
+      "failure_mode": "If web changes the rule, a custom group's header draws a different icon on mobile than on web."
+    },
+    {
+      "id": "landing-convo-icon",
+      "upstream": {
+        "file": "client/src/components/Endpoints/ConvoIcon.tsx",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/screen/ChatContent.kt",
+        "symbol": "ChatUiState.landingHeroIcon"
+      },
+      "why": "What the new chat's hero draws: the selected spec's icon by the `SpecIcon` rule, else the agent's avatar, else the endpoint's configured `iconURL` (`iconURL || configured` in `useProviderIcon`), else its brand. The \"+\" sheet's Model cell draws the same icon.",
+      "failure_mode": "If web changes the precedence, mobile's landing hero draws a different icon from web's."
+    },
+    {
+      "id": "entity-endpoint-mark",
+      "upstream": {
+        "file": "client/src/components/Endpoints/EntityEndpointMark.tsx",
+        "symbol": "isEntityEndpoint",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/media/IconUrls.kt",
+        "symbol": "resolveIconSource"
+      },
+      "why": "Which icon values draw an entity's mark instead of a provider's (`SpecIcon`, `GroupIcon`): `agents`, `assistants` and `azureAssistants`. Mobile draws the agents mark for `agents` only; it has no Assistants endpoints.",
+      "failure_mode": "If upstream adds an entity endpoint, a spec or group icon naming it draws that name's brand or the generic glyph on mobile and an entity mark on web."
     },
     {
       "id": "picker-user-key",
@@ -4115,7 +4553,7 @@
         "mode": "block"
       },
       "kotlin": {
-        "file": "feature/settings/src/commonMain/kotlin/com/garfiec/librechat/feature/settings/viewmodel/providerkeys/SetProviderKeyViewModel.kt",
+        "file": "feature/settings/src/commonMain/kotlin/com/garfiec/librechat/feature/settings/state/providerkeys/ServiceKeyValidation.kt",
         "symbol": "validateGoogleServiceKey / EMAIL_PATTERN"
       },
       "why": "What counts as a Google service-account key: client_email a valid email (zod 3's email pattern, copied) of at least 3 characters, project_id at least 3, private_key at least 601. Mobile applies it to a pasted key as well as an imported file, and refuses to save a key that fails it.",
@@ -4356,6 +4794,20 @@
       "failure_mode": "A control sends a key the parser forwards to AWS (which may reject the request) or deletes (the control does nothing)."
     },
     {
+      "id": "bedrock-input-schema-keys",
+      "upstream": {
+        "file": "packages/data-provider/src/bedrock.ts",
+        "symbol": "bedrockInputSchema",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/ui/src/commonMain/kotlin/com/garfiec/librechat/core/ui/components/EndpointParameterRegistry.kt",
+        "symbol": "EndpointParameterRegistry.wireOnlyDefinitions"
+      },
+      "why": "The fields a Bedrock conversation stores, for every model: it keeps `stop`, `maxTokens` and `topK` though web's panels show them only for some variants. A spec preset or a reopened chat still carries them, and the server unsets any stored field a request omits, so `wireOnlyDefinitions` sends the ones a variant's list leaves out.",
+      "failure_mode": "If the schema drops a key, mobile sends a field the server discards. If it adds one a panel hides, a spec's value for it is erased on the next mobile send."
+    },
+    {
       "id": "conversation-unset-fields",
       "upstream": {
         "file": "packages/api/src/conversations/save.ts",
@@ -4400,6 +4852,20 @@
     {
       "id": "artifact-shadcn-mounts",
       "upstream": {
+        "file": "packages/data-provider/src/artifacts.ts",
+        "symbol": "artifactUIComponents",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "scripts/web-assets.json",
+        "symbol": "shadcn-ui and vaul `modules` (/components/ui/*, /lib/utils)"
+      },
+      "why": "Which shadcn/ui components web mounts into every React artifact, at /components/ui/<key> (client sharedFiles spreads this map). The vendored shadcn-ui bundle registers each under that path; ReactArtifactImports aliases the artifact's import to it. build.mjs refuses to --sync while this list and the registry disagree, so a drift here is caught at the next re-vendor, but nothing forces a re-vendor; this entry does.",
+      "failure_mode": "A component web mounts is 'not bundled' on mobile; one web stopped mounting still renders on mobile (harmless, but no longer what the prompt describes)."
+    },
+    {
+      "id": "artifact-shadcn-mount-paths",
+      "upstream": {
         "file": "client/src/utils/artifacts.ts",
         "symbol": "sharedFiles",
         "mode": "block"
@@ -4408,8 +4874,8 @@
         "file": "scripts/web-assets.json",
         "symbol": "shadcn-ui and vaul `modules` (/components/ui/*, /lib/utils)"
       },
-      "why": "Which shadcn/ui components web mounts into every React artifact, and at which path. The vendored shadcn-ui bundle registers each under that path; ReactArtifactImports aliases the artifact's import to it. build.mjs refuses to --sync while this list and the registry disagree, so a drift here is caught at the next re-vendor, but nothing forces a re-vendor; this entry does.",
-      "failure_mode": "A component web mounts is 'not bundled' on mobile; one web stopped mounting still renders on mobile (harmless, but no longer what the prompt describes)."
+      "why": "Where web mounts the shadcn sources: the literal mounts (/lib/utils) and the artifactUIComponents spread. The /components/ui/<key>.tsx template lives in uiComponentFiles, outside this block, so only build.mjs --sync sees a change to it. A new literal mount, or a moved or dropped spread, changes what an artifact can import without touching artifactUIComponents.",
+      "failure_mode": "An import path web serves is 'not bundled' on mobile, or mobile serves a component at a path web no longer mounts."
     },
     {
       "id": "artifact-shadcn-sources",
@@ -4532,8 +4998,8 @@
         "file": "feature/settings/src/commonMain/kotlin/com/garfiec/librechat/feature/settings/viewmodel/delegate/TwoFactorSecurityDelegate.kt",
         "symbol": "TWO_FACTOR_POLICY_PROVIDERS"
       },
-      "why": "The account providers enforced 2FA applies to (local, ldap). Disable 2FA is hidden only for them while twoFactorAuthenticationRequired is on, because only for them does the server refuse it.",
-      "failure_mode": "Upstream adds a provider: Disable 2FA stays visible for it and fails with a 403 when tapped."
+      "why": "The account providers 2FA applies to (local, ldap). Account › Security offers 2FA only to them (web's isTwoFactorPolicyProvider), and Disable 2FA is hidden for them while twoFactorAuthenticationRequired is on, because only for them does the server refuse it.",
+      "failure_mode": "Upstream adds a provider: its accounts get no 2FA row, and Disable 2FA stays visible for it and fails with a 403 when tapped."
     },
     {
       "id": "mcp-oauth-csrf-cookie",
@@ -5071,7 +5537,7 @@
         "symbol": "ReasoningSettingResolver.resolve"
       },
       "why": "Which reasoning key and values a one-turn reasoningOverride may carry for an endpoint and model. The server runs the same function on the request, so the Thinking chip and the send-time check must agree with it.",
-      "failure_mode": "The chip offers a level the server answers with a 400 invalid-reasoning-override (the send fails), or hides itself for a model that takes one. Nothing fails to decode."
+      "failure_mode": "The chip offers a level the server refuses with an `Invalid reasoning override` SSE error frame on a 200 (the send fails), or hides itself for a model that takes one. Nothing fails to decode."
     },
     {
       "id": "reasoning-setting-per-model",
@@ -5449,20 +5915,6 @@
       },
       "why": "The strict confirm body: `expectedRevision` is nullable but required, and `lifetimeHours` is 1..8760. Built as a JsonObject so the null survives `explicitNulls = false`.",
       "failure_mode": "A renamed or added required key makes every Confirm a 400 `consent_invalid`, shown as Authorization could not be updated."
-    },
-    {
-      "id": "deployment-theme-accent",
-      "upstream": {
-        "file": "packages/data-provider/src/config.ts",
-        "symbol": "themeDefinitionSchema",
-        "mode": "block"
-      },
-      "kotlin": {
-        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/DeploymentTheme.kt",
-        "symbol": "readDeploymentAccent / parseRgbTriplet"
-      },
-      "why": "The inline `interface.theme` shape (version 1, name, modes.light|dark.colors) and its \"R G B\" colour format, read for the `rgb-accent-primary` token only. Bundled names (`bundledThemeNames` in theme.ts: librechat, clickhouse) give no accent on purpose.",
-      "failure_mode": "A new version, a moved token or a changed colour format reads as Invalid: the server's brand accent silently stops painting the app and the user's own shows instead. Nothing errors."
     },
     {
       "id": "code-workspace-routing",
@@ -6150,16 +6602,16 @@
     {
       "id": "queued-turn-approval-mode",
       "upstream": {
-        "file": "packages/api/src/agents/queuedTurnHttp.ts",
-        "symbol": "handleAgentQueuedTurnEnqueue",
+        "file": "packages/data-provider/src/data-service.ts",
+        "symbol": "enqueueAgentQueuedTurn",
         "mode": "block"
       },
       "kotlin": {
-        "file": "feature/chat/src/commonMain/kotlin/com/garfiec/librechat/feature/chat/viewmodel/delegate/QueueOrchestrationDelegate.kt",
-        "symbol": "serverOwnedSpec"
+        "file": "core/network/src/commonMain/kotlin/com/garfiec/librechat/core/network/api/QueuedTurnsApi.kt",
+        "symbol": "enqueueQueuedTurn"
       },
-      "why": "The v1 queued-turn route 409s a turn carrying codeApprovalMode, so a follow-up picked to do more than ask stays in the local queue.",
-      "failure_mode": "If v1 starts accepting the mode, local queueing is merely conservative; if the rule widens, server-queued follow-ups 409."
+      "why": "A turn carrying codeApprovalMode, ask included, is posted to queued-turns/v2; v1 409s it, and a turn queued without it runs under the attached machine's own permissions.",
+      "failure_mode": "If the routing rule changes, queued follow-ups either 409 or run edits and commands without the approval the chat asks for."
     },
     {
       "id": "code-worker-setup-command",
@@ -6502,6 +6954,314 @@
       },
       "why": "Which fences take a block index (not math, mermaid or single-line) and the `${messageId}_${partIndex ?? 0}_${blockIndex ?? 0}_${toolId}` key (client/src/utils/map.ts mapToolCalls) stored runs are matched by.",
       "failure_mode": "A run's output shows under a different block than on web, or a block's stored runs never show."
+    },
+    {
+      "id": "theme-color-tokens",
+      "upstream": {
+        "file": "packages/data-provider/src/theme.ts",
+        "symbol": "themeColorTokens",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ThemeRole.kt",
+        "symbol": "ThemeRole"
+      },
+      "why": "Every colour role a server theme may name. A role missing here is dropped from the server's theme as unknown. Generated: rerun scripts/generate-theme-palettes.py, which fails on a token it cannot place.",
+      "failure_mode": "A role upstream added is ignored: the app paints the stock value where the server's theme names its own."
+    },
+    {
+      "id": "theme-renamed-tokens",
+      "upstream": {
+        "file": "packages/data-provider/src/theme.ts",
+        "symbol": "renamedThemeColorTokens",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ThemeRole.kt",
+        "symbol": "ThemeRole.RENAMED"
+      },
+      "why": "Role names a release shipped and a later one renamed; a theme written with the old name keeps its value. Generated: rerun scripts/generate-theme-palettes.py, which fails on a token it cannot place.",
+      "failure_mode": "A theme naming a role by its old name loses that colour."
+    },
+    {
+      "id": "theme-stock-light",
+      "upstream": {
+        "file": "packages/data-provider/src/themes/default.ts",
+        "symbol": "defaultTheme",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ThemeRole.kt",
+        "symbol": "ThemeRole.libreChatLight"
+      },
+      "why": "The stock light palette every server theme is laid over. Generated: rerun scripts/generate-theme-palettes.py, which fails on a token it cannot place.",
+      "failure_mode": "Roles a server theme leaves out paint an old stock colour that the web no longer shows."
+    },
+    {
+      "id": "theme-stock-dark",
+      "upstream": {
+        "file": "packages/data-provider/src/themes/dark.ts",
+        "symbol": "darkTheme",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ThemeRole.kt",
+        "symbol": "ThemeRole.libreChatDark"
+      },
+      "why": "The stock dark palette every server theme is laid over. Generated: rerun scripts/generate-theme-palettes.py, which fails on a token it cannot place.",
+      "failure_mode": "Roles a server theme leaves out paint an old stock colour that the web no longer shows."
+    },
+    {
+      "id": "theme-clickhouse-palette",
+      "upstream": {
+        "file": "packages/client/src/theme/themes/clickhouse.ts",
+        "symbol": "clickHouseLightTheme",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ClickHousePalette.kt",
+        "symbol": "ClickHousePalette"
+      },
+      "why": "The bundled `clickhouse` theme lives in the web client, never on the wire: a server naming it sends only the name. Watches the whole file, since the light and dark maps and `clickHouseShape` (the corners and fonts the app reads) are all here. Generated: rerun scripts/generate-theme-palettes.py, which fails on a token it cannot place.",
+      "failure_mode": "A server on `theme: clickhouse` paints an outdated ClickHouse palette."
+    },
+    {
+      "id": "theme-appearance-inheritance",
+      "upstream": {
+        "file": "packages/data-provider/src/themes/registry.ts",
+        "symbol": "inheritedAppearance",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ServerThemeAppearance.kt",
+        "symbol": "ThemeCorner.INHERITED / ThemeFont.INHERITED"
+      },
+      "why": "Which corner or font a theme leaves out follows a broader one it names (composerActionRadius from roundControlRadius, displayFontFamily from fontFamily). Only the pairs for settings the app reads are copied.",
+      "failure_mode": "A theme that names only the broad setting reshapes the web's element but not the app's, or the reverse."
+    },
+    {
+      "id": "theme-appearance-length",
+      "upstream": {
+        "file": "packages/data-provider/src/theme.ts",
+        "symbol": "cssLengthPattern",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ServerThemeAppearance.kt",
+        "symbol": "cssLengthDp"
+      },
+      "why": "The plain length forms a theme's corner settings may use (px, rem, em; calc() is theme-appearance-length-calc). A form the app can't read is left out, so that corner keeps Switchboard's.",
+      "failure_mode": "A corner written in a new form shows Switchboard's shape where the web rounds it."
+    },
+    {
+      "id": "theme-appearance-length-calc",
+      "upstream": {
+        "file": "packages/data-provider/src/theme.ts",
+        "symbol": "cssLengthDifferencePattern",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ServerThemeAppearance.kt",
+        "symbol": "cssLengthDp (CALC)"
+      },
+      "why": "The calc() form of a corner length, which upstream keeps in its own pattern beside cssLengthPattern.",
+      "failure_mode": "A corner written in a new calc() form shows Switchboard's shape where the web rounds it."
+    },
+    {
+      "id": "theme-radius-classes",
+      "upstream": {
+        "file": "packages/client/tailwind.preset.cjs",
+        "symbol": "borderRadius",
+        "mode": "file"
+      },
+      "kotlin": {
+        "file": "core/ui/src/commonMain/kotlin/com/garfiec/librechat/core/ui/theme/ThemeShapes.kt",
+        "symbol": "ThemeShapes.of"
+      },
+      "why": "Which corner setting each element takes follows the class the web rounds it with (rounded-theme-surface-lg for the composer, rounded-xl for code blocks, .popover-ui for menus...). A renamed or remapped class here is the first sign an element moved to another setting; each ThemeShapes field names the class it follows.",
+      "failure_mode": "An element follows a different corner setting on the web than in the app; nothing errors."
+    },
+    {
+      "id": "theme-bundled-names",
+      "upstream": {
+        "file": "packages/data-provider/src/theme.ts",
+        "symbol": "bundledThemeNames",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ServerTheme.kt",
+        "symbol": "bundledTheme"
+      },
+      "why": "The names `interface.theme` may give instead of a definition. Each needs its palette mirrored (only `clickhouse` has one; `librechat` is the stock palette).",
+      "failure_mode": "A new bundled name reads as Invalid and the server's theme is ignored."
+    },
+    {
+      "id": "theme-definition-validation",
+      "upstream": {
+        "file": "packages/data-provider/src/theme.ts",
+        "symbol": "collectThemeIssues",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ServerTheme.kt",
+        "symbol": "readServerTheme / readMode"
+      },
+      "why": "Which inline definitions the client paints and which it ignores: fields, version, modes, colour token names and values. Appearance and brand values are checked for shape only.",
+      "failure_mode": "The app ignores a theme the web paints (it shows Switchboard's own look instead), or paints one the web ignores."
+    },
+    {
+      "id": "theme-rgb-format",
+      "upstream": {
+        "file": "packages/data-provider/src/theme.ts",
+        "symbol": "isThemeRGB",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ServerTheme.kt",
+        "symbol": "parseThemeRgb"
+      },
+      "why": "The \"R G B\" colour format of every theme role.",
+      "failure_mode": "A theme in a new colour format reads as Invalid and is ignored."
+    },
+    {
+      "id": "theme-resolve",
+      "upstream": {
+        "file": "packages/data-provider/src/themes/registry.ts",
+        "symbol": "resolveTheme",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ServerThemeResolver.kt",
+        "symbol": "resolve"
+      },
+      "why": "How the web fills the roles a theme leaves out: stock palette, theme roles, then each one-off fallback in this function. Ported rule for rule.",
+      "failure_mode": "A partial server theme resolves a role differently from the web: the app paints the stock colour where the browser follows the theme's own source role, or the reverse. Nothing errors; ServerThemeUpstreamParityTest only catches it once its expectations are regenerated."
+    },
+    {
+      "id": "theme-layer-role-sources",
+      "upstream": {
+        "file": "packages/data-provider/src/themes/registry.ts",
+        "symbol": "layerRoleSources",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ServerThemeResolver.kt",
+        "symbol": "LAYER_SOURCES"
+      },
+      "why": "Layering roles (page canvas, sidebar, composer, menu, card...) and the surface each followed before it had a name.",
+      "failure_mode": "A partial server theme resolves a role differently from the web: the app paints the stock colour where the browser follows the theme's own source role, or the reverse. Nothing errors; ServerThemeUpstreamParityTest only catches it once its expectations are regenerated."
+    },
+    {
+      "id": "theme-overlay-fallback-sources",
+      "upstream": {
+        "file": "packages/data-provider/src/themes/registry.ts",
+        "symbol": "overlayFallbackSources",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ServerThemeResolver.kt",
+        "symbol": "OVERLAY_SOURCES"
+      },
+      "why": "Tooltip, error alert and category icon roles and the role each was painted in before.",
+      "failure_mode": "A partial server theme resolves a role differently from the web: the app paints the stock colour where the browser follows the theme's own source role, or the reverse. Nothing errors; ServerThemeUpstreamParityTest only catches it once its expectations are regenerated."
+    },
+    {
+      "id": "theme-primary-ink-roles",
+      "upstream": {
+        "file": "packages/data-provider/src/themes/registry.ts",
+        "symbol": "primaryInkRoles",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ServerThemeResolver.kt",
+        "symbol": "PRIMARY_INK_ROLES"
+      },
+      "why": "Inks split out of the primary text colour.",
+      "failure_mode": "A partial server theme resolves a role differently from the web: the app paints the stock colour where the browser follows the theme's own source role, or the reverse. Nothing errors; ServerThemeUpstreamParityTest only catches it once its expectations are regenerated."
+    },
+    {
+      "id": "theme-mark-neighbourhood",
+      "upstream": {
+        "file": "packages/data-provider/src/themes/registry.ts",
+        "symbol": "MARK_NEIGHBOURHOOD",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ServerThemeResolver.kt",
+        "symbol": "MARK_NEIGHBOURHOOD"
+      },
+      "why": "The roles whose presence keeps the verified mark in the theme's success fill.",
+      "failure_mode": "A partial server theme resolves a role differently from the web: the app paints the stock colour where the browser follows the theme's own source role, or the reverse. Nothing errors; ServerThemeUpstreamParityTest only catches it once its expectations are regenerated."
+    },
+    {
+      "id": "theme-focus-fallbacks",
+      "upstream": {
+        "file": "packages/data-provider/src/themes/registry.ts",
+        "symbol": "focusFallbacks",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ServerThemeResolver.kt",
+        "symbol": "resolve (FOCUS_OUTLINE, FOCUS_CONTROL, BORDER_FIELD_FOCUS)"
+      },
+      "why": "Focus roles for a theme that predates them.",
+      "failure_mode": "A partial server theme resolves a role differently from the web: the app paints the stock colour where the browser follows the theme's own source role, or the reverse. Nothing errors; ServerThemeUpstreamParityTest only catches it once its expectations are regenerated."
+    },
+    {
+      "id": "theme-pressed-fallbacks",
+      "upstream": {
+        "file": "packages/data-provider/src/themes/registry.ts",
+        "symbol": "pressedFallbacks",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ServerThemeResolver.kt",
+        "symbol": "resolve (SURFACE_PRESSED, SURFACE_INVERTED_PRESSED)"
+      },
+      "why": "Pressed fills for a theme that predates them.",
+      "failure_mode": "A partial server theme resolves a role differently from the web: the app paints the stock colour where the browser follows the theme's own source role, or the reverse. Nothing errors; ServerThemeUpstreamParityTest only catches it once its expectations are regenerated."
+    },
+    {
+      "id": "theme-primary-button-fallbacks",
+      "upstream": {
+        "file": "packages/data-provider/src/themes/registry.ts",
+        "symbol": "primaryButtonFallbacks",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ServerThemeResolver.kt",
+        "symbol": "resolve (BUTTON_PRIMARY, BUTTON_PRIMARY_HOVER)"
+      },
+      "why": "The primary Button fills for a theme that predates them.",
+      "failure_mode": "A partial server theme resolves a role differently from the web: the app paints the stock colour where the browser follows the theme's own source role, or the reverse. Nothing errors; ServerThemeUpstreamParityTest only catches it once its expectations are regenerated."
+    },
+    {
+      "id": "theme-control-border-fallback",
+      "upstream": {
+        "file": "packages/data-provider/src/themes/registry.ts",
+        "symbol": "controlBorderFallback",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/theme/ServerThemeResolver.kt",
+        "symbol": "resolve (BORDER_CONTROL)"
+      },
+      "why": "The control outline for a theme that predates it.",
+      "failure_mode": "A partial server theme resolves a role differently from the web: the app paints the stock colour where the browser follows the theme's own source role, or the reverse. Nothing errors; ServerThemeUpstreamParityTest only catches it once its expectations are regenerated."
+    },
+    {
+      "id": "reply-notification-capabilities",
+      "upstream": {
+        "file": "client/src/hooks/Conversations/replyNotificationSettings.ts",
+        "symbol": "useReplyNotificationCapabilities",
+        "mode": "block"
+      },
+      "kotlin": {
+        "file": "core/model/src/commonMain/kotlin/com/garfiec/librechat/core/model/config/InterfaceConfig.kt",
+        "symbol": "replyNotificationsAllowed / replyNotificationSoundAllowed"
+      },
+      "why": "How a deployment's interface.replyNotifications gates read: each field off only when explicitly false, so an older server that sends nothing keeps notifications on.",
+      "failure_mode": "If web changes the default (for example to off when the field is absent), the app keeps notifying on servers whose operators expect silence. Nothing errors."
     }
   ]
 }

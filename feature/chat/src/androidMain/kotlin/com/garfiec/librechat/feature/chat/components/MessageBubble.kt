@@ -14,16 +14,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,14 +31,14 @@ import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.MinimalFeedback
 import com.garfiec.librechat.core.model.media.IconSource
 import com.garfiec.librechat.core.ui.components.AvatarImage
-import com.garfiec.librechat.core.ui.components.BubbleShape
 import com.garfiec.librechat.core.ui.components.EndpointAvatar
+import com.garfiec.librechat.core.ui.theme.chatColors
+import com.garfiec.librechat.core.ui.theme.themeShapes
+import com.garfiec.librechat.feature.chat.components.sendflight.sendFlightBubble
+import com.garfiec.librechat.feature.chat.components.sendflight.sendFlightHeader
 import com.garfiec.librechat.feature.chat.resources.*
 import com.garfiec.librechat.feature.chat.resources.Res
-import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
-
-private const val ACTION_AUTO_HIDE_MILLIS = 30_000L
 
 @Composable
 actual fun MessageBubble(
@@ -178,14 +176,9 @@ private fun ThreadMessageBubble(
     modifier: Modifier = Modifier,
 ) {
     val isUser = message.isCreatedByUser
-    var showActions by remember(message.messageId) { mutableStateOf(showActionsInitially) }
-    // Auto-hide actions after timeout
-    LaunchedEffect(showActions) {
-        if (showActions) {
-            delay(ACTION_AUTO_HIDE_MILLIS)
-            showActions = false
-        }
-    }
+    var showActions by rememberActionRowShown(message.messageId, showActionsInitially, isReading)
+    // The thread's tap handler leaves focus inside the list alone; a tap on a message ends an inline edit.
+    val focusManager = LocalFocusManager.current
 
     // Determine background color for search state
     val searchBackground = when {
@@ -211,6 +204,7 @@ private fun ThreadMessageBubble(
                 interactionSource = null,
                 indication = null,
             ) {
+                focusManager.clearFocus()
                 showActions = !showActions
             }
             .padding(
@@ -220,6 +214,7 @@ private fun ThreadMessageBubble(
     ) {
         // Sender row with avatar
         Row(
+            modifier = sendFlightHeader(message.messageId, isUser),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (showAvatars) {
@@ -272,7 +267,7 @@ private fun ThreadMessageBubble(
         // When bubbles are ON in thread mode, wrap content in a subtle rounded background
         val threadBubbleBackground = if (showBubbles) {
             if (isUser) {
-                MaterialTheme.colorScheme.secondaryContainer
+                chatColors().userMessage
             } else {
                 MaterialTheme.colorScheme.surfaceVariant
             }
@@ -283,12 +278,13 @@ private fun ThreadMessageBubble(
         Column(
             modifier = Modifier
                 .padding(start = contentStartPadding)
+                .then(sendFlightBubble(message.messageId, isUser))
                 .then(
                     if (threadBubbleBackground != null) {
                         Modifier
                             .background(
                                 color = threadBubbleBackground,
-                                shape = BubbleShape,
+                                shape = if (isUser) themeShapes().userBubble else themeShapes().bubble,
                             )
                             .padding(12.dp)
                     } else {
@@ -366,14 +362,9 @@ private fun TwoSidedMessageBubble(
     modifier: Modifier = Modifier,
 ) {
     val isUser = message.isCreatedByUser
-    var showActions by remember(message.messageId) { mutableStateOf(showActionsInitially) }
-    // Auto-hide actions after timeout
-    LaunchedEffect(showActions) {
-        if (showActions) {
-            delay(ACTION_AUTO_HIDE_MILLIS)
-            showActions = false
-        }
-    }
+    var showActions by rememberActionRowShown(message.messageId, showActionsInitially, isReading)
+    // The thread's tap handler leaves focus inside the list alone; a tap on a message ends an inline edit.
+    val focusManager = LocalFocusManager.current
 
     // Determine background color for search state
     val searchBackground = when {
@@ -382,11 +373,9 @@ private fun TwoSidedMessageBubble(
         else -> null
     }
 
-    // Use secondaryContainer for user bubbles (better dark mode contrast than primaryContainer)
-    // and surfaceVariant for agent bubbles. Text uses onSecondaryContainer/onSurfaceVariant.
     val bubbleBackground = if (showBubbles) {
         if (isUser) {
-            MaterialTheme.colorScheme.secondaryContainer
+            chatColors().userMessage
         } else {
             MaterialTheme.colorScheme.surfaceVariant
         }
@@ -419,6 +408,7 @@ private fun TwoSidedMessageBubble(
                 interactionSource = null,
                 indication = null,
             ) {
+                focusManager.clearFocus()
                 showActions = !showActions
             }
             .padding(
@@ -444,12 +434,13 @@ private fun TwoSidedMessageBubble(
         Column(
             modifier = Modifier
                 .weight(1f)
+                .then(sendFlightBubble(message.messageId, isUser))
                 .then(
                     if (effectiveBubbleBackground != null) {
                         Modifier
                             .background(
                                 color = effectiveBubbleBackground,
-                                shape = BubbleShape,
+                                shape = if (isUser) themeShapes().userBubble else themeShapes().bubble,
                             )
                             .padding(12.dp)
                     } else {
@@ -526,6 +517,7 @@ private fun TwoSidedMessageBubble(
             Spacer(modifier = Modifier.width(6.dp))
             AvatarImage(
                 imageUrl = userAvatarUrl,
+                modifier = sendFlightHeader(message.messageId, isUser = true),
                 fallbackText = userName ?: stringResource(Res.string.sender_you),
                 showPersonIcon = userAvatarUrl == null,
                 size = 28.dp,

@@ -40,9 +40,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.data.datastore.ChatFontSize
 import com.garfiec.librechat.core.data.datastore.LatexRenderer
 import com.garfiec.librechat.core.model.response.pickerMimeTypes
+import com.garfiec.librechat.core.notifications.ReplyNotificationAsk
 import com.garfiec.librechat.core.ui.components.AdaptiveSnackbarHost
 import com.garfiec.librechat.core.ui.components.PdfPasswordDialog
 import com.garfiec.librechat.core.ui.glass.glassBackdropSource
+import com.garfiec.librechat.core.ui.mcp.McpVariablesSheet
+import com.garfiec.librechat.core.ui.platform.rememberReduceMotion
+import com.garfiec.librechat.core.ui.theme.chatColors
+import com.garfiec.librechat.core.ui.websearch.WebSearchKeysSheet
 import com.garfiec.librechat.feature.chat.components.AskUserQuestionPanel
 import com.garfiec.librechat.feature.chat.components.ChatComposer
 import com.garfiec.librechat.feature.chat.components.ChatFloatingTopBar
@@ -59,6 +64,7 @@ import com.garfiec.librechat.feature.chat.components.LocalOpenFileActions
 import com.garfiec.librechat.feature.chat.components.LocalOpenPdf
 import com.garfiec.librechat.feature.chat.components.LocalPullRequestComposer
 import com.garfiec.librechat.feature.chat.components.LocalThreadScrollHandle
+import com.garfiec.librechat.feature.chat.components.PickerScope
 import com.garfiec.librechat.feature.chat.components.PullRequestComposer
 import com.garfiec.librechat.feature.chat.components.ThinkingSheet
 import com.garfiec.librechat.feature.chat.components.ToolApprovalPanel
@@ -68,11 +74,15 @@ import com.garfiec.librechat.feature.chat.components.UploadRoutingSheet
 import com.garfiec.librechat.feature.chat.components.addToChatSelectionItem
 import com.garfiec.librechat.feature.chat.components.mcpapp.rememberLegacyUiResources
 import com.garfiec.librechat.feature.chat.components.mcpapp.rememberMcpApps
+import com.garfiec.librechat.feature.chat.components.parsePickerQuery
 import com.garfiec.librechat.feature.chat.components.rememberChatAttachmentActions
 import com.garfiec.librechat.feature.chat.components.rememberChatOptionsSheetController
 import com.garfiec.librechat.feature.chat.components.rememberDraftAdditions
 import com.garfiec.librechat.feature.chat.components.rememberMcpSignIn
 import com.garfiec.librechat.feature.chat.components.rememberThreadScrollHandle
+import com.garfiec.librechat.feature.chat.components.sendflight.LocalSendFlight
+import com.garfiec.librechat.feature.chat.components.sendflight.SendFlightEffect
+import com.garfiec.librechat.feature.chat.components.sendflight.SendFlightState
 import com.garfiec.librechat.feature.chat.components.veil.COMPOSER_SWELL
 import com.garfiec.librechat.feature.chat.components.veil.LocalComposerFlare
 import com.garfiec.librechat.feature.chat.components.veil.LocalModeVeil
@@ -80,14 +90,21 @@ import com.garfiec.librechat.feature.chat.components.veil.VeilReaction
 import com.garfiec.librechat.feature.chat.components.veil.rememberModeVeilModifier
 import com.garfiec.librechat.feature.chat.components.veil.rememberModeVeilState
 import com.garfiec.librechat.feature.chat.components.veil.rememberVeilTarget
+import com.garfiec.librechat.feature.chat.model.ComposerPickerItem
+import com.garfiec.librechat.feature.chat.model.McpPick
+import com.garfiec.librechat.feature.chat.model.pickerMcpServersOf
 import com.garfiec.librechat.feature.chat.prompts.components.VariableInputDialog
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.mcp_cancel_sign_in_failed
 import com.garfiec.librechat.feature.chat.resources.mcp_sign_in_failed
 import com.garfiec.librechat.feature.chat.util.DraftItemTap
 import com.garfiec.librechat.feature.chat.util.DraftUploadProgress
+import com.garfiec.librechat.feature.chat.util.ModelPick
+import com.garfiec.librechat.feature.chat.util.ModelPickerBlock
+import com.garfiec.librechat.feature.chat.util.PickerInputs
 import com.garfiec.librechat.feature.chat.util.WebSearchRoute
 import com.garfiec.librechat.feature.chat.util.draftItemsOf
+import com.garfiec.librechat.feature.chat.util.pickerModelsOf
 import com.garfiec.librechat.feature.chat.viewmodel.ChatViewModel
 import com.garfiec.librechat.feature.chat.viewmodel.McpAppsViewModel
 import com.garfiec.librechat.feature.chat.viewmodel.McpSignInViewModel
@@ -200,15 +217,19 @@ fun ChatScreen(
     val sttEngine = prefs.sttEngine
     val sttLanguage = prefs.sttLanguage
     val keyboardController = LocalSoftwareKeyboardController.current
+    val reduceMotion = rememberReduceMotion()
     val fontSizeMultiplier = when (uiState.chatFontSize) {
         ChatFontSize.SMALL -> 0.85f
         ChatFontSize.MEDIUM -> 1.0f
         ChatFontSize.LARGE -> 1.2f
     }
     val snackbarHostState = remember { SnackbarHostState() }
+    ReplyNotificationAsk(streaming = uiState.isStreaming, snackbarHostState = snackbarHostState)
     val coroutineScope = rememberCoroutineScope()
     var showPresetPicker by remember { mutableStateOf(false) }
     var showThinkingSheet by rememberSaveable { mutableStateOf(false) }
+    var showWebSearchKeys by rememberSaveable { mutableStateOf(false) }
+    var mcpVariablesServer by rememberSaveable { mutableStateOf<String?>(null) }
     var showSavePresetDialog by remember { mutableStateOf(false) }
     var showSecondaryModelSheet by remember { mutableStateOf(false) }
     var activeComparisonTab by remember { mutableIntStateOf(0) }
@@ -259,13 +280,17 @@ fun ChatScreen(
     val mcpSignInFailed = stringResource(Res.string.mcp_sign_in_failed)
     val mcpCancelSignInFailed = stringResource(Res.string.mcp_cancel_sign_in_failed)
     val showNotice: (String) -> Unit = { message -> coroutineScope.launch { snackbarHostState.showNotice(message) } }
-    val startMcpSignIn: (String) -> Unit = { serverName ->
+    val signInMcpServer: (String, Boolean) -> Unit = { serverName, selectWhenConnected ->
         viewModel.signInMcpServer(
             serverName = serverName,
             openSignIn = mcpSignIn.signIn,
             onFailed = { showNotice(mcpSignInFailed) },
+            selectWhenConnected = selectWhenConnected,
         )
     }
+    val startMcpSignIn: (String) -> Unit = { signInMcpServer(it, false) }
+    // The "+" sheet's sign-in turns the server on once it connects (web's sign in, then select).
+    val startSheetMcpSignIn: (String) -> Unit = { signInMcpServer(it, true) }
     // A refused cancel leaves the chip reading connecting, so only the snackbar says it didn't land.
     val cancelMcpSignIn: (String) -> Unit = { serverName ->
         viewModel.cancelMcpSignIn(serverName, onFailed = { showNotice(mcpCancelSignInFailed) })
@@ -448,6 +473,7 @@ fun ChatScreen(
         // must extend under the status bar — only reserve the navigation-bar inset here (for the
         // snackbar); the composer handles its own nav-bar padding.
         contentWindowInsets = WindowInsets.navigationBars,
+        containerColor = chatColors().canvas,
         snackbarHost = { AdaptiveSnackbarHost(snackbarHostState) },
     ) { _ ->
         // The composer overlays the message list at the bottom; the list reserves a scrollable
@@ -458,18 +484,9 @@ fun ChatScreen(
         // scrolling up behind its dimming scrim.
         var inputBarHeightPx by remember { mutableIntStateOf(0) }
         var topBarHeightPx by remember { mutableIntStateOf(0) }
-        val bottomContentPadding = with(LocalDensity.current) {
-            maxOf(160.dp, inputBarHeightPx.toDp() + 16.dp)
-        }
-        // Side-by-side comparison panes are cards that stop above the composer, not lists that
-        // scroll under it, so they sit on the measured bar itself. The list floor above would
-        // leave a band of empty space, widest with the keyboard up (the bar loses its nav-bar inset).
-        val paneBottomInset = with(LocalDensity.current) {
-            if (inputBarHeightPx > 0) inputBarHeightPx.toDp() + 8.dp else bottomContentPadding
-        }
         // Floor the top inset at status bar + one chip row so content clears the bar on the first
         // frame (before onSizeChanged reports the real height), avoiding a content-under-bar flash
-        // on each screen entry. Mirrors the bottomContentPadding floor.
+        // on each screen entry.
         val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         val (fallbackToggleEnd, fallbackToggleBottom) = with(LocalDensity.current) {
             NativeToggleFromEnd.toPx() to NativeToggleFromBottom.toPx()
@@ -489,9 +506,12 @@ fun ChatScreen(
             // Created here, above both the thread and the composer: the composer's chrome hands its
             // vertical drags to whichever list ChatContent binds.
             val threadScroll = rememberThreadScrollHandle()
+            val sendFlight = remember { SendFlightState() }
+            sendFlight.enabled = !reduceMotion && !uiState.comparisonState.isEnabled
             CompositionLocalProvider(
                 LocalModeVeil provides modeVeil,
                 LocalThreadScrollHandle provides threadScroll,
+                LocalSendFlight provides sendFlight,
                 // Run Code on reply fences, behind RUN_CODE.USE (web `MarkdownComponents` `canRunCode`).
                 LocalCodeRunHost provides viewModel.codeRunHost.takeIf { uiState.runCodeEnabled },
             ) {
@@ -524,8 +544,7 @@ fun ChatScreen(
                             showAvatars = showAvatars,
                             showBubbles = showBubbles,
                             useKatex = useKatex,
-                            bottomContentPadding = bottomContentPadding,
-                            paneBottomInset = paneBottomInset,
+                            bottomBarHeightPx = { inputBarHeightPx },
                             topContentPadding = topContentPadding,
                             onShowSecondaryModelSheet = { showSecondaryModelSheet = true },
                             onComparisonTabChange = { activeComparisonTab = it },
@@ -560,6 +579,53 @@ fun ChatScreen(
                             }
                         }
                     }
+                    val pickerMcpServers = remember(
+                        uiState.mcpServers,
+                        uiState.effectiveMcpServerNames,
+                        uiState.lockedMcpServers,
+                        uiState.toolbarShown,
+                        uiState.mcpServersEnabled,
+                    ) {
+                        pickerMcpServersOf(
+                            servers = uiState.mcpServers,
+                            on = uiState.effectiveMcpServerNames,
+                            locked = uiState.lockedMcpServers,
+                            toolbarShown = uiState.toolbarShown,
+                            mcpAllowed = uiState.mcpServersEnabled,
+                        )
+                    }
+                    val pickerModelBlock = when {
+                        !uiState.modelPickerShown -> ModelPickerBlock.NO_PICKER
+                        uiState.comparisonState.isEnabled || uiState.comparisonState.isSettingUp ->
+                            ModelPickerBlock.COMPARING
+                        else -> null
+                    }
+                    // Mapped only while `/model ` is open, so a closed list maps nothing.
+                    val pickerModelInputs = if (
+                        pickerModelBlock == null &&
+                        parsePickerQuery(uiState.inputText, uiState.canPickSkills)?.scope == PickerScope.MODEL
+                    ) {
+                        PickerInputs(
+                            endpointConfigs = uiState.endpointConfigs,
+                            availableModels = uiState.availableModels,
+                            agents = uiState.agents,
+                            agentsLoaded = uiState.agentsLoaded,
+                            modelSpecs = uiState.modelSpecs,
+                            modelSelect = uiState.modelSelectEnabled,
+                            selectedEndpoint = uiState.selectedEndpoint,
+                            selectedModel = uiState.selectedModel,
+                            selectedSpec = uiState.selectedSpec,
+                            favoriteAgentIds = uiState.favoriteAgentIds,
+                            favoriteModelKeys = uiState.favoriteModelKeys,
+                            favoriteSpecNames = uiState.favoriteSpecNames,
+                            endpointKeyStates = uiState.endpointKeyStates,
+                        )
+                    } else {
+                        null
+                    }
+                    val pickerModels = remember(pickerModelInputs, uiState.serverUrl) {
+                        pickerModelInputs?.let { pickerModelsOf(it, uiState.serverUrl) }.orEmpty()
+                    }
                     val composerChrome = ComposerChrome(
                         pendingSteers = uiState.pendingSteers,
                         onCancelSteer = viewModel::cancelSteer,
@@ -577,6 +643,9 @@ fun ChatScreen(
                         selectedMcpServerNames = uiState.effectiveMcpServerNames,
                         settingChips = uiState.settingChips,
                         onSettingChipTap = onSettingChipTap,
+                        pickerMcpServers = pickerMcpServers,
+                        pickerModels = pickerModels,
+                        pickerModelBlock = pickerModelBlock,
                         onCancelMcpSignIn = cancelMcpSignIn,
                         onStartMcpSignInOver = startMcpSignIn,
                         contextGauge = uiState.contextGaugeDetails,
@@ -610,10 +679,18 @@ fun ChatScreen(
                             }
                             if (askPause == null && !uiState.showsComparisonPanes(comparisonWide)) {
                                 LandingStarters(
-                                    starters = uiState.landingStarters,
+                                    // Hidden rows keep their space, so outside the landing they would
+                                    // sit invisibly over the thread and inflate the measured bar.
+                                    starters = if (uiState.hasLandingStarters) uiState.landingStarters else emptyList(),
                                     visible = uiState.showsLandingStarters,
                                     onSend = viewModel::sendStarter,
                                     onEdit = viewModel::editStarter,
+                                    // Weighted, so the composer and its `/` picker are measured first and
+                                    // the starters' kept space never squeezes the field. They cover the
+                                    // landing, so they carry its pull-up drag too.
+                                    modifier = Modifier
+                                        .weight(1f, fill = false)
+                                        .then(pullUp.landingModifier),
                                 )
                             }
                             toolPause?.let { pause ->
@@ -722,7 +799,10 @@ fun ChatScreen(
                                             inputText = uiState.inputText,
                                             isStreaming = isAnyStreaming,
                                             onInputChange = viewModel::onInputChanged,
-                                            onSend = send(viewModel::sendMessage),
+                                            onSend = send {
+                                                sendFlight.capture(uiState.inputText)
+                                                viewModel.sendMessage()
+                                            },
                                             onStop = viewModel::stopGeneration,
                                             onOpenTools = { optionsController.open() },
                                             // The mid-stream send button: the ViewModel resolves steer-vs-queue from the
@@ -751,7 +831,20 @@ fun ChatScreen(
                                             skillsLoadFailed = uiState.skillsLoadFailed && uiState.canPickSkills,
                                             canPickSkills = uiState.canPickSkills,
                                             onRetrySkills = viewModel::retrySkillCatalog,
-                                            onPickerSelect = viewModel::selectPickerItem,
+                                            onPickerSelect = { item ->
+                                                viewModel.selectPickerItem(item)
+                                                // As the + sheet's MCP row: a sign-in turns the server on once connected.
+                                                if (item is ComposerPickerItem.Mcp) {
+                                                    when (item.mcp.pick) {
+                                                        McpPick.SIGN_IN -> startSheetMcpSignIn(item.mcp.server.name)
+                                                        McpPick.SET_UP -> mcpVariablesServer = item.mcp.server.name
+                                                        McpPick.TOGGLE, McpPick.NONE -> Unit
+                                                    }
+                                                }
+                                                if (item is ComposerPickerItem.Model) {
+                                                    (item.model.pick as? ModelPick.AddKey)?.let { onNavigateToProviderKeys(it.endpoint) }
+                                                }
+                                            },
                                             isRecording = uiState.isRecording,
                                             isTranscribing = uiState.isTranscribing,
                                             onStartRecording = onStartRecordingWithPermission,
@@ -781,12 +874,17 @@ fun ChatScreen(
                         }
                     }
 
+                    SendFlightEffect(sendFlight)
+
                     // Floating top bar overlays the message list (drawn last so it sits above content),
                     // measured so ChatContent can reserve a matching scrollable top inset.
                     ChatFloatingTopBar(
                         uiState = uiState,
                         viewModel = viewModel,
-                        onLoadPreset = { showPresetPicker = true },
+                        onLoadPreset = {
+                            viewModel.reloadPresetsIfFailed()
+                            showPresetPicker = true
+                        },
                         onSavePreset = { showSavePresetDialog = true },
                         onRename = viewModel::showRenameDialog,
                         onOpenDrawer = onOpenDrawer,
@@ -820,6 +918,10 @@ fun ChatScreen(
                 onPickPhotos = attachmentActions.onPickPhotos,
                 onAttachFromServer = onAttachFromServer,
                 onAttachToCode = onAttachToCode,
+                onSignInMcpServer = startSheetMcpSignIn,
+                onCancelMcpSignIn = cancelMcpSignIn,
+                onSetUpMcpServer = { mcpVariablesServer = it },
+                onOpenWebSearchKeys = { showWebSearchKeys = true },
             )
 
             val pendingRouting = uiState.composer.pendingUploadRouting
@@ -846,10 +948,43 @@ fun ChatScreen(
         onPickPhotos = attachmentActions.onPickPhotos,
         onAttachFromServer = onAttachFromServer,
         onAttachToCode = onAttachToCode,
+        onSignInMcpServer = startSheetMcpSignIn,
+        onCancelMcpSignIn = cancelMcpSignIn,
+        onSetUpMcpServer = { mcpVariablesServer = it },
+        onOpenWebSearchKeys = { showWebSearchKeys = true },
         onNavigateToProviderKeys = onNavigateToProviderKeys,
         onShowSavePresetDialog = { showSavePresetDialog = true },
         compareSetupPick = compareSetupPick,
+        snackbarHostState = snackbarHostState,
     )
+
+    val webSearchKeys = uiState.gates.webSearchKeys
+    if (showWebSearchKeys && webSearchKeys != null) {
+        WebSearchKeysSheet(
+            keys = webSearchKeys,
+            onSave = viewModel::saveWebSearchKeys,
+            onRemove = viewModel::removeWebSearchKeys,
+            onDismiss = { showWebSearchKeys = false },
+        )
+    }
+
+    // Closes itself when the server leaves the list (an account or server switch).
+    val mcpVariablesFor = mcpVariablesServer?.let { name -> uiState.mcpServers.firstOrNull { it.name == name } }
+    if (mcpVariablesFor != null) {
+        McpVariablesSheet(
+            serverLabel = mcpVariablesFor.label,
+            vars = mcpVariablesFor.userVars,
+            loadFlags = { viewModel.mcpVariableFlags(mcpVariablesFor.name) },
+            onSave = { values ->
+                // Saving drops the connection; the sheet's sign-in reconnects and turns the server on.
+                viewModel.saveMcpVariables(mcpVariablesFor.name, values).also { saved ->
+                    if (saved) startSheetMcpSignIn(mcpVariablesFor.name)
+                }
+            },
+            onRemove = { viewModel.removeMcpVariables(mcpVariablesFor.name) },
+            onDismiss = { mcpVariablesServer = null },
+        )
+    }
 
     // Closes itself when the chip goes away (a model switch, a spec, a comparison).
     if (showThinkingSheet && thinkingChip != null) {

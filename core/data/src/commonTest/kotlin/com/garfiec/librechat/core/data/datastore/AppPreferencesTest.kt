@@ -58,6 +58,11 @@ class AppPreferencesTest {
             "artifact_library_answers" to everyChannel(emptyList<String>()),
             "collapse_long_user_messages" to everyChannel(true),
             "client_image_resize" to everyChannel(true),
+            "reply_notifications" to everyChannel(true),
+            "scheduled_chat_notifications" to everyChannel(true),
+            "notification_asks_answered" to everyChannel(emptyList<String>()),
+            "artifact_display_mode" to everyChannel(ArtifactDisplayMode.AUTOMATIC),
+            "artifact_split_fraction" to everyChannel(0.5f),
         )
         assertEquals(expected, actual)
     }

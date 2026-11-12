@@ -60,6 +60,7 @@ import com.garfiec.librechat.feature.chat.util.SettingChips
 import com.garfiec.librechat.feature.chat.util.SkillPickRules
 import com.garfiec.librechat.feature.chat.util.ThinkingChip
 import com.garfiec.librechat.feature.chat.util.ToolDecisionDraft
+import com.garfiec.librechat.feature.chat.util.WebSearchKeysRow
 import com.garfiec.librechat.feature.chat.util.WebSearchKind
 import com.garfiec.librechat.feature.chat.util.WebSearchRoute
 import com.garfiec.librechat.feature.chat.util.builtInSearchProvider
@@ -73,6 +74,7 @@ import com.garfiec.librechat.feature.chat.util.requiresSpec
 import com.garfiec.librechat.feature.chat.util.resolveLandingStarters
 import com.garfiec.librechat.feature.chat.util.skillPickRules
 import com.garfiec.librechat.feature.chat.util.stoppedReplyId
+import com.garfiec.librechat.feature.chat.util.summary
 import com.garfiec.librechat.feature.chat.util.thinkingChip
 import com.garfiec.librechat.feature.chat.util.webSearchRoute
 
@@ -393,6 +395,7 @@ data class ChatUiState(
     val arePicksUnsettled: Boolean
         get() = composer.pendingUploadRouting != null || composer.isResolvingPickedFiles
     val presets: List<PresetDisplayData> get() = presetPrompts.presets
+    val presetsLoadFailed: Boolean get() = presetPrompts.presetsLoadFailed
     val availablePrompts: List<PromptMentionDisplayData> get() = presetPrompts.availablePrompts
     val pendingVariablePrompt: PendingVariablePrompt? get() = presetPrompts.pendingVariablePrompt
     val isRecording: Boolean get() = voice.isRecording
@@ -628,12 +631,12 @@ data class ChatUiState(
 
     /**
      * Whether the agents endpoint's `capabilities` allow [capability]. Fails OPEN on a missing list,
-     * as the server (`resolveAgentCapabilities`) and web fall back to the defaults, and on an empty
-     * one, which the client can't tell from missing (`EndpointConfig.capabilities` defaults to empty).
+     * as the server (`resolveAgentCapabilities`) and web fall back to the defaults; an empty list
+     * allows nothing, as the server keeps an admin's `[]` (zod's default fires only on `undefined`).
      */
     private fun agentCapabilityAllows(capability: String): Boolean {
         val capabilities = endpointConfigs[EndpointConstants.AGENTS]?.capabilities ?: return true
-        return capabilities.isEmpty() || capability in capabilities
+        return capability in capabilities
     }
 
     /**
@@ -645,11 +648,11 @@ data class ChatUiState(
         get() = if (ToolConstants.WEB_SEARCH in selection.effectiveTools) webSearchTarget else WebSearchRoute.NONE
 
     /**
-     * Whether the web-search control is offered: the spec locks it on, or the control would run a
-     * search ([webSearchTarget], which applies the role and interface gates).
+     * Whether the web-search control is offered: the control would run a search ([webSearchTarget],
+     * which applies the role, interface and capability gates, a spec's own search included).
      */
     val webSearchAvailable: Boolean
-        get() = ToolConstants.WEB_SEARCH in lockedTools || webSearchTarget != WebSearchRoute.NONE
+        get() = webSearchTarget != WebSearchRoute.NONE
 
     /**
      * The search the control runs when on ([webSearchRoute]'s rules), which its caption names.
@@ -667,6 +670,7 @@ data class ChatUiState(
             builtInAvailable = gates.webSearchPermitted && (builtInSearchProvider != null || builtInSearchEnforced),
             librechatChecking = webSearchEnabled && librechatSearchCapable && gates.librechatSearchChecking,
             keepsBuiltIn = selection.keepsBuiltInSearch,
+            specSearchAllowed = gates.webSearchPermitted && librechatSearchCapable,
         )
 
     /** [webSearchTarget] with the provider it would run on, for the control's caption. */
@@ -700,11 +704,37 @@ data class ChatUiState(
         ToolConstants.CODE_INTERPRETER -> isCodeInterpreterAvailable && runCodeEnabled
         ToolConstants.MEMORY -> isMemoryToolAvailable
         ToolConstants.SKILLS -> isSkillsToolAvailable
+        ToolConstants.ARTIFACTS -> agentCapabilityAllows(ToolConstants.ARTIFACTS)
         else -> false
     }
 
     /** The tools whose gate is open ([toolGateOpen]): the "+" sheet's rows and the settings line's candidates. */
     val openTools: Set<String> get() = SETTING_TOOL_ORDER.filterTo(mutableSetOf(), ::toolGateOpen)
+
+    /**
+     * The "+" sheet's tiles: [openTools], plus Web Search where only the user's own keys would make it
+     * run ([WebSearchKeysRow.opensOnTurnOn]); turning it on there opens the key sheet. The settings
+     * line keeps [openTools].
+     */
+    val sheetTools: Set<String>
+        get() = if (webSearchKeysRow?.opensOnTurnOn == true) openTools + ToolConstants.WEB_SEARCH else openTools
+
+    /**
+     * The "+" sheet's LibreChat search key row, or null where it doesn't show: the server leaves at
+     * least one key category to the user, and LibreChat search could run here (role, interface,
+     * capability, a send with ephemeral tools).
+     */
+    val webSearchKeysRow: WebSearchKeysRow?
+        get() {
+            val keys = gates.webSearchKeys?.takeIf { it.offered } ?: return null
+            if (!showEphemeralTools || !webSearchEnabled || !librechatSearchCapable) return null
+            if (keys.authenticated) return WebSearchKeysRow(authenticated = true, summary = keys.summary())
+            return WebSearchKeysRow(
+                authenticated = false,
+                fallbackProvider = builtInSearchProvider?.displayName?.takeIf { webSearchRoute == WebSearchRoute.BUILT_IN },
+                opensOnTurnOn = webSearchTarget == WebSearchRoute.NONE && ToolConstants.WEB_SEARCH !in lockedTools,
+            )
+        }
 
     /**
      * What the composer's settings line is built from ([settingChipsOf]). Read by the ViewModel's
@@ -751,6 +781,14 @@ data class ChatUiState(
     val toolbarShown: Boolean
         get() = showEphemeralTools && !selection.toolsHiddenBySpec
 
+    /** Why the tool controls are hidden, for the "+" sheet's note in their place; null while they show. */
+    val toolsHiddenReason: ToolsHiddenReason?
+        get() = when {
+            !showEphemeralTools -> ToolsHiddenReason.AGENT
+            selection.toolsHiddenBySpec -> ToolsHiddenReason.SPEC
+            else -> null
+        }
+
     /**
      * Whether a follow-up may be queued mid-stream: only on an existing single-stream
      * conversation (the queue affordance is hidden on the landing screen and in comparison
@@ -784,11 +822,14 @@ data class ChatUiState(
      * upstream gates it on `interface.parameters` alone, like the parameters panel.
      */
     val reasoningSetting: ReasoningSetting?
-        get() = composerReasoningSetting(
+        get() = reasoningSettingFor(parametersEnabled = parametersEnabled, comparing = comparisonState.isEnabled)
+
+    private fun reasoningSettingFor(parametersEnabled: Boolean, comparing: Boolean): ReasoningSetting? =
+        composerReasoningSetting(
             backendVersion = gates.backendVersion,
             parametersEnabled = parametersEnabled,
             endpointSupportsIt = quotesSupportedOnEndpoint,
-            comparing = comparisonState.isEnabled,
+            comparing = comparing,
             target = reasoningTarget(
                 selectedEndpoint = selectedEndpoint,
                 selectedModel = selectedModel,
@@ -798,6 +839,7 @@ data class ChatUiState(
             endpointConfigs = endpointConfigs,
             catalog = selection.reasoningCatalog,
             enforcedPreset = activeSpec?.preset?.takeIf { selection.modelSpecs.requiresSpec },
+            enforcedSpecUnserved = parametersSetBySpec && activeSpec == null,
         )
 
     /** The composer's Thinking chip, or null when it is hidden. */
@@ -815,6 +857,13 @@ data class ChatUiState(
     /** Whether [override] can be sent for the current selection; the server 400s one it can't. */
     fun acceptsReasoning(override: ReasoningOverride): Boolean =
         ReasoningSettingResolver.isSupported(override, reasoningSetting)
+
+    /**
+     * Whether a past turn's [override] can be replayed (edit, regenerate, continue): what the model
+     * and an enforced spec allow, whether or not the composer shows the chip (web's `overrideReasoning`).
+     */
+    fun replaysReasoning(override: ReasoningOverride): Boolean =
+        ReasoningSettingResolver.isSupported(override, reasoningSettingFor(parametersEnabled = true, comparing = false))
 
     /**
      * What the composer's send control will actually do mid-run: the user's preference, degraded
@@ -955,11 +1004,8 @@ data class ChatUiState(
      * Fails OPEN on a config that hasn't arrived, unlike [isMemoryToolAvailable]: upstream's own
      * default is `capabilities ?? defaultAgentCapabilities`, which includes `context`.
      *
-     * An **empty** list counts as "not stated" too, not as "none" — `EndpointConfig.capabilities`
-     * defaults to `emptyList()`, so a server that simply doesn't send the field is indistinguishable
-     * from one that sends `[]`, and no real deployment has zero agent capabilities. Reading `[]` as
-     * a denial would ship the whole feature dead against exactly those servers. A non-empty list
-     * that omits `context` is a genuine denial and is honoured.
+     * A missing list counts as the defaults; a list that omits `context`, empty included, is a
+     * denial the server honours too.
      */
     val isFileContextAvailable: Boolean
         get() {
@@ -990,6 +1036,39 @@ data class ChatUiState(
             val agent = selection.agents.firstOrNull { it.id == selectedModel } ?: return false
             return agent.tools?.contains(ToolConstants.EXECUTE_CODE) == true
         }
+
+    /**
+     * Whether the routing sheet offers "Search it when needed" (web `useAttachItems`' file-search
+     * row): FILE_SEARCH.USE, the `file_search` capability, and a selection whose run can read the
+     * file: a saved agent whose `tools` include `file_search`, or ephemeral tools that can turn the
+     * tool on (shown, or already in use under a spec that hides them).
+     */
+    val fileSearchUploadOffered: Boolean
+        get() {
+            if (!toolGateOpen(ToolConstants.FILE_SEARCH) || !agentCapabilityAllows(ToolConstants.FILE_SEARCH)) return false
+            if (selectedEndpoint != EndpointConstants.AGENTS) {
+                return toolbarShown || ToolConstants.FILE_SEARCH in selection.effectiveTools
+            }
+            val agent = selection.agents.firstOrNull { it.id == selectedModel } ?: return false
+            return agent.tools?.contains(ToolConstants.FILE_SEARCH) == true
+        }
+
+    /**
+     * The routes the sheet offers [mimeType], in the sheet's order: both delivery modes while
+     * [uploadRouteIsAmbiguous], else the one [uploadRouteFor] picks, plus [UploadRoute.FILE_SEARCH]
+     * for a non-image document while [fileSearchUploadOffered].
+     */
+    fun uploadRoutesFor(mimeType: String?): List<UploadRoute> = buildList {
+        if (uploadRouteIsAmbiguous(mimeType)) {
+            add(UploadRoute.PROVIDER)
+            add(UploadRoute.TEXT)
+        } else {
+            add(uploadRouteFor(mimeType))
+        }
+        if (fileSearchUploadOffered && isTextExtractable(mimeType, serverVersion = gates.backendVersion)) {
+            add(UploadRoute.FILE_SEARCH)
+        }
+    }
 
     /**
      * The delivery mode [mimeType] would get on the current selection, resolved against the
@@ -1043,16 +1122,13 @@ data class ChatUiState(
 
     /**
      * The route a failed upload goes again with: [stored] while it still works for the live
-     * selection (a code upload, the route the selection would pick, or either while both are open),
-     * else routed afresh, so a native PDF isn't replayed to a provider that ignores it.
+     * selection (a code upload, or one of [uploadRoutesFor]), else routed afresh, so a native PDF
+     * isn't replayed to a provider that ignores it.
      */
-    fun retryUploadRoute(stored: UploadRoute?, mimeType: String?): UploadRoute {
-        val live = uploadRouteFor(mimeType)
-        return when {
-            stored == null -> live
-            stored == UploadRoute.CODE || stored == live || uploadRouteIsAmbiguous(mimeType) -> stored
-            else -> live
-        }
+    fun retryUploadRoute(stored: UploadRoute?, mimeType: String?): UploadRoute = when {
+        stored == UploadRoute.CODE -> stored
+        stored != null && stored in uploadRoutesFor(mimeType) -> stored
+        else -> uploadRouteFor(mimeType)
     }
 
     /**

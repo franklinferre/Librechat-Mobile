@@ -21,7 +21,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
@@ -31,17 +34,20 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.ui.brand.LideriLogo
 import com.garfiec.librechat.core.ui.components.AdaptiveAlertDialog
 import com.garfiec.librechat.core.ui.components.AdaptiveButton
-import com.garfiec.librechat.core.ui.components.AdaptiveCircularProgressIndicator
 import com.garfiec.librechat.core.ui.components.AdaptiveDivider
 import com.garfiec.librechat.core.ui.components.AdaptiveOutlinedButton
 import com.garfiec.librechat.core.ui.components.AdaptiveOutlinedTextField
 import com.garfiec.librechat.core.ui.components.IosTextContentType
+import com.garfiec.librechat.core.ui.components.SecretRevealButton
 import com.garfiec.librechat.core.ui.components.withIosTextContentType
 import com.garfiec.librechat.feature.auth.diagnostics.DiagnosticLogLink
 import com.garfiec.librechat.feature.auth.resources.*
@@ -156,15 +162,18 @@ fun LoginScreen(
             // (ALLOW_EMAIL_LOGIN=false, #14180) — it 403s the login POST, so offer only the
             // social providers below. Fail-open: the flag defaults true until config resolves.
             if (uiState.emailLoginEnabled) {
+                val usernameLogin = uiState.usernameLogin
                 AdaptiveOutlinedTextField(
                     value = uiState.email,
                     onValueChange = viewModel::onEmailChanged,
-                    label = { Text(stringResource(Res.string.email_label)) },
+                    label = { Text(stringResource(if (usernameLogin) Res.string.username_label else Res.string.email_label)) },
                     modifier = Modifier.fillMaxWidth().testTag("login_email")
-                        .semantics { contentType = ContentType.Username + ContentType.EmailAddress },
+                        .semantics {
+                            contentType = if (usernameLogin) ContentType.Username else ContentType.Username + ContentType.EmailAddress
+                        },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Email,
+                        keyboardType = if (usernameLogin) KeyboardType.Text else KeyboardType.Email,
                         autoCorrectEnabled = false,
                     ).withIosTextContentType(IosTextContentType.Username),
                     enabled = !uiState.isLoading,
@@ -172,13 +181,28 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Plain remember scoped to the field, so it always first composes masked: Compose keeps a text
+                // field's first Password semantics, so one first composed revealed is never a password again.
+                var passwordRevealed by remember { mutableStateOf(false) }
+                // ON_PAUSE, not ON_STOP, so the app-switcher snapshot never shows it (see SecretTextField).
+                LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { passwordRevealed = false }
                 AdaptiveOutlinedTextField(
                     value = uiState.password,
                     onValueChange = viewModel::onPasswordChanged,
                     label = { Text(stringResource(Res.string.password_label)) },
                     modifier = Modifier.fillMaxWidth().testTag("login_password"),
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (passwordRevealed) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        SecretRevealButton(
+                            revealed = passwordRevealed,
+                            onRevealedChange = { passwordRevealed = it },
+                            modifier = Modifier.testTag("login_password_reveal"),
+                            enabled = !uiState.isLoading,
+                            showDescription = Res.string.cd_show_password,
+                            hideDescription = Res.string.cd_hide_password,
+                        )
+                    },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Password,
                         autoCorrectEnabled = false,
@@ -205,23 +229,17 @@ fun LoginScreen(
                 AdaptiveButton(
                     onClick = viewModel::login,
                     modifier = Modifier.fillMaxWidth().testTag("login_submit"),
-                    enabled = !uiState.isLoading,
+                    loading = uiState.isLoading,
                 ) {
-                    if (uiState.isLoading) {
-                        AdaptiveCircularProgressIndicator(
-                            modifier = Modifier.height(20.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            strokeWidth = 2.dp,
-                        )
-                    } else {
-                        Text(stringResource(Res.string.continue_button))
-                    }
+                    Text(stringResource(if (uiState.isLoading) Res.string.progress_signing_in else Res.string.continue_button))
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                if (uiState.passwordResetEnabled) {
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                TextButton(onClick = onNavigateToForgotPassword) {
-                    Text(stringResource(Res.string.forgot_password))
+                    TextButton(onClick = onNavigateToForgotPassword) {
+                        Text(stringResource(Res.string.forgot_password))
+                    }
                 }
             }
 
@@ -233,31 +251,33 @@ fun LoginScreen(
                 }
             }
 
-            val socialLogins = uiState.socialLogins
-            if (uiState.socialLoginEnabled && socialLogins.isNotEmpty()) {
+            val socialProviders = uiState.socialProviders
+            if (socialProviders.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                AdaptiveDivider(modifier = Modifier.fillMaxWidth())
+                if (uiState.emailLoginEnabled) {
+                    AdaptiveDivider(modifier = Modifier.fillMaxWidth())
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                Text(
-                    text = stringResource(Res.string.or_continue_with),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                    Text(
+                        text = stringResource(Res.string.or_continue_with),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
-                socialLogins.forEach { provider ->
+                socialProviders.forEach { provider ->
                     AdaptiveOutlinedButton(
-                        onClick = { viewModel.onSsoProviderSelected(provider) },
+                        onClick = { viewModel.onSsoProviderSelected(provider.id) },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !uiState.isLoading,
                     ) {
-                        Text(oAuthProviderLabel(provider))
+                        Text(provider.label ?: oAuthProviderLabel(provider.id))
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
@@ -299,6 +319,7 @@ internal fun oAuthProviderLabel(provider: String): String {
         "facebook" -> "Facebook"
         "apple" -> "Apple"
         "openid" -> "OpenID"
+        "saml" -> "SAML"
         else -> provider.replaceFirstChar { it.uppercase() }
     }
     return stringResource(Res.string.continue_with_provider, name)

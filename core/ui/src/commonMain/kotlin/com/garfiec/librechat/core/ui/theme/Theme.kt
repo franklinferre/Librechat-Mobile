@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import com.garfiec.librechat.core.model.config.theme.ServerThemeDefinition
 import com.garfiec.librechat.core.model.ui.GlassCapability
 import com.garfiec.librechat.core.model.ui.UiStyle
 import com.garfiec.librechat.core.ui.components.topbar.LocalNativeOverlayGate
@@ -36,7 +37,7 @@ expect fun glassCapability(): GlassCapability
  * Applies the LibreChat Material 3 theme.
  *
  * The colour scheme is always the Lideri brand one ([lideriColorScheme], `LideriColors.kt`).
- * [accentColor] and [useDynamicColor] are kept so existing call sites compile, but they are
+ * [accentColor], [useDynamicColor] and [serverTheme] are kept so existing call sites compile, but they are
  * ignored: a value a user saved earlier can no longer change the app's colours.
  *
  * [uiStyle] is the user's stored choice; null (nothing stored) means [platformDefaultUiStyle].
@@ -47,18 +48,20 @@ fun LibreChatTheme(
     accentColor: Color = DefaultAccentSeed,
     useDynamicColor: Boolean = false,
     uiStyle: UiStyle? = null,
+    serverTheme: ServerThemeDefinition? = null,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = rememberLibreChatColorScheme(darkTheme, accentColor, useDynamicColor)
+    val colors = rememberThemeColors(darkTheme, accentColor, useDynamicColor, serverTheme)
     val capability = remember { glassCapability() }
     CompositionLocalProvider(
         LocalGlassLevel provides capability.takeIf { (uiStyle ?: platformDefaultUiStyle()) == UiStyle.LIQUID_GLASS },
         LocalDarkTheme provides darkTheme,
+        LocalThemeTokens provides colors.tokens,
         // One gate for the whole app: covering surfaces and native bars must see the same instance.
         LocalNativeOverlayGate provides remember { NativeOverlayGate() },
     ) {
         MaterialTheme(
-            colorScheme = colorScheme,
+            colorScheme = colors.scheme,
             typography = libreChatTypography(),
             shapes = libreChatShapes,
             content = content,
@@ -68,19 +71,24 @@ fun LibreChatTheme(
 
 /**
  * Draws [content] in the light or dark theme the app would have with these settings, whatever theme
- * the app is in now: the colour scheme [LibreChatTheme] would build, and the dark flag glass colours
- * read. For a theme picker's previews only; the interface style is left as it is.
+ * the app is in now: the colours [LibreChatTheme] would build, and the dark flag glass colours read.
+ * For a theme picker's previews only; the interface style is left as it is.
  */
 @Composable
 fun ThemePreview(
     darkTheme: Boolean,
     accentColor: Color,
     useDynamicColor: Boolean,
+    serverTheme: ServerThemeDefinition? = null,
     content: @Composable () -> Unit,
 ) {
-    CompositionLocalProvider(LocalDarkTheme provides darkTheme) {
+    val colors = rememberThemeColors(darkTheme, accentColor, useDynamicColor, serverTheme)
+    CompositionLocalProvider(
+        LocalDarkTheme provides darkTheme,
+        LocalThemeTokens provides colors.tokens,
+    ) {
         MaterialTheme(
-            colorScheme = rememberLibreChatColorScheme(darkTheme, accentColor, useDynamicColor),
+            colorScheme = colors.scheme,
             typography = libreChatTypography(),
             shapes = libreChatShapes,
             content = content,
@@ -88,8 +96,22 @@ fun ThemePreview(
     }
 }
 
-/** The scheme for [darkTheme]: always the Lideri one; the accent and dynamic-colour inputs are ignored. */
+private class ThemeColors(val scheme: ColorScheme, val tokens: ThemeTokens)
+
+/**
+ * Lideri: always the brand scheme ([lideriColorScheme]) and tokens derived from it. The accent,
+ * wallpaper-colour and server-theme inputs are kept so call sites compile, but they are ignored: a
+ * server's `interface.theme` can no longer repaint the app, and the fonts stay [libreChatTypography]
+ * (Poppins + Raleway) rather than the server's.
+ */
 @Suppress("UNUSED_PARAMETER")
 @Composable
-private fun rememberLibreChatColorScheme(darkTheme: Boolean, accentColor: Color, useDynamicColor: Boolean): ColorScheme =
-    lideriColorScheme(darkTheme)
+private fun rememberThemeColors(
+    darkTheme: Boolean,
+    accentColor: Color,
+    useDynamicColor: Boolean,
+    serverTheme: ServerThemeDefinition?,
+): ThemeColors {
+    val scheme = lideriColorScheme(darkTheme)
+    return remember(scheme, darkTheme) { ThemeColors(scheme, ThemeTokens.switchboard(scheme, darkTheme)) }
+}

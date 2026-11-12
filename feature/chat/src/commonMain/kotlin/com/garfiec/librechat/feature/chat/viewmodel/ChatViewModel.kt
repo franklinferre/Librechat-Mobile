@@ -50,6 +50,7 @@ import com.garfiec.librechat.core.data.share.ShareLinkController
 import com.garfiec.librechat.core.data.share.ShareLinkControllerFactory
 import com.garfiec.librechat.core.data.util.PermissionGate
 import com.garfiec.librechat.core.logging.Diag
+import com.garfiec.librechat.core.model.ArtifactsMode
 import com.garfiec.librechat.core.model.Attachment
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.MinimalFeedback
@@ -65,6 +66,8 @@ import com.garfiec.librechat.core.model.permissions.PermissionType
 import com.garfiec.librechat.core.model.pullrequest.pullRequestsAvailable
 import com.garfiec.librechat.core.model.request.ToolApprovalResolution
 import com.garfiec.librechat.core.model.response.UploadRoute
+import com.garfiec.librechat.core.notifications.ReplyWatch
+import com.garfiec.librechat.core.notifications.ReplyWatchScheduler
 import com.garfiec.librechat.core.ui.components.ModelParameters
 import com.garfiec.librechat.core.ui.media.MediaItem
 import com.garfiec.librechat.core.ui.media.MediaPreviewState
@@ -72,12 +75,16 @@ import com.garfiec.librechat.feature.chat.components.AttachedFile
 import com.garfiec.librechat.feature.chat.components.CodeRunHost
 import com.garfiec.librechat.feature.chat.components.ParsedMarkdownCache
 import com.garfiec.librechat.feature.chat.components.PausePanelAutoAdvance
+import com.garfiec.librechat.feature.chat.components.PickerScope
 import com.garfiec.librechat.feature.chat.components.parsePickerQuery
+import com.garfiec.librechat.feature.chat.components.pickerListsSkills
 import com.garfiec.librechat.feature.chat.model.ComposerPickerItem
+import com.garfiec.librechat.feature.chat.model.McpPick
 import com.garfiec.librechat.feature.chat.model.PresetDisplayData
 import com.garfiec.librechat.feature.chat.model.PromptMentionDisplayData
 import com.garfiec.librechat.feature.chat.util.AskAnswerDraft
 import com.garfiec.librechat.feature.chat.util.DraftItem
+import com.garfiec.librechat.feature.chat.util.ModelPick
 import com.garfiec.librechat.feature.chat.util.ReplyAvatarMemo
 import com.garfiec.librechat.feature.chat.util.SettingChip
 import com.garfiec.librechat.feature.chat.util.SettingChipsMemo
@@ -95,6 +102,7 @@ import com.garfiec.librechat.feature.chat.util.parametersLaneRanOn
 import com.garfiec.librechat.feature.chat.util.reopenedParameters
 import com.garfiec.librechat.feature.chat.util.restore
 import com.garfiec.librechat.feature.chat.util.serializeMessageForClipboard
+import com.garfiec.librechat.feature.chat.util.stored
 import com.garfiec.librechat.feature.chat.util.withAttachmentSources
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.AttachmentPreviewDelegate
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.BranchSwitch
@@ -142,6 +150,7 @@ import com.garfiec.librechat.feature.chat.viewmodel.delegate.ToolPartHydrationDe
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.UploadIntakeDelegate
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -227,6 +236,7 @@ class ChatViewModel(
     private val promptInsertionHandoff: PromptInsertionHandoff,
     private val siteIconPromptSession: SiteIconPromptSession,
     private val preferenceStore: PreferenceStore,
+    private val replyWatchScheduler: ReplyWatchScheduler? = null,
     /** The wall clock key expiries are held against; a test moves it to stand in for a sleep. */
     clock: Clock = Clock.System,
 ) : ViewModel() {
@@ -339,7 +349,8 @@ class ChatViewModel(
         initialModel = initialModel,
         initialSpec = initialSpec,
     )
-    private val mcpServersDelegate = McpServersDelegate(ModelSelectionHandle(stateHandle), mcpRepository)
+    private val mcpServersDelegate =
+        McpServersDelegate(ModelSelectionHandle(stateHandle), mcpRepository, toggleMcpServer = modelDelegate::toggleMcpServer)
     private val skillsToggleDelegate = SkillsToggleDelegate(SkillsToggleHandle(stateHandle), settingsDataStore)
 
     // The attached-machine workspace a chat's coding agents run on, and what each send carries.
@@ -629,14 +640,16 @@ class ChatViewModel(
             account = state.account.copy(
                 userAvatarUrl = resolveAvatarUrl(state.account.userAvatarUrl, url),
             ),
-            // Reply avatars, resolved here for the same reason: the URL and the endpoint configs
-            // (a custom endpoint's served providerId) each arrive on their own flow.
+            // Reply avatars, resolved here for the same reason: the URL, the endpoint configs (a custom
+            // endpoint's served providerId) and the agents (an agent's avatar) each arrive on their own flow.
             content = hydrated.content.copy(
                 displayMessages = replyAvatarMemo.resolve(
                     hydrated.content.displayMessages,
                     state.selectedEndpoint,
                     url,
                     state.endpointConfigs,
+                    state.agents,
+                    fallbackAgentId = state.selectedModel.takeIf { state.selectedEndpoint == EndpointConstants.AGENTS },
                 ),
             ),
             avatars = state.replyAvatars(url),
@@ -661,11 +674,11 @@ class ChatViewModel(
         wantsStoredParameters = { !isHandedOffNewChat },
         rememberedWebSearch = conversationWebSearchStore::get,
         restoreParameters = { conversation, remembered ->
-            // The switch as this device last left it in this chat wins over the server's `web_search`,
-            // which holds only the built-in search. Not under a spec (see rememberWebSearch). Written
-            // with the parameters, so the load's "did the user change it meanwhile" check sees it.
+            // This device's last switch for this chat decides, unless the server's `web_search` is true
+            // (built-in search, turned on in web since). Not under a spec (see rememberWebSearch).
+            // Written with the parameters, so the load's "did the user change it meanwhile" check sees it.
             val restored = _uiState.value.selection.reopenedParameters(conversation)
-            val switch = remembered.takeIf { _uiState.value.selectedSpec == null }
+            val switch = remembered.takeIf { _uiState.value.selectedSpec == null && conversation.webSearch != true }
             modelDelegate.updateModelParameters(
                 switch?.let { restored.copy(webSearch = it) } ?: restored,
                 restoring = true,
@@ -695,6 +708,7 @@ class ChatViewModel(
         awaitAgentProvider = { modelDelegate.awaitSelectedAgentProvider() },
         // Only the EXPOSED combine folds serverDataStore.currentUrlFlow into prefs.serverUrl.
         serverUrl = { uiState.value.serverUrl },
+        turnOnToolForUpload = ::turnOnToolForUpload,
     )
 
     private val chatConfigDelegate = ChatConfigDelegate(
@@ -1062,8 +1076,8 @@ class ChatViewModel(
                 keyStatusDelegate.recomputeFor(configs)
                 // If code interpreter is no longer available, remove it from enabled tools and
                 // from what was added on top of a spec
-                val agentsCapabilities = configs[EndpointConstants.AGENTS]?.capabilities ?: emptyList()
-                if (agentsCapabilities.isNotEmpty() && ToolConstants.EXECUTE_CODE !in agentsCapabilities) {
+                val agentsCapabilities = configs[EndpointConstants.AGENTS]?.capabilities
+                if (agentsCapabilities != null && ToolConstants.EXECUTE_CODE !in agentsCapabilities) {
                     _uiState.update {
                         val specTools = it.selection.specTools
                         val code = ToolConstants.CODE_INTERPRETER
@@ -1105,6 +1119,18 @@ class ChatViewModel(
                     minVersion = "0.8.8-rc2",
                     landedDate = "2026-08-31",
                 )
+                // queued-turns/v2 (163c1ad93, landed 2026-09-25): dated the day AFTER landing.
+                val serverQueueApprovalMode = BackendVersion.supportsFeature(
+                    detected = detected,
+                    minVersion = "0.8.8",
+                    landedDate = "2026-09-26",
+                )
+                // restoreAgentTriggerModelSpec (20701bed0, landed 2026-10-22): dated the day AFTER landing.
+                val serverQueueEnforcedAgentSpec = BackendVersion.supportsFeature(
+                    detected = detected,
+                    minVersion = "0.8.9-rc1",
+                    landedDate = "2026-10-23",
+                )
                 // thinkingDisplay `updates` (40bb16ed, landed 2026-09-28): PRESENT only, dated the day
                 // AFTER landing. Keep in step with AgentCapabilitiesDelegate; see VERSION_GATES.md.
                 val thinkingDisplayUpdates = BackendVersion.supportsFeature(
@@ -1126,6 +1152,8 @@ class ChatViewModel(
                             steeringSupported = supported,
                             subagentThreadsSupported = subagentThreads,
                             serverQueueSupported = serverQueue,
+                            serverQueueApprovalModeSupported = serverQueueApprovalMode,
+                            serverQueueEnforcedAgentSpecSupported = serverQueueEnforcedAgentSpec,
                             providerScopedUploadsSupported = providerScopedUploads,
                             backendVersion = detected?.version,
                         ),
@@ -1203,6 +1231,12 @@ class ChatViewModel(
             }
         }
 
+        viewModelScope.launch {
+            settingsDataStore.artifactsMode.distinctUntilChanged().collect { mode ->
+                _uiState.update { it.copy(selection = it.selection.copy(artifactsMode = mode)) }
+            }
+        }
+
         presetPromptDelegate.loadPresets()
         // Favorites is user-personal (not server-permission-gated upstream); load eagerly
         // so the chat-side pin stars and Settings → Favorites stay in sync from cold start.
@@ -1244,11 +1278,14 @@ class ChatViewModel(
 
     fun onInputChanged(text: String) {
         val canPickSkills = _uiState.value.canPickSkills
-        val pickerWasOpen = parsePickerQuery(_uiState.value.inputText, canPickSkills) != null
+        val wasListingSkills = pickerListsSkills(_uiState.value.inputText, canPickSkills)
+        val wasListingModels = parsePickerQuery(_uiState.value.inputText, canPickSkills)?.scope == PickerScope.MODEL
         _uiState.update { it.copy(composer = it.composer.copy(inputText = text)) }
+        // `/model ` is a model selector too, so it takes the selector's self-heals as it opens.
+        if (!wasListingModels && parsePickerQuery(text, canPickSkills)?.scope == PickerScope.MODEL) prepareModelSelector()
         // Opening the picker starts the load (loadSkillCatalogWhenPickerOpens); typing on in an
         // open one only picks up a catalog gone stale, never retries a failed load.
-        if (pickerWasOpen && canPickSkills && parsePickerQuery(text, canPickSkills) != null) {
+        if (wasListingSkills && pickerListsSkills(text, canPickSkills)) {
             skillPickerDelegate.ensureLoaded(newTrigger = false)
         }
         persistComposerDraft(text)
@@ -1271,18 +1308,18 @@ class ChatViewModel(
     }
 
     /**
-     * Starts the skill catalog load whenever the picker is on screen where a skill could be
-     * picked: a leading `/` or `$` and [ChatUiState.canPickSkills]. Driven by the state rather
-     * than by a keystroke, so the picker also loads when its text arrives another way (a restored
-     * draft, a failed send's text put back) or when the gate opens under a trigger already typed
-     * (the role or config arriving late, a switch away from an assistants endpoint).
+     * Starts the skill catalog load whenever a picker listing skills is on screen where a skill
+     * could be picked: a leading `/`, `/skill ` or `$` and [ChatUiState.canPickSkills]. Driven by
+     * the state rather than by a keystroke, so the picker also loads when its text arrives another
+     * way (a restored draft, a failed send's text put back) or when the gate opens under a trigger
+     * already typed (the role or config arriving late, a switch away from an assistants endpoint).
      */
     private fun loadSkillCatalogWhenPickerOpens() {
         viewModelScope.launch {
             _uiState
                 // Only the slices the gate reads, so a streaming flush costs a few reference compares.
                 .distinctUntilChangedBy { Triple(it.composer.inputText, it.gates, it.selection) }
-                .map { it.canPickSkills && parsePickerQuery(it.inputText, canPickSkills = true) != null }
+                .map { pickerListsSkills(it.inputText, it.canPickSkills) }
                 .distinctUntilChanged()
                 .collect { open -> if (open) skillPickerDelegate.ensureLoaded(newTrigger = true) }
         }
@@ -1636,7 +1673,7 @@ class ChatViewModel(
     }
 
     fun onPause() {
-        streamingManager.onPause()
+        if (streamingManager.onPause()) watchDetachedReply()
         codeWorkspaceDelegate.onForeground(false)
         pullRequestDelegate.onForeground(false)
         queuedTurnDelegate.stopPolling()
@@ -1645,6 +1682,7 @@ class ChatViewModel(
 
     /** [mcpSignInEnding]: an MCP sign-in ends on this return and re-reads the MCP statuses itself. */
     fun onResume(mcpSignInEnding: Boolean = false) {
+        uiState.value.conversationId?.let { replyWatchScheduler?.stop(it) }
         streamingManager.onResume()
         codeWorkspaceDelegate.onForeground(true)
         pullRequestDelegate.onForeground(true)
@@ -1656,7 +1694,7 @@ class ChatViewModel(
         keyStatusDelegate.resettle()
         // Skills may have changed on the Skills screen while this chat was behind it.
         val state = _uiState.value
-        skillPickerDelegate.refreshOnReturn(pickerOpen = parsePickerQuery(state.inputText, state.canPickSkills) != null)
+        skillPickerDelegate.refreshOnReturn(pickerOpen = pickerListsSkills(state.inputText, state.canPickSkills))
         // A chip's tap acts on its server's status, which may have changed elsewhere meanwhile (the
         // MCP servers page, another chat's tool call, a browser sign-in finished there).
         mcpServersDelegate.onForeground(signInEnding = mcpSignInEnding)
@@ -1755,6 +1793,8 @@ class ChatViewModel(
                     mcpServers = current.mcpServers,
                     selectedMcpServerNames = current.selectedMcpServerNames,
                     enabledTools = current.enabledTools,
+                    // App-wide, behind distinctUntilChanged: dropped here it would never come back.
+                    artifactsMode = current.selection.artifactsMode,
                 ),
                 presetPrompts = current.presetPrompts,
                 voice = VoiceState(serverSttEnabled = current.serverSttEnabled),
@@ -1770,7 +1810,16 @@ class ChatViewModel(
 
     fun toggleTemporaryChat() = treeDelegate.toggleTemporaryChat()
 
-    fun refreshMessages() = conversationLoadDelegate.refreshMessages()
+    /**
+     * A run started on another device reaches this screen only through a status check, so a refresh
+     * asks for one: the server saves the reply when the run ends, and the reload alone shows nothing.
+     */
+    fun refreshMessages() = conversationLoadDelegate.refreshMessages { conversationId ->
+        val state = _uiState.value
+        if (!state.isStreaming && state.conversationId == conversationId) {
+            streamingManager.resumeOnOpen(conversationId, onAttached = localQueueContinuity::onRunAttached)
+        }
+    }
 
     /**
      * Resolves whether the trace entry point may render for the conversation on screen.
@@ -1959,6 +2008,15 @@ class ChatViewModel(
         _uiState.update { it.copy(mediaPreview = null) }
     }
 
+    /** The reply runs on without this screen; the watcher announces it when it ends. */
+    private fun watchDetachedReply() {
+        val state = uiState.value
+        if (state.isTemporaryChat) return
+        val conversationId = state.conversationId ?: return
+        val account = activeAccountProvider.currentAccountId() ?: return
+        replyWatchScheduler?.watch(ReplyWatch(account, conversationId))
+    }
+
     override fun onCleared() {
         super.onCleared()
         voiceDelegate.release()
@@ -2001,7 +2059,11 @@ class ChatViewModel(
     fun stopReading() = ttsDelegate.stopReading()
 
     // Voice input
-    fun startRecording() = voiceDelegate.startRecording()
+    /** The mic would transcribe a read in progress, so dictation stops it first. */
+    fun startRecording() {
+        ttsDelegate.stopReading()
+        voiceDelegate.startRecording()
+    }
     fun stopRecording() = voiceDelegate.stopRecording()
     fun cancelRecording() = voiceDelegate.cancelRecording()
     fun onDeviceSpeechResult(transcribedText: String) = voiceDelegate.onDeviceSpeechResult(transcribedText)
@@ -2009,19 +2071,23 @@ class ChatViewModel(
     // File attachments
     fun onFilesSelected(platformRefs: List<Any>) = uploadIntakeDelegate.intakePickedFiles(platformRefs, prompt = true)
 
-    /**
-     * "Upload to Code Environment" picks ([ChatUiState.codeUploadOffered]). Like web, this also turns
-     * the code interpreter on for a chat with ephemeral tools, or the file would reach a run with
-     * no tool to read it (a saved agent already has it: that is what offers the row).
-     */
+    /** "Upload to Code Environment" picks ([ChatUiState.codeUploadOffered]); see [turnOnToolForUpload]. */
     fun onCodeFilesSelected(platformRefs: List<Any>) {
-        val state = _uiState.value
-        if (!state.codeUploadOffered) return
-        if (state.toolbarShown && ToolConstants.CODE_INTERPRETER !in state.selection.effectiveTools) {
-            modelDelegate.toggleTool(ToolConstants.CODE_INTERPRETER)
-        }
+        if (!_uiState.value.codeUploadOffered) return
+        turnOnToolForUpload(ToolConstants.CODE_INTERPRETER)
         uploadIntakeDelegate.intakeCodeFiles(platformRefs)
     }
+
+    /**
+     * Turns [tool] on for a file routed to it, as web does, before the upload starts so a send
+     * parked on it carries the tool: on for ephemeral tools (a session addition under a spec); a
+     * saved agent already has it, which is what offered the route.
+     */
+    private fun turnOnToolForUpload(tool: String) {
+        val state = _uiState.value
+        if (state.toolbarShown && tool !in state.selection.effectiveTools) modelDelegate.toggleTool(tool)
+    }
+
     fun setPendingUploadRoute(index: Int, route: UploadRoute) = uploadIntakeDelegate.setPendingUploadRoute(index, route)
     fun setAllPendingUploadRoutes(route: UploadRoute) = uploadIntakeDelegate.setAllPendingUploadRoutes(route)
     fun confirmPendingUploadRouting() = uploadIntakeDelegate.confirmPendingUploadRouting()
@@ -2063,15 +2129,18 @@ class ChatViewModel(
     // Presets and prompts
     fun savePreset(name: String) = presetPromptDelegate.savePreset(name)
     fun loadPreset(displayData: PresetDisplayData) = presetPromptDelegate.loadPreset(displayData)
+    fun reloadPresetsIfFailed() = presetPromptDelegate.reloadPresetsIfFailed()
     fun deletePreset(presetId: String) = presetPromptDelegate.deletePreset(presetId)
     fun editPreset(preset: Preset) = presetPromptDelegate.editPreset(preset)
     fun handleSlashCommand(displayData: PromptMentionDisplayData) = presetPromptDelegate.handleSlashCommand(displayData)
 
     /**
-     * A row picked from the composer's `/` and `$` list. A prompt runs as a slash command. A
-     * skill becomes a pending chip (which also turns the conversation's Skills on) and the
-     * `/query` or `$query` the composer holds is cleared — the list only opens when the trigger
-     * leads the input, so the whole text is the query.
+     * A row picked from the composer's picker. A prompt runs as a slash command. A skill becomes a
+     * pending chip (which also turns the conversation's Skills on), an MCP server switches when
+     * its pick is [McpPick.TOGGLE] (the screen starts a sign-in or set-up), and a model is picked as
+     * in the model sheet (the screen opens a missing key). All but a prompt clear the command and
+     * query the composer holds: the list only opens when its trigger leads the input, so the whole
+     * text is the command.
      */
     fun selectPickerItem(item: ComposerPickerItem) {
         when (item) {
@@ -2079,6 +2148,19 @@ class ChatViewModel(
             is ComposerPickerItem.Skill -> {
                 if (parsePickerQuery(_uiState.value.inputText, _uiState.value.canPickSkills) != null) onInputChanged("")
                 addPendingManualSkill(item.skill.name)
+            }
+            is ComposerPickerItem.Mcp -> {
+                if (parsePickerQuery(_uiState.value.inputText, _uiState.value.canPickSkills) != null) onInputChanged("")
+                if (item.mcp.pick == McpPick.TOGGLE) toggleMcpServer(item.mcp.server.name)
+            }
+            is ComposerPickerItem.Model -> {
+                if (parsePickerQuery(_uiState.value.inputText, _uiState.value.canPickSkills) != null) onInputChanged("")
+                when (val pick = item.model.pick) {
+                    is ModelPick.Spec -> onSpecSelected(pick.spec)
+                    is ModelPick.Raw -> onModelSelected(pick.endpoint, pick.model)
+                    // The screen opens Provider API Keys.
+                    is ModelPick.AddKey -> Unit
+                }
             }
         }
     }
@@ -2157,23 +2239,61 @@ class ChatViewModel(
     fun setSecondaryModel(endpoint: String, model: String) = comparisonDelegate.setSecondaryModel(endpoint, model)
     fun toggleMcpServer(serverName: String) = modelDelegate.toggleMcpServer(serverName)
 
-    /** A settings chip's "sign in", or its "Start over": see [McpServersDelegate.signIn]. */
+    /** A settings chip's "sign in" or "Start over", or the "+" sheet's "Sign in": see [McpServersDelegate.signIn]. */
     fun signInMcpServer(
         serverName: String,
         openSignIn: (serverName: String, authorizationUrl: String) -> Boolean,
         onFailed: () -> Unit,
-    ) = mcpServersDelegate.signIn(serverName, openSignIn, onFailed)
+        selectWhenConnected: Boolean = false,
+    ) = mcpServersDelegate.signIn(serverName, openSignIn, onFailed, selectWhenConnected)
 
-    /** A connecting chip's "Cancel sign-in": see [McpServersDelegate.cancelSignIn]. */
+    /** A connecting chip's or "+" sheet row's "Cancel sign-in": see [McpServersDelegate.cancelSignIn]. */
     fun cancelMcpSignIn(serverName: String, onFailed: () -> Unit) =
         mcpServersDelegate.cancelSignIn(serverName, onFailed)
 
     /** An MCP sign-in ended: see [McpServersDelegate.onSignInEnded]. */
     fun onMcpSignInEnded() = mcpServersDelegate.onSignInEnded()
+
+    /** The variables sheet's Set / Not set: see [McpServersDelegate.userVarFlags]. */
+    suspend fun mcpVariableFlags(serverName: String): Map<String, Boolean>? =
+        mcpServersDelegate.userVarFlags(serverName)
+
+    /** Runs in the ViewModel's scope, so closing the sheet doesn't cancel it: see [McpServersDelegate.saveUserVars]. */
+    suspend fun saveMcpVariables(serverName: String, values: Map<String, String>): Boolean =
+        viewModelScope.async { mcpServersDelegate.saveUserVars(serverName, values) }.await()
+
+    /** See [McpServersDelegate.removeUserVars]; in the ViewModel's scope like [saveMcpVariables]. */
+    suspend fun removeMcpVariables(serverName: String): Boolean =
+        viewModelScope.async { mcpServersDelegate.removeUserVars(serverName) }.await()
+
+    /** Saves the Artifacts mode app-wide and turns Artifacts on, since picking a mode means using it. */
+    fun setArtifactsMode(mode: ArtifactsMode) {
+        _uiState.update { it.copy(selection = it.selection.copy(artifactsMode = mode)) }
+        viewModelScope.launch { settingsDataStore.setArtifactsMode(mode) }
+        if (ToolConstants.ARTIFACTS !in _uiState.value.selection.effectiveTools) toggleTool(ToolConstants.ARTIFACTS)
+    }
+
     fun toggleTool(toolName: String) {
         // Per conversation, so it never goes through the global enabled-tools store.
         if (toolName == ToolConstants.SKILLS) skillsToggleDelegate.toggle() else modelDelegate.toggleTool(toolName)
     }
+
+    /**
+     * Saves the user's LibreChat search keys ([auth] in web's form) and, once saved, turns Web Search
+     * on through [toggleTool] if it is off. Runs in the ViewModel's scope, so closing the key sheet
+     * doesn't cancel it; false when the server refused.
+     */
+    suspend fun saveWebSearchKeys(auth: Map<String, String>): Boolean = viewModelScope.async {
+        chatConfigDelegate.saveWebSearchKeys(auth).also { saved ->
+            if (saved && ToolConstants.WEB_SEARCH !in _uiState.value.selection.effectiveTools) {
+                toggleTool(ToolConstants.WEB_SEARCH)
+            }
+        }
+    }.await()
+
+    /** Removes the user's LibreChat search keys; false when the server refused. */
+    suspend fun removeWebSearchKeys(): Boolean =
+        viewModelScope.async { chatConfigDelegate.removeWebSearchKeys() }.await()
 
     /** A settings-line chip's switch: the same toggle the "+" sheet's row flips. */
     fun toggleSettingChip(chip: SettingChip) {
@@ -2221,19 +2341,20 @@ class ChatViewModel(
      * Keeps [agentId]'s answer and continues it with the model that wrote it. A Continue sends with
      * the chat's model, which during a comparison is lane A's, so keeping lane B switches the chat
      * to lane B's model, spec and parameters first ([parametersLaneRanOn]); read now, since keeping
-     * the lane clears the comparison. A pick like any other, so it writes last-used.
+     * the lane clears the comparison. Its spec is held against the config as every writer holds it
+     * ([stored]). A pick like any other, so it writes last-used, except in a temporary chat.
      */
     fun keepAndContinue(agentId: String) {
         val state = _uiState.value
         val comparison = state.comparisonState
         val laneB = comparison.secondaryEndpoint?.takeIf { isAddedAgentId(agentId) }?.let { endpoint ->
-            comparison.secondaryModel?.let { model -> ModelChoice.restore(endpoint, model, state.laneBSpec) }
+            comparison.secondaryModel?.let { model -> ModelChoice.stored(endpoint, model, state.laneBSpec, state.modelSpecs) }
         }
         comparisonDelegate.keepAndContinue(agentId) {
             laneB?.let { choice ->
                 // Read before the pick: moving onto or off a spec resets lane A's custom instructions.
                 val ran = _uiState.value.selection.parametersLaneRanOn(choice)
-                modelDelegate.onChoiceSelected(choice)
+                modelDelegate.onChoiceSelected(choice, saveLastUsed = !state.isTemporaryChat)
                 modelDelegate.updateModelParameters(ran, restoring = true)
             }
             continueGeneration()

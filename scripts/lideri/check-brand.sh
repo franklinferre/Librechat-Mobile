@@ -169,7 +169,7 @@ done
 # Logo is on the screens that show the brand.
 for scr in feature/auth/src/commonMain/kotlin/com/garfiec/librechat/feature/auth/screen/LoginScreen.kt \
            feature/auth/src/commonMain/kotlin/com/garfiec/librechat/feature/auth/screen/ServerUrlScreen.kt \
-           feature/settings/src/commonMain/kotlin/com/garfiec/librechat/feature/settings/screen/GeneralSettingsScreen.kt; do
+           feature/settings/src/commonMain/kotlin/com/garfiec/librechat/feature/settings/screen/AboutSettingsPage.kt; do
   has "$scr" 'LideriLogo(' || fail "LideriLogo( missing ($scr)"
 done
 

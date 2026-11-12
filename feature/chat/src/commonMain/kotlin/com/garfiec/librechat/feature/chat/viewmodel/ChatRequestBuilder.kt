@@ -49,13 +49,18 @@ class ChatRequestBuilder(
         val mcpServers = state.effectiveMcpServerNames.toList().ifEmpty { null }
         // Web search rides here only as LibreChat's search; the built-in one is a parameter.
         val webSearchEnabled = state.webSearchRoute == WebSearchRoute.LIBRECHAT
-        val tools = state.selection.effectiveTools - ToolConstants.URL_CONTEXT
+        val inUse = state.selection.effectiveTools
+        val tools = inUse - ToolConstants.URL_CONTEXT - ToolConstants.ARTIFACTS
         val enabledTools = if (webSearchEnabled) tools else tools - ToolConstants.WEB_SEARCH
         // The conversation's own toggle, sent only where it is offered: a model spec that
         // configures skills overrides it server-side, and without the capability or role the
         // server ignores it.
         val skillsOn = state.skillsToggle && state.isSkillsToolAvailable
+        // A spec's mode wins over the user's.
         val artifacts = state.activeSpec?.artifactsMode
+            ?: state.selection.artifactsMode.wire.takeIf {
+                ToolConstants.ARTIFACTS in inUse && state.toolGateOpen(ToolConstants.ARTIFACTS)
+            }
 
         val hasAnything = mcpServers != null || enabledTools.isNotEmpty() || skillsOn || artifacts != null
         if (!hasAnything) return null
@@ -85,9 +90,12 @@ class ChatRequestBuilder(
     /**
      * Snapshots the configured model parameters (temperature, top_p, promptCache/promptCacheTtl, …)
      * into the provider-keyed map sent at the top level of the chat payload, mirroring the web
-     * client. Returns null when nothing was customized so the send path stays byte-for-byte identical
-     * to before for untouched conversations. For the agents endpoint the underlying agent's provider
-     * selects the correct parameter set.
+     * client. Returns null when nothing is sent. For the agents endpoint the underlying agent's
+     * provider selects the correct parameter set.
+     *
+     * `web_search` always goes out with ephemeral tools, `false` off the built-in route: left out, an
+     * admin's `paramDefinitions` default would turn the built-in search on beside LibreChat's, or with
+     * the control off (`getOpenAILLMConfig`). A saved agent runs its own parameters, so none is sent.
      */
     fun buildModelParams(): JsonObject? {
         val state = stateProvider()
@@ -103,6 +111,7 @@ class ChatRequestBuilder(
             dropParamsMap = state.gates.dropParamsMap,
             settingsEndpoint = target.settingsEndpoint,
             settingsProvider = target.settingsProvider,
+            alwaysSent = if (state.showEphemeralTools) setOf(ToolConstants.WEB_SEARCH) else emptySet(),
         ).takeIf { it.isNotEmpty() }
     }
 

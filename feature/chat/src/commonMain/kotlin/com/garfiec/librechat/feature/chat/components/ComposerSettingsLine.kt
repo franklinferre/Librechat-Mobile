@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -290,7 +291,7 @@ internal fun lockedByMessage(lockedBy: String?): StringResource =
     if (lockedBy != null) Res.string.setting_chip_set_by else Res.string.tool_set_by_spec
 
 @Composable
-private fun lockedByText(lockedBy: String?): String = stringResource(lockedByMessage(lockedBy), lockedBy.orEmpty())
+internal fun lockedByText(lockedBy: String?): String = stringResource(lockedByMessage(lockedBy), lockedBy.orEmpty())
 
 /** While compacting is suggested a tap opens the compact confirmation, whose "See usage" reaches the breakdown without snoozing. */
 @Composable
@@ -308,6 +309,7 @@ internal fun ContextRing(state: ContextRingState, modifier: Modifier = Modifier)
     Box(
         modifier = modifier
             .minimumInteractiveComponentSize()
+            .clip(CircleShape)
             .clickable(role = Role.Button) { if (nudge != null) confirmCompact = true else showSheet = true }
             .semantics(mergeDescendants = true) {
                 contentDescription = description

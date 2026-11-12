@@ -9,8 +9,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.common.ChatLayoutConstants
+import com.garfiec.librechat.core.model.mcp.McpDisplayStatus
 import com.garfiec.librechat.core.model.ui.UiStyle
 import com.garfiec.librechat.core.ui.preview.PreviewNarrowScreens
+import com.garfiec.librechat.feature.chat.model.McpServerDisplayData
+import com.garfiec.librechat.feature.chat.model.PickerMcpServer
 
 // Hosts are shared with SkillsChatPreviews.kt.
 
@@ -26,7 +29,70 @@ private fun SkillPickerFailedGlassPreview() = SkillsSurface(UiStyle.LIQUID_GLASS
     PickerHost("\$pd", skills = emptyList(), failed = true)
 }
 
+@PreviewNarrowScreens
+@Composable
+private fun SkillPickerSkillScopeMaterialPreview() = SkillsSurface(UiStyle.MATERIAL) { PickerHost("/skill ") }
+
+@PreviewNarrowScreens
+@Composable
+private fun SkillPickerSkillScopeGlassPreview() = SkillsSurface(UiStyle.LIQUID_GLASS) { PickerHost("/skill ") }
+
+@PreviewNarrowScreens
+@Composable
+private fun SkillPickerPromptScopeMaterialPreview() = SkillsSurface(UiStyle.MATERIAL) { PickerHost("/prompt sum") }
+
+@PreviewNarrowScreens
+@Composable
+private fun SkillPickerSkillsUnavailableMaterialPreview() = SkillsSurface(UiStyle.MATERIAL) {
+    PickerHost("/skill ", skills = emptyList(), canPickSkills = false)
+}
+
 /** Ten long names: the server's cap. */
+@PreviewNarrowScreens
+@Composable
+private fun PickerMcpScopeMaterialPreview() = SkillsSurface(UiStyle.MATERIAL) {
+    PickerHost("/mcp ", mcp = previewMcpServers)
+}
+
+@PreviewNarrowScreens
+@Composable
+private fun PickerMcpScopeGlassPreview() = SkillsSurface(UiStyle.LIQUID_GLASS) {
+    PickerHost("/mcp ", mcp = previewMcpServers)
+}
+
+@PreviewNarrowScreens
+@Composable
+private fun PickerMixedWithMcpMaterialPreview() = SkillsSurface(UiStyle.MATERIAL) {
+    PickerHost("/", mcp = previewMcpServers)
+}
+
+@PreviewNarrowScreens
+@Composable
+private fun PickerMcpUnavailableMaterialPreview() = SkillsSurface(UiStyle.MATERIAL) { PickerHost("/mcp ") }
+
+internal val previewMcpServers = listOf(
+    PickerMcpServer(
+        McpServerDisplayData("github", "GitHub", "Repos, issues and pull requests", McpDisplayStatus.CONNECTED),
+        on = true,
+        locked = false,
+    ),
+    PickerMcpServer(
+        McpServerDisplayData("linear", "Linear", "Issues and projects", McpDisplayStatus.NEEDS_SIGN_IN, requiresOAuth = true),
+        on = false,
+        locked = false,
+    ),
+    PickerMcpServer(
+        McpServerDisplayData("search", "Company search", null, McpDisplayStatus.CONNECTED),
+        on = true,
+        locked = true,
+    ),
+    PickerMcpServer(
+        McpServerDisplayData("files", "Files", "Read the shared drive", McpDisplayStatus.DISCONNECTED),
+        on = false,
+        locked = false,
+    ),
+)
+
 @PreviewNarrowScreens
 @Composable
 private fun SkillChipsAtCapMaterialPreview() = SkillsSurface(UiStyle.MATERIAL) {

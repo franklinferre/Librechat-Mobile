@@ -48,6 +48,11 @@ class IconUrlsTest {
     }
 
     @Test
+    fun anAgentsIconDrawsTheAgentsMarkOnAnyEndpoint() {
+        assertEquals(IconSource("agents", null, null), resolveIconSource("agents", "openAI", "https://srv"))
+    }
+
+    @Test
     fun resolveTakesTheServedProviderOfTheSpecEndpoint() {
         val configs = mapOf("Proxy" to EndpointConfig(providerId = "openrouter"))
         // The endpoint's own name and an unknown icon name fall to what the server resolved.
@@ -142,6 +147,14 @@ class IconUrlsTest {
         // The endpoint's configured icon joins the server too.
         val configs = mapOf("openAI" to EndpointConfig(iconURL = "/assets/openai.svg"))
         assertEquals("$SERVER/assets/openai.svg", Conversation(endpoint = "openAI").resolveEndpointIconUrl(configs, SERVER))
+    }
+
+    @Test
+    fun anIconImageJoinsTheServerLikeThePicker() {
+        assertEquals("$SERVER/images/gw.png", iconImageUrl("/images/gw.png", SERVER))
+        assertEquals("https://cdn.example/gw.png", iconImageUrl("//cdn.example/gw.png", SERVER))
+        assertEquals("https://cdn.example/gw.png", iconImageUrl("https://cdn.example/gw.png", SERVER))
+        assertNull(iconImageUrl(null, SERVER))
     }
 
     private companion object {

@@ -94,6 +94,43 @@ object AppPreferences {
      */
     val ClientImageResize = boolPreference("client_image_resize", default = always(true))
 
+    /**
+     * Whether a reply that finishes while the user is elsewhere is announced (a system notification
+     * in the background, a snackbar in another chat). Device-wide. On by default, unlike web: it
+     * only takes effect once the user has granted notification permission, which they are asked for.
+     */
+    val ReplyNotifications = boolPreference("reply_notifications", default = always(true))
+
+    /** Notify when a scheduled chat runs, or the server pauses one. On by default, as Replies. */
+    val ScheduledChatNotifications = boolPreference("scheduled_chat_notifications", default = always(true))
+
+    /**
+     * The in-context notification asks the user has already answered (`NotificationAskTrigger`
+     * names), so none is offered twice. Device-wide.
+     */
+    val NotificationAsksAnswered = stringListPreference("notification_asks_answered")
+
+    /**
+     * How an artifact opens: Automatic (beside the chat, as a sheet or full screen, by the window),
+     * always a bottom sheet, or always full screen. Mobile-only.
+     */
+    val ArtifactDisplay = stringPreference(
+        "artifact_display_mode",
+        default = always(ArtifactDisplayMode.AUTOMATIC),
+        decode = ArtifactDisplayMode::fromString,
+        encode = ArtifactDisplayMode::toStorageString,
+    )
+
+    /**
+     * The artifact's share of the width when it stands beside the chat, set by dragging the divider;
+     * one value for every window.
+     */
+    val ArtifactSplitFraction = floatPreference(
+        "artifact_split_fraction",
+        default = always(0.5f),
+        decode = { it.takeIf { fraction -> fraction in 0f..1f } },
+    )
+
     val all: List<PreferenceSpec<*, *>> =
         listOf(
             SiteIcons,
@@ -109,5 +146,10 @@ object AppPreferences {
             ArtifactLibraryAnswers,
             CollapseLongUserMessages,
             ClientImageResize,
+            ReplyNotifications,
+            ScheduledChatNotifications,
+            NotificationAsksAnswered,
+            ArtifactDisplay,
+            ArtifactSplitFraction,
         )
 }

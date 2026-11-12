@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.SmartToy
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -91,7 +92,7 @@ private object FailedProviderAssets {
 /**
  * Renders an endpoint icon. Precedence: an image [iconUrl] (a custom endpoint's `iconURL`), then the
  * provider's art as served by the user's own server ([providerAssetUrl] against [LocalServerUrl]),
- * then a monogram tile of the provider's label. The provider is [provider] when given (resolved by
+ * then the provider's monogram tile. The provider is [provider] when given (resolved by
  * `resolveProviderIcon`, e.g. from the server's `providerId`), else [endpointProvider]. Agents draw
  * the agents glyph; a name resolving to no provider draws a generic Material glyph.
  *
@@ -235,14 +236,15 @@ private fun ProviderMark(
     }
 }
 
-/** A neutral round tile with the provider label's first letter; read out as [contentDescription], if any. */
+/** A round tile with the provider's [ProviderId.monogram] ([monogramColors]); read out as [contentDescription], if any. */
 @Composable
 private fun ProviderMonogram(provider: ProviderId, size: Dp, contentDescription: String?, modifier: Modifier = Modifier) {
     val density = LocalDensity.current
+    val colors = monogramColors(provider, isSurfaceDark(), MaterialTheme.colorScheme)
     Box(
         modifier = modifier
             .size(size)
-            .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+            .background(colors.tile, CircleShape)
             .then(
                 if (contentDescription != null) {
                     Modifier.semantics { this.contentDescription = contentDescription }
@@ -262,15 +264,43 @@ private fun ProviderMonogram(provider: ProviderId, size: Dp, contentDescription:
                     lineHeight = with(unscaled) { (size * MONOGRAM_TEXT_FRACTION).toSp() },
                     fontWeight = FontWeight.SemiBold,
                 ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = colors.letters,
                 maxLines = 1,
             )
         }
     }
 }
 
+internal data class MonogramColors(val tile: Color, val letters: Color)
+
+/**
+ * [provider]'s monogram colours: its [monogramTint] with white letters, else neutral. On a dark surface
+ * ([surfaceDark]) a [darkMonograms] tile takes the light inverse tile, as [darkMonoArt] does.
+ */
+internal fun monogramColors(provider: ProviderId, surfaceDark: Boolean, scheme: ColorScheme): MonogramColors {
+    if (surfaceDark && provider in darkMonograms) return MonogramColors(scheme.inverseSurface, scheme.inverseOnSurface)
+    val tint = monogramTint[provider] ?: return MonogramColors(scheme.surfaceVariant, scheme.onSurfaceVariant)
+    return MonogramColors(tint, Color.White)
+}
+
+/**
+ * Tiles for the providers with no served art. Each tint must hold white letters at 5:1 or more and,
+ * outside [darkMonograms], at least 2.7:1 against a raised dark container, so the circle still shows.
+ */
+private val monogramTint: Map<ProviderId, Color> = mapOf(
+    ProviderId.ANTHROPIC to Color(0xFF9C5B36),
+    ProviderId.AZURE to Color(0xFF236BD7),
+    ProviderId.BEDROCK to Color(0xFF237C69),
+    ProviderId.XAI to Color(0xFF2E3440),
+    ProviderId.MOONSHOT to Color(0xFF6D60C8),
+    ProviderId.VERCEL to Color(0xFF000000),
+)
+
+/** Near-black tints, which vanish on a dark surface. */
+private val darkMonograms = setOf(ProviderId.XAI, ProviderId.VERCEL)
+
 private const val AVATAR_ART_INSET_FRACTION = 0.15f
-private const val MONOGRAM_TEXT_FRACTION = 0.5f
+private const val MONOGRAM_TEXT_FRACTION = 0.4f
 private val TILE_INSET_LARGE_THRESHOLD = 20.dp
 
 /** Without a server every provider draws its monogram; agents and an unknown name keep their glyphs. */

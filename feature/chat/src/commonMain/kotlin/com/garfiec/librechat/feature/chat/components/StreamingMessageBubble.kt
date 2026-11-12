@@ -22,14 +22,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.garfiec.librechat.core.common.ChatLayoutConstants
 import com.garfiec.librechat.core.model.media.IconSource
-import com.garfiec.librechat.core.ui.components.BubbleShape
 import com.garfiec.librechat.core.ui.components.EndpointAvatar
+import com.garfiec.librechat.core.ui.theme.themeShapes
+import com.garfiec.librechat.feature.chat.components.sendflight.sendFlightReplyBody
+import com.garfiec.librechat.feature.chat.components.sendflight.sendFlightReplyHeader
 import com.garfiec.librechat.feature.chat.resources.Res
 import com.garfiec.librechat.feature.chat.resources.cd_assistant_responding
 import com.garfiec.librechat.feature.chat.resources.cd_generating_response
 import org.jetbrains.compose.resources.stringResource
-
-// Shared BubbleShape is imported from MessageBubble.kt
 
 /**
  * Dedicated composable for rendering a message that is currently being streamed.
@@ -44,6 +44,8 @@ import org.jetbrains.compose.resources.stringResource
  * [pendingSkills] are the skills the turn picked, each a "Running X" row at the top of the reply's
  * content, under the sender row: where the finalized message draws the skill cards the server
  * prepends, so the swap doesn't move them past the header.
+ *
+ * While [waiting], the bubble shows only its waiting dots, whatever has streamed.
  */
 @Composable
 fun StreamingMessageBubble(
@@ -58,6 +60,7 @@ fun StreamingMessageBubble(
     useKatex: Boolean = false,
     streamingThinking: String = "",
     pendingSkills: List<String> = emptyList(),
+    waiting: Boolean = false,
 ) {
     if (chatLayoutStyle == ChatLayoutConstants.TWO_SIDED) {
         TwoSidedStreamingBubble(
@@ -70,6 +73,7 @@ fun StreamingMessageBubble(
             useKatex = useKatex,
             streamingThinking = streamingThinking,
             pendingSkills = pendingSkills,
+            waiting = waiting,
             modifier = modifier,
         )
     } else {
@@ -83,6 +87,7 @@ fun StreamingMessageBubble(
             useKatex = useKatex,
             streamingThinking = streamingThinking,
             pendingSkills = pendingSkills,
+            waiting = waiting,
             modifier = modifier,
         )
     }
@@ -99,9 +104,10 @@ private fun ThreadStreamingBubble(
     useKatex: Boolean,
     streamingThinking: String,
     pendingSkills: List<String>,
+    waiting: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val liveCd = streamingLiveDescription(streamingContent)
+    val liveCd = streamingLiveDescription(streamingContent.isNotBlank())
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -112,6 +118,7 @@ private fun ThreadStreamingBubble(
     ) {
         // Sender row with avatar
         Row(
+            modifier = sendFlightReplyHeader(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (showAvatars) {
@@ -141,12 +148,13 @@ private fun ThreadStreamingBubble(
             modifier = Modifier
                 .padding(start = contentStartPadding)
                 .fillMaxWidth()
+                .then(sendFlightReplyBody())
                 .then(
                     if (showBubbles) {
                         Modifier
                             .background(
                                 color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = BubbleShape,
+                                shape = themeShapes().bubble,
                             )
                             .padding(12.dp)
                     } else {
@@ -158,22 +166,26 @@ private fun ThreadStreamingBubble(
                     contentDescription = liveCd
                 },
         ) {
-            StreamingPendingSkills(pendingSkills)
-            StreamingThinking(streamingThinking, fontSizeMultiplier, useKatex)
-            if (streamingContent.isNotBlank()) {
-                // Routed through TextContentPart so artifact directives render as cards while the
-                // reply streams (#302) — an unclosed artifact shows its source via IncompleteArtifact.
-                // It also owns the cursor — a cursor placed here as a sibling lands on a line of its
-                // own instead of after the last word.
-                TextContentPart(
-                    text = streamingContent,
-                    fontSizeMultiplier = fontSizeMultiplier,
-                    useKatex = useKatex,
-                    streaming = true,
-                    trailingCursor = true,
-                )
-            } else {
+            if (waiting) {
                 StreamingWaitIndicator()
+            } else {
+                StreamingPendingSkills(pendingSkills)
+                StreamingThinking(streamingThinking, fontSizeMultiplier, useKatex)
+                if (streamingContent.isNotBlank()) {
+                    // Routed through TextContentPart so artifact directives render as cards while the
+                    // reply streams (#302) — an unclosed artifact shows its source via IncompleteArtifact.
+                    // It also owns the cursor — a cursor placed here as a sibling lands on a line of its
+                    // own instead of after the last word.
+                    TextContentPart(
+                        text = streamingContent,
+                        fontSizeMultiplier = fontSizeMultiplier,
+                        useKatex = useKatex,
+                        streaming = true,
+                        trailingCursor = true,
+                    )
+                } else {
+                    StreamingWaitIndicator()
+                }
             }
         }
     }
@@ -190,9 +202,10 @@ private fun TwoSidedStreamingBubble(
     useKatex: Boolean,
     streamingThinking: String,
     pendingSkills: List<String>,
+    waiting: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val liveCd = streamingLiveDescription(streamingContent)
+    val liveCd = streamingLiveDescription(streamingContent.isNotBlank())
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -211,6 +224,7 @@ private fun TwoSidedStreamingBubble(
                 provider = avatar?.provider,
                 fallbackText = senderName,
                 size = 28.dp,
+                modifier = sendFlightReplyHeader(),
             )
             Spacer(modifier = Modifier.width(6.dp))
         }
@@ -218,12 +232,13 @@ private fun TwoSidedStreamingBubble(
         Column(
             modifier = Modifier
                 .weight(1f)
+                .then(sendFlightReplyHeader())
                 .then(
                     if (showBubbles) {
                         Modifier
                             .background(
                                 color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = BubbleShape,
+                                shape = themeShapes().bubble,
                             )
                             .padding(12.dp)
                     } else {
@@ -250,22 +265,28 @@ private fun TwoSidedStreamingBubble(
                 },
             )
             Spacer(modifier = Modifier.height(4.dp))
-            StreamingPendingSkills(pendingSkills)
-            StreamingThinking(streamingThinking, fontSizeMultiplier, useKatex)
-            if (streamingContent.isNotBlank()) {
-                // Routed through TextContentPart so artifact directives render as cards while the
-                // reply streams (#302) — an unclosed artifact shows its source via IncompleteArtifact.
-                // It also owns the cursor — a cursor placed here as a sibling lands on a line of its
-                // own instead of after the last word.
-                TextContentPart(
-                    text = streamingContent,
-                    fontSizeMultiplier = fontSizeMultiplier,
-                    useKatex = useKatex,
-                    streaming = true,
-                    trailingCursor = true,
-                )
-            } else {
-                StreamingWaitIndicator()
+            Column(modifier = sendFlightReplyBody()) {
+                if (waiting) {
+                    StreamingWaitIndicator()
+                } else {
+                    StreamingPendingSkills(pendingSkills)
+                    StreamingThinking(streamingThinking, fontSizeMultiplier, useKatex)
+                    if (streamingContent.isNotBlank()) {
+                        // Routed through TextContentPart so artifact directives render as cards while the
+                        // reply streams (#302) — an unclosed artifact shows its source via IncompleteArtifact.
+                        // It also owns the cursor — a cursor placed here as a sibling lands on a line of its
+                        // own instead of after the last word.
+                        TextContentPart(
+                            text = streamingContent,
+                            fontSizeMultiplier = fontSizeMultiplier,
+                            useKatex = useKatex,
+                            streaming = true,
+                            trailingCursor = true,
+                        )
+                    } else {
+                        StreamingWaitIndicator()
+                    }
+                }
             }
         }
     }
@@ -276,10 +297,13 @@ private fun TwoSidedStreamingBubble(
  * expands it mid-stream keeps it expanded as deltas arrive — but not across settle: the persisted
  * THINK part has its own key and opens collapsed (an accepted limit, see feature/chat CLAUDE.md).
  */
-/** What a screen reader announces as the reply streams in. */
+/**
+ * The live region's status as the reply streams in; never the reply text, which would be
+ * re-formatted and re-announced on every delta.
+ */
 @Composable
-private fun streamingLiveDescription(streamingContent: String): String = if (streamingContent.isNotBlank()) {
-    stringResource(Res.string.cd_assistant_responding, streamingContent)
+private fun streamingLiveDescription(responding: Boolean): String = if (responding) {
+    stringResource(Res.string.cd_assistant_responding)
 } else {
     stringResource(Res.string.cd_generating_response)
 }

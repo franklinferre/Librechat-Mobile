@@ -1,5 +1,6 @@
 package com.garfiec.librechat.core.model.config
 
+import com.garfiec.librechat.core.common.BackendVersion
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -45,12 +46,12 @@ data class InterfaceConfig(
     val retentionMode: String? = null,
     /**
      * Deployment theme (v0.8.9-rc1): a bundled theme name or an inline definition, applied to every
-     * user. Kept raw; read the accent through [readDeploymentAccent], never by hand.
+     * user. Kept raw; read it through [com.garfiec.librechat.core.model.config.theme.readServerTheme], never by hand.
      */
     val theme: JsonElement? = null,
     // --- v0.8.7 detection / gating ---
     /** Whether the context-usage gauge is enabled. Server default is `true`. Gates the
-     *  chat-screen context gauge (combined with a `BackendVersion.isCompatibleOrNewer("0.8.7-rc1")` check). */
+     *  chat-screen context gauge through [contextGaugeEnabled]. */
     val contextUsage: Boolean = true,
     /** Whether the context breakdown shows the cost of the branch. Server default is `false`. */
     val contextCost: Boolean = false,
@@ -130,7 +131,31 @@ data class InterfaceConfig(
     val queuedTurnReconciliationTimeoutMs: JsonElement? = null,
     /** How long a queued send may hold its pane (ms). Decoded only: mobile holds no such lock. */
     val queuedSendLockTimeoutMs: JsonElement? = null,
+    /** What the deployment lets readers turn on for replies. Read through [replyNotificationsAllowed]. */
+    val replyNotifications: ReplyNotificationsConfig? = null,
 )
+
+/**
+ * `interface.replyNotifications`. Only the two gates mobile has a counterpart for are decoded;
+ * `tabBadge` and the poll fields drive web's tab title and away poll.
+ */
+@Serializable
+data class ReplyNotificationsConfig(
+    /** Whether readers may turn on reply notifications (web: desktop notifications). */
+    val desktop: Boolean? = null,
+    /** Whether a reply notification may make a sound. */
+    val sound: Boolean? = null,
+)
+
+/**
+ * Whether the deployment allows reply notifications. A missing field is allowed: web reads each gate
+ * as `!== false`, so a server that predates the setting behaves as it did before it existed.
+ * MIRRORED from web's `useReplyNotificationCapabilities` (scripts/mirrors.json).
+ */
+val InterfaceConfig?.replyNotificationsAllowed: Boolean get() = this?.replyNotifications?.desktop != false
+
+/** Whether a reply notification may play a sound; same reading as [replyNotificationsAllowed]. */
+val InterfaceConfig?.replyNotificationSoundAllowed: Boolean get() = this?.replyNotifications?.sound != false
 
 /** Upstream `DEFAULT_QUEUED_TURN_RECONCILIATION_TIMEOUT_MS` (`packages/data-provider/src/config.ts`). */
 const val DEFAULT_QUEUED_TURN_RECONCILIATION_TIMEOUT_MS: Long = 60_000
@@ -172,6 +197,21 @@ const val RETENTION_MODE_EPHEMERAL: String = "ephemeral"
 
 /** `interface.landingHeading == "greeting"`: the time-of-day greeting heads the new chat whatever is selected. */
 fun InterfaceConfig?.landingHeadingIsGreeting(): Boolean = this?.landingHeading == "greeting"
+
+/** The release that ships the gauge's `on_context_usage` SSE and `/api/endpoints/token-config`. */
+private const val CONTEXT_GAUGE_MIN_VERSION = "0.8.7-rc1"
+
+/**
+ * Chat's context gauge: a server from v0.8.7-rc1 (an older or unknown [backendVersion] fails closed)
+ * whose `interface.contextUsage` isn't off.
+ */
+fun InterfaceConfig?.contextGaugeEnabled(backendVersion: String?): Boolean =
+    backendVersion != null &&
+        BackendVersion.isCompatibleOrNewer(backendVersion, CONTEXT_GAUGE_MIN_VERSION) &&
+        (this?.contextUsage ?: true)
+
+/** Web's presets menu (`Header.tsx`): `interface.presets && interface.modelSelect`, each on when absent. */
+fun InterfaceConfig?.presetsMenuEnabled(): Boolean = (this?.presets ?: true) && (this?.modelSelect ?: true)
 
 /** Upstream `CONVERSATION_TITLE_OWNERSHIP_VERSION`. */
 const val CONVERSATION_TITLE_OWNERSHIP_VERSION: Int = 1

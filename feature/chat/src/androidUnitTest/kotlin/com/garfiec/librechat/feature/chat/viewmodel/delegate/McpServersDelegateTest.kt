@@ -8,6 +8,7 @@ import com.garfiec.librechat.core.model.mcp.McpServer
 import com.garfiec.librechat.core.model.mcp.McpServerDiscovery
 import com.garfiec.librechat.core.model.mcp.McpServerStatus
 import com.garfiec.librechat.core.model.mcp.McpToolCatalog
+import com.garfiec.librechat.core.model.mcp.McpUserVar
 import com.garfiec.librechat.feature.chat.viewmodel.ChatUiState
 import com.garfiec.librechat.feature.chat.viewmodel.ModelChoice
 import com.garfiec.librechat.feature.chat.viewmodel.ModelSelectionState
@@ -182,6 +183,110 @@ class McpServersDelegateTest : McpServersDelegateTestBase() {
 
         assertThat(failures).isEqualTo(1)
         coVerify(exactly = 2) { mcpRepository.listServers() }
+    }
+
+    @Test
+    fun aSheetSignInTurnsTheServerOnOnceAReloadReadsItConnected() = runTest {
+        coEvery { mcpRepository.listServers() } returns Result.Success(servers)
+        coEvery { mcpRepository.getConnectionStatus() } returns Result.Success(needsSignIn)
+        stubPendingFlowOnReconnect()
+        val (_, delegate) = newDelegate()
+        delegate.load()
+        advanceUntilIdle()
+
+        delegate.signIn("github", { _, _ -> true }, {}, selectWhenConnected = true)
+        advanceUntilIdle()
+        delegate.onSignInEnded()
+        advanceUntilIdle()
+        // Still connecting: not on before it connects.
+        assertThat(toggled).isEmpty()
+
+        coEvery { mcpRepository.getConnectionStatus() } returns Result.Success(signedIn)
+        returnToTheChat(delegate)
+        assertThat(toggled).containsExactly("github")
+
+        // Once only: a later reload leaves the user's choice alone.
+        returnToTheChat(delegate)
+        assertThat(toggled).containsExactly("github")
+    }
+
+    @Test
+    fun aFailedSheetSignInTurnsNothingOnWhenTheServerConnectsLater() = runTest {
+        coEvery { mcpRepository.listServers() } returns Result.Success(servers)
+        coEvery { mcpRepository.getConnectionStatus() } returns Result.Success(needsSignIn)
+        coEvery { mcpRepository.reinitialize("github") } returns Result.Error(message = "502")
+        val (_, delegate) = newDelegate()
+        delegate.load()
+        advanceUntilIdle()
+
+        delegate.signIn("github", { _, _ -> true }, {}, selectWhenConnected = true)
+        advanceUntilIdle()
+        coEvery { mcpRepository.getConnectionStatus() } returns Result.Success(signedIn)
+        returnToTheChat(delegate)
+
+        assertThat(toggled).isEmpty()
+    }
+
+    @Test
+    fun aCancelledSheetSignInTurnsNothingOnWhenTheServerConnectsLater() = runTest {
+        coEvery { mcpRepository.listServers() } returns Result.Success(servers)
+        coEvery { mcpRepository.getConnectionStatus() } returns Result.Success(needsSignIn)
+        stubPendingFlowOnReconnect()
+        val (_, delegate) = newDelegate()
+        delegate.load()
+        advanceUntilIdle()
+        delegate.signIn("github", { _, _ -> true }, {}, selectWhenConnected = true)
+        advanceUntilIdle()
+        delegate.onSignInEnded()
+        advanceUntilIdle()
+
+        delegate.cancelSignIn("github") {}
+        advanceUntilIdle()
+        coEvery { mcpRepository.getConnectionStatus() } returns Result.Success(signedIn)
+        returnToTheChat(delegate)
+
+        assertThat(toggled).isEmpty()
+    }
+
+    @Test
+    fun aChipSignInElsewhereKeepsAPendingSheetSignInsSelect() = runTest {
+        coEvery { mcpRepository.listServers() } returns Result.Success(servers)
+        coEvery { mcpRepository.getConnectionStatus() } returns Result.Success(needsSignIn)
+        stubPendingFlowOnReconnect()
+        coEvery { mcpRepository.reinitialize("sentry") } returns Result.Success(McpReinitializeResponse(success = true))
+        val (_, delegate) = newDelegate()
+        delegate.load()
+        advanceUntilIdle()
+        delegate.signIn("github", { _, _ -> true }, {}, selectWhenConnected = true)
+        advanceUntilIdle()
+        delegate.onSignInEnded()
+        advanceUntilIdle()
+
+        delegate.signIn("sentry", { _, _ -> true }, {})
+        advanceUntilIdle()
+        coEvery { mcpRepository.getConnectionStatus() } returns Result.Success(signedIn)
+        returnToTheChat(delegate)
+
+        assertThat(toggled).containsExactly("github")
+    }
+
+    @Test
+    fun aChipSignInNeverTurnsTheServerOn() = runTest {
+        coEvery { mcpRepository.listServers() } returns Result.Success(servers)
+        coEvery { mcpRepository.getConnectionStatus() } returns Result.Success(needsSignIn)
+        coEvery { mcpRepository.reinitialize("github") } coAnswers {
+            coEvery { mcpRepository.getConnectionStatus() } returns Result.Success(signedIn)
+            Result.Success(McpReinitializeResponse(success = true))
+        }
+        val (handle, delegate) = newDelegate()
+        delegate.load()
+        advanceUntilIdle()
+
+        delegate.signIn("github", { _, _ -> true }, {})
+        advanceUntilIdle()
+
+        assertThat(handle.statuses()["github"]).isEqualTo(McpDisplayStatus.CONNECTED)
+        assertThat(toggled).isEmpty()
     }
 
     @Test
@@ -470,5 +575,57 @@ class McpServersDelegateTest : McpServersDelegateTestBase() {
         // As the MCP servers page reads it (applyDiscoveryAuthorizationState), not FAILED.
         assertThat(handle.statuses()["github"]).isEqualTo(McpDisplayStatus.NEEDS_SIGN_IN)
         assertThat(handle.state.mcpServers.single().requiresOAuth).isTrue()
+    }
+
+    private val token = McpUserVar("GH_TOKEN", "Token", "")
+    private val owed = McpServer(name = "owed", customUserVars = listOf(token))
+
+    /** The status route reads a server owed variables as plain disconnected; auth-values says why. */
+    @Test
+    fun aServerOwedItsVariablesReadsNeedsSetupAndCarriesItsFields() = runTest {
+        val saved = McpServer(name = "saved", customUserVars = listOf(token))
+        coEvery { mcpRepository.listServers() } returns Result.Success(listOf(owed, saved))
+        coEvery { mcpRepository.getConnectionStatus() } returns Result.Success(
+            mapOf("owed" to McpServerStatus(), "saved" to McpServerStatus()),
+        )
+        coEvery { mcpRepository.getUserVarFlags("owed") } returns Result.Success(mapOf("GH_TOKEN" to false))
+        coEvery { mcpRepository.getUserVarFlags("saved") } returns Result.Success(mapOf("GH_TOKEN" to true))
+        val (handle, delegate) = newDelegate()
+
+        delegate.load()
+        advanceUntilIdle()
+
+        assertThat(handle.statuses()).containsExactly(
+            "owed", McpDisplayStatus.NEEDS_SETUP,
+            "saved", McpDisplayStatus.DISCONNECTED,
+        )
+        assertThat(handle.state.mcpServers.first().setsUpOnTap).isTrue()
+        assertThat(handle.state.mcpServers.first().userVars).containsExactly(token)
+    }
+
+    @Test
+    fun removingVariablesTurnsTheServerOffAndReloads() = runTest {
+        coEvery { mcpRepository.listServers() } returns Result.Success(listOf(owed))
+        coEvery { mcpRepository.getConnectionStatus() } returns Result.Success(mapOf("owed" to McpServerStatus()))
+        coEvery { mcpRepository.getUserVarFlags("owed") } returns Result.Success(mapOf("GH_TOKEN" to true))
+        coEvery { mcpRepository.removeUserVars("owed") } returns Result.Success(Unit)
+        val (_, delegate) = newDelegate(
+            modelChat.copy(selection = modelChat.selection.copy(selectedMcpServerNames = setOf("owed"))),
+        )
+
+        assertThat(delegate.removeUserVars("owed")).isTrue()
+        advanceUntilIdle()
+
+        assertThat(toggled).containsExactly("owed")
+        coVerify(exactly = 1) { mcpRepository.listServers() }
+    }
+
+    @Test
+    fun connectingWithoutTypingSavesNothing() = runTest {
+        val (_, delegate) = newDelegate()
+
+        assertThat(delegate.saveUserVars("owed", emptyMap())).isTrue()
+
+        coVerify(exactly = 0) { mcpRepository.saveUserVars(any(), any()) }
     }
 }

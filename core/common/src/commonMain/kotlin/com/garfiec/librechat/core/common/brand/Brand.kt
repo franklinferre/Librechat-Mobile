@@ -20,4 +20,8 @@ object Brand {
 
     // PENDENTE-PUBLICACAO: set to the published privacy policy URL before store release.
     val PRIVACY_POLICY_URL: String? = null
+
+    // PENDENTE-SUPORTE: Lideri's support inbox for Settings › About › Report a problem. While null the
+    // row is hidden; upstream's support address (the original author's) must never ship in this app.
+    val SUPPORT_EMAIL: String? = null
 }

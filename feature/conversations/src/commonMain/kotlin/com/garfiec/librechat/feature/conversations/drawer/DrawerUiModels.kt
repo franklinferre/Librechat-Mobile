@@ -61,6 +61,7 @@ data class InlineProjectChatsState(
     val expandedProjectId: String? = null,
     val conversations: List<DrawerConversationDisplayData> = emptyList(),
     val isLoading: Boolean = false,
+    val loadFailed: Boolean = false,
 )
 
 /**
@@ -93,6 +94,7 @@ data class DrawerUiState(
     val pinnedConversations: List<DrawerConversationDisplayData> = emptyList(),
     val searchQuery: String = "",
     val isRefreshing: Boolean = false,
+    val listLoad: ListLoad = ListLoad.PENDING,
     val isLoadingMore: Boolean = false,
     val hasMore: Boolean = true,
     // Role-permission gates — default permissive.
@@ -108,9 +110,9 @@ data class DrawerUiState(
     val skillsEnabled: Boolean = false,
     /** PROMPTS USE, permissive: the chat menu's Prompts gate. */
     val promptsEnabled: Boolean = true,
-    /** MCP_SERVERS USE, permissive: Settings › Data's MCP servers row gate. */
+    /** MCP_SERVERS USE, permissive: the Workspace tray's MCP servers row gate. */
     val mcpServersEnabled: Boolean = true,
-    /** `canReachMemoriesSettings()`: Settings › Data's Memories row gate. */
+    /** `canReachMemoriesSettings()`: the Workspace tray's Memories row gate. */
     val memoriesEnabled: Boolean = true,
     /** Scheduled chats: the SCHEDULES permission AND the server's `interface.schedules` flag,
      *  which is absent-means-OFF. Default false — the feature is opt-in. */
@@ -135,6 +137,10 @@ data class DrawerUiState(
 ) {
     /** Filters narrow the list only where the server takes them. */
     val filtersApplied: Boolean get() = filtersEnabled && filters.isActive
+
+    val showsEmptyList: Boolean
+        get() = !filtersApplied && searchQuery.isBlank() && !isRefreshing && listLoad != ListLoad.PENDING &&
+            groupedConversations.isEmpty() && pinnedConversations.isEmpty() && favoriteConversations.isEmpty()
 
     /**
      * The Agents entry (phone drawer and tablet sidebar): AGENTS.USE and MARKETPLACE.USE, as the web
@@ -187,6 +193,7 @@ data class FilterEndpointOption(
     val name: String,
     val label: String,
     val iconUrl: String?,
+    val provider: ProviderId? = null,
 )
 
 /** What the filter sheet can offer, mapped from config, role and connectivity. */

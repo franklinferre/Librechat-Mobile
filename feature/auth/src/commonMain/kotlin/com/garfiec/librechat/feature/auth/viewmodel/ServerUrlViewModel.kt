@@ -4,11 +4,15 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.garfiec.librechat.core.common.brand.ServerLock
+import com.garfiec.librechat.core.common.extensions.serverHostLabel
 import com.garfiec.librechat.core.common.identity.cleanServerUrl
 import com.garfiec.librechat.core.common.identity.serverOrigin
 import com.garfiec.librechat.core.common.result.FailureKind
 import com.garfiec.librechat.core.common.result.Result
+import com.garfiec.librechat.core.common.result.message
 import com.garfiec.librechat.core.common.result.suspendRunCatching
+import com.garfiec.librechat.core.data.datastore.AccountEntry
+import com.garfiec.librechat.core.data.datastore.AccountRoster
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.repository.AccountSwitcher
 import com.garfiec.librechat.core.data.repository.ConfigRepository
@@ -34,6 +38,16 @@ import kotlinx.coroutines.launch
 @Immutable
 data class HeaderFieldError(val index: Int, val reason: HeaderRejection)
 
+/** A server the roster's accounts are on, as the "Your servers" shortcut shows it. */
+@Immutable
+data class KnownServer(
+    val url: String,
+    /** The address without its scheme; the path stays, so two subpath servers on one host differ. */
+    val label: String,
+    val host: String,
+    val accountCount: Int,
+)
+
 @Immutable
 data class ServerUrlUiState(
     val url: String = "",
@@ -56,6 +70,8 @@ data class ServerUrlUiState(
      * sends the user to fix a URL that was never the problem.
      */
     val headersSaveFailure: HeaderWriteFailure? = null,
+    /** Servers of the accounts on this device, most recently used first. */
+    val knownServers: List<KnownServer> = emptyList(),
     /** The app is pinned to one server: the screen only connects to it and never shows the URL field. */
     val isLocked: Boolean = false,
     /** Classification of [error], so the locked screen can swap URL-centric wording for its own copy. */
@@ -64,6 +80,19 @@ data class ServerUrlUiState(
     /** The failure is "can't reach the host" (offline, DNS, timeout) rather than a server verdict. */
     val isUnreachable: Boolean get() = errorKind == FailureKind.Network || errorKind == FailureKind.Timeout
 }
+
+internal fun knownServersOf(entries: List<AccountEntry>): List<KnownServer> =
+    entries.groupBy { it.serverUrl }
+        .entries
+        .sortedByDescending { (_, accounts) -> accounts.maxOf { it.lastActiveAt } }
+        .map { (url, accounts) ->
+            KnownServer(
+                url = url,
+                label = url.substringAfter("://").trimEnd('/'),
+                host = url.serverHostLabel(),
+                accountCount = accounts.size,
+            )
+        }
 
 /**
  * Validates a server URL and selects it for the sign-in flow.
@@ -79,7 +108,8 @@ data class ServerUrlUiState(
  * - **Add-account** (`addAccount = true`): reached from the account switcher while another account
  *   is live. Must never touch the live account's state: the URL goes into a pending add session
  *   ([AccountSwitcher.beginAdd]) instead of the global store, and the config rides on that session
- *   for the add-mode login screen instead of being published.
+ *   for the add-mode login screen instead of being published. The field starts empty; the live
+ *   server is the first of [ServerUrlUiState.knownServers].
  *
  * When the app is pinned to a server ([ServerLock]) the normal mode does not ask for an address: it
  * connects to the locked one on creation, ignoring any saved URL, and [retry] repeats the attempt.
@@ -90,8 +120,10 @@ class ServerUrlViewModel(
     private val serverRepository: ServerRepository,
     private val configRepository: ConfigRepository,
     private val accountSwitcher: AccountSwitcher,
+    private val accountRoster: AccountRoster,
     private val serverLock: ServerLock,
     private val addAccount: Boolean = false,
+    private val cleartextBlockedForDomainNames: Boolean = platformBlocksCleartextToDomainNames,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ServerUrlUiState())
@@ -121,18 +153,17 @@ class ServerUrlViewModel(
 
     private fun prefillFromSavedServer() {
         viewModelScope.launch {
+            accountRoster.entriesFlow().collect { entries ->
+                _uiState.value = _uiState.value.copy(knownServers = knownServersOf(entries))
+            }
+        }
+        viewModelScope.launch {
+            if (addAccount) return@launch
             // awaitBaseUrl (not getBaseUrl) so a cold-start relaunch doesn't read "" before
             // ServerDataStore's async warm-up resolves, which would skip pre-filling the saved URL.
-            // In add mode this pre-fills the ACTIVE server so the common same-server-different-user
-            // add is a single tap; typing a different URL adds a new server.
             val existingUrl = serverDataStore.awaitBaseUrl()
             if (existingUrl.isBlank()) return@launch
-            // The URL prefill above deliberately shows the ACTIVE server in add mode — but its
-            // headers must NOT come along. They are a credential, and prefilling them would show the
-            // live server's secret on a screen the user believes is configuring a *new* server; an
-            // edit there would then silently rewrite the live server's credential. Add mode starts
-            // empty and the user re-enters what the new server needs.
-            val savedHeaders = if (addAccount) emptyMap() else serverRepository.headersForServer(existingUrl)
+            val savedHeaders = serverRepository.headersForServer(existingUrl)
             // Both awaits above can outlast the first frame, and `headersForServer` adds a second
             // suspension on the header store's own warm-up. By the time they resolve the user may
             // already be typing — applying the prefill then overwrites a URL or a freshly rotated
@@ -150,6 +181,25 @@ class ServerUrlViewModel(
                 headersLoadFailed = savedHeaders == null,
             )
         }
+    }
+
+    /**
+     * Connects to a known server in one tap, with the headers already stored for [url]. The editor is
+     * reset first: rows in it belong to another server, and Connect would file them under this one.
+     */
+    fun connectTo(url: String) {
+        userEdited = true
+        headersEdited = false
+        _uiState.value = _uiState.value.copy(
+            url = url,
+            error = null,
+            showAdvanced = false,
+            customHeaders = emptyList(),
+            headerError = null,
+            headersLoadFailed = false,
+            headersSaveFailure = null,
+        )
+        validateAndConnect()
     }
 
     fun onUrlChanged(url: String) {
@@ -234,6 +284,10 @@ class ServerUrlViewModel(
 
         // Show warning dialog if user enters an HTTP URL
         if (url.startsWith("http://", ignoreCase = true)) {
+            if (cleartextBlockedForDomainNames && hostIsQualifiedDomainName(url)) {
+                _uiState.value = _uiState.value.copy(error = FailureKind.CleartextBlocked.message())
+                return
+            }
             _uiState.value = _uiState.value.copy(showHttpWarning = true)
             return
         }
@@ -292,10 +346,10 @@ class ServerUrlViewModel(
             //   derive different serverIds, so the credential would be filed under a server the
             //   app never contacts.
             // - Only when a row was actually edited. An empty map means "delete this server's
-            //   headers", and the editor is empty by default both in add mode (which prefills the
-            //   ACTIVE server's URL, so one tap on the untouched prefill would wipe the live
-            //   session's credential) and before the store resolves. Clearing is expressed by
-            //   removing rows, which sets the flag.
+            //   headers", and the editor is empty by default both in add mode (where the URL may be
+            //   a signed-in server, so Connect on the untouched editor would wipe a live session's
+            //   credential) and before the store resolves. Clearing is expressed by removing rows,
+            //   which sets the flag.
             // Stop on a refusal rather than probing anyway: the probe would go out without the
             // credential, come back as the gateway's login page, and surface as "could not connect
             // to server" — sending the user to re-check a URL that was never the problem, with the
@@ -305,10 +359,10 @@ class ServerUrlViewModel(
             val typed = CustomHeaderRules.toHeaderMap(headers)
             // Add mode's editor starts empty by design — it must not show the active server's secret
             // — so an empty map here is "the user typed nothing", never "the user cleared their
-            // headers". The URL is prefilled with the ACTIVE server, so writing it would delete a
-            // credential belonging to a session the user is still signed in to, from a screen about
-            // a different account. There is nothing to clear in add mode: the editor never
-            // represented anything stored.
+            // headers". The URL may be a signed-in server (a known-server row), so writing it would
+            // delete a credential belonging to a session the user is still signed in to, from a
+            // screen about a different account. There is nothing to clear in add mode: the editor
+            // never represented anything stored.
             val wouldClearWithoutHavingLoaded = addAccount && typed.isEmpty()
             val wroteTyped = headersEdited && !wouldClearWithoutHavingLoaded
             if (wroteTyped) {
@@ -395,4 +449,21 @@ class ServerUrlViewModel(
         accountSwitcher.attachPendingConfig(config)
         return null
     }
+}
+
+/**
+ * Whether the platform refuses plain HTTP to a dotted DNS name outside `.local`, as iOS App Transport
+ * Security does. Local IPs, single-label names and `.local` names stay reachable.
+ */
+internal expect val platformBlocksCleartextToDomainNames: Boolean
+
+/**
+ * Whether [url]'s host is a dotted DNS name outside `.local`. IP literals are not: which addresses
+ * iOS counts as external is the platform's call, and the probe reports its refusal.
+ */
+internal fun hostIsQualifiedDomainName(url: String): Boolean {
+    val authority = serverOrigin(url).substringAfter("://").substringAfterLast('@')
+    if (authority.startsWith('[')) return false
+    val host = authority.substringBefore(':').trimEnd('.').lowercase()
+    return '.' in host && !host.all { it.isDigit() || it == '.' } && !host.endsWith(".local")
 }

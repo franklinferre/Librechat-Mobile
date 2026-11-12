@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.chat.viewmodel.delegate
 import co.touchlab.kermit.Logger
 import com.garfiec.librechat.core.common.result.Result
 import com.garfiec.librechat.core.data.repository.McpRepository
+import com.garfiec.librechat.core.data.repository.serversMissingUserVars
 import com.garfiec.librechat.core.model.mcp.McpDisplayStatus
 import com.garfiec.librechat.core.model.mcp.McpServer
 import com.garfiec.librechat.core.model.mcp.McpServerDiscovery
@@ -23,6 +24,8 @@ import kotlinx.coroutines.launch
 class McpServersDelegate(
     private val handle: ModelSelectionHandle,
     private val mcpRepository: McpRepository,
+    /** [ModelSelectionDelegate.toggleMcpServer]: how a sheet sign-in turns its server on. */
+    private val toggleMcpServer: (String) -> Unit,
 ) {
     /**
      * Bumped by every load, sign-in start and cancel; an older generation paints nothing. The
@@ -32,6 +35,12 @@ class McpServersDelegate(
     private var loadJob: Job? = null
 
     private var signingIn: String? = null
+
+    /**
+     * A sheet sign-in's server, turned on once a reload reads it connected (web: sign in, then
+     * select). Kept while it reads connecting; dropped by any other end.
+     */
+    private var selectOnConnect: String? = null
 
     private var loaded = false
 
@@ -45,6 +54,9 @@ class McpServersDelegate(
 
     /** The last load's list and status map (null: that read failed), for a later discovery read to re-fold. */
     private var painted: Pair<List<McpServer>, Map<String, McpServerStatus>?>? = null
+
+    /** The last load's servers still owed user variables ([serversMissingUserVars]). */
+    private var missingUserVars: Set<String> = emptySet()
 
     /** Discovery waits for `toolbarShown`: the route runs a full catalog load and no chat without tool controls reads it. */
     private var discoveryWanted = false
@@ -90,10 +102,13 @@ class McpServersDelegate(
                 status.cancel()
                 return@coroutineScope
             }
+            val missing = async { mcpRepository.serversMissingUserVars(serversResult.data) }
             val statusMap = (status.await() as? Result.Success)?.data
+            val missingNow = missing.await()
             if (generation != loadGeneration) return@coroutineScope
             val listChanged = painted?.first?.map { it.name } != serversResult.data.map { it.name }
             painted = serversResult.data to statusMap
+            missingUserVars = missingNow
             paint(serversResult.data, statusMap)
             if (discover || listChanged) {
                 discoveryWanted = serversResult.data.isNotEmpty()
@@ -127,13 +142,30 @@ class McpServersDelegate(
         val servers = listed.map { server ->
             val status = folded[server.name]
             server.toDisplayData(
-                status = mcpDisplayStatus(server, status, isReinitializing = false),
+                status = mcpDisplayStatus(
+                    server,
+                    status,
+                    isReinitializing = false,
+                    userVarsMissing = server.name in missingUserVars,
+                ),
                 requiresOAuth = status?.requiresOAuth == true,
                 signInBusy = signInBusy,
             )
         }
-        if (servers == handle.state.mcpServers) return
-        handle.update { selection = selection.copy(mcpServers = servers) }
+        if (servers != handle.state.mcpServers) handle.update { selection = selection.copy(mcpServers = servers) }
+        if (statusMap != null && signingIn == null) selectIfConnected(servers)
+    }
+
+    private fun selectIfConnected(servers: List<McpServerDisplayData>) {
+        val name = selectOnConnect ?: return
+        when (servers.firstOrNull { it.name == name }?.status) {
+            McpDisplayStatus.CONNECTING -> return
+            McpDisplayStatus.CONNECTED -> {
+                selectOnConnect = null
+                if (name !in handle.state.effectiveMcpServerNames) toggleMcpServer(name)
+            }
+            else -> selectOnConnect = null
+        }
     }
 
     private fun paintSignInBusy() {
@@ -170,9 +202,13 @@ class McpServersDelegate(
         /** Whether the sign-in opened; false while another one is binding or on screen. */
         openSignIn: (serverName: String, authorizationUrl: String) -> Boolean,
         onFailed: () -> Unit,
+        /** The "+" sheet's sign-in: turn the server on once it connects. A chip's never does. */
+        selectWhenConnected: Boolean = false,
     ) {
         if (signingIn != null) return
         signingIn = serverName
+        // A chip's sign-in leaves another server's pending sheet select alone.
+        if (selectWhenConnected) selectOnConnect = serverName
         val cancelling = pendingCancel
         loadGeneration++
         discoveryJob?.cancel()
@@ -199,7 +235,7 @@ class McpServersDelegate(
                     val authorizationUrl = response.authorizationUrl
                     when {
                         authorizationUrl == null -> {
-                            if (!response.success && response.connectionDeferred != true) onFailed()
+                            if (!response.success && response.connectionDeferred != true) failed(serverName, onFailed)
                             false
                         }
                         openSignIn(serverName, authorizationUrl) -> true
@@ -211,7 +247,7 @@ class McpServersDelegate(
                 }
                 is Result.Error -> {
                     Logger.d(result.exception) { "Failed to reconnect MCP server for sign-in: ${result.message}" }
-                    onFailed()
+                    failed(serverName, onFailed)
                     false
                 }
                 is Result.Loading -> false
@@ -219,6 +255,38 @@ class McpServersDelegate(
             // An opened sign-in reloads through onSignInEnded once it ends.
             if (!opened) load()
         }
+    }
+
+    private fun failed(serverName: String, onFailed: () -> Unit) {
+        if (selectOnConnect == serverName) selectOnConnect = null
+        onFailed()
+    }
+
+    /** Which of [serverName]'s variables are saved, for the variables sheet; null when the read failed. */
+    suspend fun userVarFlags(serverName: String): Map<String, Boolean>? =
+        (mcpRepository.getUserVarFlags(serverName) as? Result.Success)?.data
+
+    /**
+     * Saves the variables sheet's [values] (none: the user only connects). False when the server refused;
+     * the caller then reconnects through [signIn], which selects the server once it connects.
+     */
+    suspend fun saveUserVars(serverName: String, values: Map<String, String>): Boolean {
+        if (values.isEmpty()) return true
+        val result = mcpRepository.saveUserVars(serverName, values)
+        if (result is Result.Error) Logger.d(result.exception) { "Failed to save MCP variables: ${result.message}" }
+        return result is Result.Success
+    }
+
+    /** Deletes [serverName]'s variables, turns the server off in this chat (as web does) and reloads. */
+    suspend fun removeUserVars(serverName: String): Boolean {
+        val result = mcpRepository.removeUserVars(serverName)
+        if (result is Result.Error) {
+            Logger.d(result.exception) { "Failed to remove MCP variables: ${result.message}" }
+            return false
+        }
+        if (serverName in handle.state.effectiveMcpServerNames) toggleMcpServer(serverName)
+        load()
+        return true
     }
 
     /** Never cancels: a closed or refused sign-in leaves its flow pending, shown as connecting, as on web. */
@@ -229,6 +297,7 @@ class McpServersDelegate(
     /** The user's "Cancel sign-in" (web's `cancelOAuthFlow`); reloads whether or not it landed. */
     fun cancelSignIn(serverName: String, onFailed: () -> Unit) {
         if (signInBusy) return
+        if (selectOnConnect == serverName) selectOnConnect = null
         val generation = ++loadGeneration
         val cancelled = CompletableDeferred<Unit>()
         pendingCancel = cancelled
@@ -262,4 +331,5 @@ internal fun McpServer.toDisplayData(
     status = status,
     requiresOAuth = requiresOAuth,
     signInBusy = signInBusy,
+    userVars = customUserVars,
 )

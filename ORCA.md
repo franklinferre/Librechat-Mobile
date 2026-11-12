@@ -100,6 +100,13 @@ projeto estão no `CLAUDE.md` raiz e nos `CLAUDE.md` de cada módulo — este ar
 - **Decisão deliberada**: no modo escuro os tints do Liquid Glass (pílula de novo chat, switches, chips
   selecionados) usam `inversePrimary` = `#0424D9` (`GlassControlColors` do upstream), não `#0797EF`,
   porque glifos brancos sobre `#0797EF` ficam abaixo do WCAG AA. Não "corrija" isso num sync.
+- **Tema do servidor travado**: desde a v2026.11.1 o upstream pinta o app com o `interface.theme` do
+  servidor (cores, cantos, fontes). Aqui `rememberThemeColors` (`Theme.kt`) ignora `serverTheme`, o
+  destaque e as cores do papel de parede, e a Aparência não tem a seção "Cores". Mantenha assim num sync.
+- **Reportar um problema**: escondido enquanto `Brand.SUPPORT_EMAIL` for `null`; o e-mail do upstream
+  (do autor original) nunca vai no app. Para ligar, defina o e-mail de suporte da Lideri em `Brand.kt`.
+- Novos links `librechat://` do upstream (notificações, artefatos, deep links) devem usar
+  `Brand.DEEP_LINK_SCHEME`; `check-brand.sh` não pega string montada em código, então procure num sync.
 - `connectedAndroidTest` desinstala o app de debug ao terminar: é preciso fazer login de novo depois.
 - Teste instrumentado: `./gradlew :app:connectedPlayDebugAndroidTest
   -Pandroid.testInstrumentationRunnerArguments.class=com.garfiec.librechat.AuthFlowTest`.

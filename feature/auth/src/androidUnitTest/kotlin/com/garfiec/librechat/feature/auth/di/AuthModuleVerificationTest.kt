@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.auth.di
 import android.app.Application
 import android.content.Context
 import com.garfiec.librechat.core.common.brand.ServerLock
+import com.garfiec.librechat.core.data.datastore.AccountRoster
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SsoRiskDataStore
 import com.garfiec.librechat.core.data.repository.AccountSwitcher
@@ -30,6 +31,7 @@ class AuthModuleVerificationTest {
                 UserRepository::class,
                 SsoRiskDataStore::class,
                 AccountSwitcher::class,
+                AccountRoster::class,
                 DiagnosticLogRepository::class,
                 ServerLock::class,
                 // ServerUrlViewModel's addAccount mode flag, injected via parametersOf.

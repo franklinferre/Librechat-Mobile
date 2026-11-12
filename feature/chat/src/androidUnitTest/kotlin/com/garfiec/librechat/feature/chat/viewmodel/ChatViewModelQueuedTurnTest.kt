@@ -16,11 +16,22 @@ import com.garfiec.librechat.core.data.datastore.ContextBarPlacement
 import com.garfiec.librechat.core.data.datastore.DuringRunAction
 import com.garfiec.librechat.core.data.datastore.LastUsedSelection
 import com.garfiec.librechat.core.data.datastore.StarredModelsDisplay
+import com.garfiec.librechat.core.data.repository.CodeDecisionMove
+import com.garfiec.librechat.core.data.repository.CodeEnvironmentRepository
+import com.garfiec.librechat.core.data.repository.SavedCodeDecision
+import com.garfiec.librechat.core.model.Agent
 import com.garfiec.librechat.core.model.EndpointConfig
 import com.garfiec.librechat.core.model.Message
 import com.garfiec.librechat.core.model.PendingSteer
 import com.garfiec.librechat.core.model.Preset
 import com.garfiec.librechat.core.model.StreamEvent
+import com.garfiec.librechat.core.model.code.CodeApprovalMode
+import com.garfiec.librechat.core.model.code.CodeEnvironmentMode
+import com.garfiec.librechat.core.model.code.CodeEnvironmentStatus
+import com.garfiec.librechat.core.model.code.CodeWorkspaceDescriptor
+import com.garfiec.librechat.core.model.code.CodeWorkspaceSelection
+import com.garfiec.librechat.core.model.code.PublicCodeEnvironment
+import com.garfiec.librechat.core.model.code.StatefulCodeSessionsConfig
 import com.garfiec.librechat.core.model.config.ModelSpec
 import com.garfiec.librechat.core.model.config.ModelSpecs
 import com.garfiec.librechat.core.model.config.StartupConfig
@@ -35,6 +46,7 @@ import com.garfiec.librechat.core.model.response.ChatAbortResponse
 import com.garfiec.librechat.core.model.response.ChatStatusResponse
 import com.garfiec.librechat.core.model.response.SteerResponse
 import com.garfiec.librechat.feature.chat.util.DraftItem
+import com.garfiec.librechat.feature.chat.util.restore
 import com.garfiec.librechat.feature.chat.viewmodel.delegate.PlatformFileHandler
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
@@ -273,23 +285,13 @@ class ChatViewModelQueuedTurnTest {
     }
 
     /**
-     * The server's queued turn carries no spec, so `enforce` refuses it and the follow-up stays
-     * local (`QueueOrchestrationDelegate.serverOwnedSpec`).
+     * Below v0.8.9-rc1 the server's queued turn carries no spec, so `enforce` refuses it and the
+     * follow-up stays local (`QueueOrchestrationDelegate.serverOwnedSpec`).
      */
     @Test
-    fun `under enforce the follow-up stays local`() = queuedTurnTest(
-        arrange = {
-            // The spec config reaches the selection through the seeder's combine, which waits on this.
-            every { settingsDataStore.lastUsedSelection } returns flowOf(LastUsedSelection.NONE)
-            every { configRepository.startupConfig } returns MutableStateFlow(
-                StartupConfig(
-                    modelSpecs = ModelSpecs(
-                        list = listOf(ModelSpec(name = "helper", preset = Preset(endpoint = ENDPOINT, agentId = AGENT_ID))),
-                        enforce = true,
-                    ),
-                ),
-            )
-        },
+    fun `under enforce the follow-up stays local before rc1`() = queuedTurnTest(
+        choice = HELPER_SPEC_CHOICE,
+        arrange = { arrangeEnforcedSpecs(helperSpec()) },
     ) { vm ->
         assertThat(vm.uiState.value.isStreaming).isTrue()
 
@@ -301,6 +303,56 @@ class ChatViewModelQueuedTurnTest {
         val queued = vm.uiState.value.messageQueue.single()
         assertThat(queued.server).isNull()
         assertThat(queued.text).isEqualTo(TEXT)
+    }
+
+    /** rc1 restores the conversation's agents spec for a queued turn (`restoreAgentTriggerModelSpec`). */
+    @Test
+    fun `under enforce an agents spec's follow-up goes to the server on rc1`() = queuedTurnTest(
+        choice = HELPER_SPEC_CHOICE,
+        arrange = {
+            arrangeBackend("0.8.9-rc1")
+            arrangeEnforcedSpecs(helperSpec())
+        },
+    ) { vm ->
+        vm.onInputChanged(TEXT)
+        vm.queueMessage()
+        runCurrent()
+
+        coVerify(exactly = 1) { queuedTurnRepository.enqueue(any()) }
+        assertThat(vm.uiState.value.messageQueue.single().server).isNotNull()
+    }
+
+    /** The server restores a spec only when its name is unique, so a shared name stays local. */
+    @Test
+    fun `under enforce a spec whose name is shared stays local on rc1`() = queuedTurnTest(
+        choice = HELPER_SPEC_CHOICE,
+        arrange = {
+            arrangeBackend("0.8.9-rc1")
+            arrangeEnforcedSpecs(helperSpec(), helperSpec().copy(label = "Other"))
+        },
+    ) { vm ->
+        vm.onInputChanged(TEXT)
+        vm.queueMessage()
+        runCurrent()
+
+        coVerify(exactly = 0) { queuedTurnRepository.enqueue(any()) }
+        assertThat(vm.uiState.value.messageQueue.single().server).isNull()
+    }
+
+    private fun helperSpec() = ModelSpec(name = "helper", preset = Preset(endpoint = ENDPOINT, agentId = AGENT_ID))
+
+    private fun arrangeEnforcedSpecs(vararg specs: ModelSpec) {
+        // The spec config reaches the selection through the seeder's combine, which waits on this.
+        every { settingsDataStore.lastUsedSelection } returns flowOf(LastUsedSelection.NONE)
+        every { configRepository.startupConfig } returns MutableStateFlow(
+            StartupConfig(modelSpecs = ModelSpecs(list = specs.toList(), enforce = true)),
+        )
+    }
+
+    private fun arrangeBackend(version: String) {
+        every { configRepository.detectedBackend } returns
+            MutableStateFlow(DetectedBackend(version, BackendBuildClass.RC))
+        every { configRepository.detectedBackendVersion } returns MutableStateFlow(version)
     }
 
     /**
@@ -326,6 +378,78 @@ class ChatViewModelQueuedTurnTest {
         assertThat(vm.uiState.value.messageQueue.single().server).isNull()
         coVerify(exactly = 0) { queuedTurnRepository.enqueue(any()) }
         coVerify(exactly = 0) { queuedTurnRepository.list(any(), any()) }
+    }
+
+    /** A chat on a coding agent with an attached machine, so every turn carries an approval mode. */
+    private fun arrangeCodeChat(serverVersion: String, buildClass: BackendBuildClass) {
+        val machine = PublicCodeEnvironment(id = "mbp", name = "mbp", type = "attached")
+        every { configRepository.detectedBackend } returns MutableStateFlow(DetectedBackend(serverVersion, buildClass))
+        every { configRepository.detectedBackendVersion } returns MutableStateFlow(serverVersion)
+        every { configRepository.startupConfig } returns
+            MutableStateFlow(StartupConfig(codeEnvironmentDecisionVersion = 1))
+        every { configRepository.endpointConfigs } returns MutableStateFlow(
+            mapOf(
+                ENDPOINT to EndpointConfig(
+                    capabilities = listOf("execute_code", "stateful_code_sessions"),
+                    statefulCodeSessions = StatefulCodeSessionsConfig(
+                        environments = listOf(machine),
+                        approvalsEnabled = true,
+                        approvalModes = listOf(CodeApprovalMode.ASK),
+                    ),
+                ),
+            ),
+        )
+        coEvery { fixture.agentRepository.getAgents(any()) } returns Result.Success(
+            listOf(
+                Agent(
+                    id = AGENT_ID,
+                    name = "Dev",
+                    tools = listOf("execute_code"),
+                    statefulCodeSessions = true,
+                    codeEnvironmentId = machine.id,
+                    codeWorkspaceId = "repo",
+                ),
+            ),
+        )
+        val selection = CodeWorkspaceSelection(machine.id, "repo")
+        fixture.codeEnvironmentRepository = object : CodeEnvironmentRepository {
+            override suspend fun status(environmentId: String): Result<CodeEnvironmentStatus> =
+                Result.Success(CodeEnvironmentStatus(machine.id, "ready", listOf(CodeWorkspaceDescriptor(id = "repo"))))
+            override suspend fun savedDecision(conversationId: String): Result<SavedCodeDecision> =
+                Result.Success(SavedCodeDecision(mode = CodeEnvironmentMode.ATTACHED, workspaces = listOf(selection)))
+            override suspend fun moveDecision(
+                conversationId: String,
+                from: List<CodeWorkspaceSelection>,
+                to: List<CodeWorkspaceSelection>,
+            ): CodeDecisionMove = CodeDecisionMove.Failed(unknownOutcome = false)
+        }
+    }
+
+    @Test
+    fun `a queued Ask turn reaches the server queue carrying its mode`() = queuedTurnTest(
+        arrange = { arrangeCodeChat("0.8.8", BackendBuildClass.OFFICIAL) },
+    ) { vm ->
+        vm.onInputChanged(TEXT)
+        vm.queueMessage()
+        runCurrent()
+
+        val request = slot<EnqueueQueuedTurnRequest>()
+        coVerify(exactly = 1) { queuedTurnRepository.enqueue(capture(request)) }
+        assertThat(request.captured.codeApprovalMode).isEqualTo(CodeApprovalMode.ASK)
+    }
+
+    @Test
+    fun `a turn with a mode stays local on a server without the v2 queue`() = queuedTurnTest(
+        arrange = { arrangeCodeChat("0.8.8-rc3", BackendBuildClass.RC) },
+    ) { vm ->
+        vm.onInputChanged(TEXT)
+        vm.queueMessage()
+        runCurrent()
+
+        coVerify(exactly = 0) { queuedTurnRepository.enqueue(any()) }
+        val queued = vm.uiState.value.messageQueue.single()
+        assertThat(queued.server).isNull()
+        assertThat(queued.codeWorkspace?.approvalMode).isEqualTo(CodeApprovalMode.ASK)
     }
 
     @Test
@@ -1536,6 +1660,7 @@ class ChatViewModelQueuedTurnTest {
     )
 
     private fun queuedTurnTest(
+        choice: ModelChoice = ModelChoice.Raw(ENDPOINT, AGENT_ID),
         arrange: () -> Unit = {},
         body: suspend TestScope.(ChatViewModel) -> Unit,
     ) = runTest(testDispatcher) {
@@ -1544,7 +1669,7 @@ class ChatViewModelQueuedTurnTest {
         // to capture, so without it there is nothing for the assertions to be about.
         selectionHandoff.put(
             conversationId = CONVERSATION_ID,
-            choice = ModelChoice.Raw(ENDPOINT, AGENT_ID),
+            choice = choice,
             optimisticUserMessage = Message(
                 messageId = USER_MESSAGE_ID,
                 conversationId = CONVERSATION_ID,
@@ -1571,5 +1696,6 @@ class ChatViewModelQueuedTurnTest {
         const val USER_MESSAGE_ID = "user-1"
         const val TEXT = "and then summarise it"
         const val EPOCH = 1_758_000_000_000L
+        val HELPER_SPEC_CHOICE = ModelChoice.restore(ENDPOINT, AGENT_ID, "helper")
     }
 }

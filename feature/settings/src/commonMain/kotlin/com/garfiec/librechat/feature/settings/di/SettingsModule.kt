@@ -16,12 +16,14 @@ import com.garfiec.librechat.feature.settings.viewmodel.GeneralSettingsViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.McpServerEditorViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.McpViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.MemoriesViewModel
+import com.garfiec.librechat.feature.settings.viewmodel.NotificationSettingsViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.PasskeysViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.PrefetchActivityViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.PrefetchSettingsViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.PresetManagerViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.PullRequestAccountViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.ReleaseNotesViewModel
+import com.garfiec.librechat.feature.settings.viewmodel.ReportProblemViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.RoleMemoriesAdminViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.RoleSkillsAdminViewModel
 import com.garfiec.librechat.feature.settings.viewmodel.ServerHeadersViewModel
@@ -64,12 +66,7 @@ val settingsModule = module {
         DataSettingsViewModel(
             cacheCleaner = get(),
             conversationRepository = get(),
-            keyRepository = get(),
             diagnosticLogRepository = get(),
-            mcpRepository = get(),
-            memoryRepository = get(),
-            roleRepository = get(),
-            permissionGate = get(),
             configRepository = get(),
         )
     }
@@ -80,10 +77,13 @@ val settingsModule = module {
             speechSettingsFactory = get(),
             libraryConsent = get(),
             fileRepository = get(),
+            configRepository = get(),
+            roleRepository = get(),
         )
     }
     viewModelOf(::ApiKeysViewModel)
     viewModelOf(::AppearanceSettingsViewModel)
+    viewModelOf(::NotificationSettingsViewModel)
     viewModelOf(::ChatLayoutSettingsViewModel)
     viewModelOf(::ContextUsageSettingsViewModel)
     viewModelOf(::FavoritesViewModel)
@@ -117,6 +117,7 @@ val settingsModule = module {
     viewModelOf(::UpdateCheckViewModel)
     viewModelOf(::WhatsNewViewModel)
     viewModelOf(::ReleaseNotesViewModel)
+    viewModelOf(::ReportProblemViewModel)
 
     // viewModelOf has no overload that accepts ParametersHolder, so the runtime
     // endpointName parameter forces the lambda DSL. The SavedStateHandle comes from the

@@ -24,6 +24,7 @@ import com.garfiec.librechat.core.data.datastore.DateTimePrefsStore
 import com.garfiec.librechat.core.data.datastore.DrawerPinsStore
 import com.garfiec.librechat.core.data.datastore.McpAppLocationConsentStore
 import com.garfiec.librechat.core.data.datastore.PreferenceStore
+import com.garfiec.librechat.core.data.datastore.ScheduleWatchList
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
 import com.garfiec.librechat.core.data.datastore.SsoRiskDataStore
@@ -88,6 +89,7 @@ import com.garfiec.librechat.core.data.util.PermissionGate
 import com.garfiec.librechat.core.data.util.SessionTask
 import com.garfiec.librechat.core.data.util.SessionTaskRunner
 import com.garfiec.librechat.core.logging.DiagnosticLogRepository
+import com.garfiec.librechat.core.logging.PlatformInfo
 import com.garfiec.librechat.core.network.api.AgentToolsApi
 import com.garfiec.librechat.core.network.api.AgentsApi
 import com.garfiec.librechat.core.network.api.ApiKeysApi
@@ -129,6 +131,7 @@ import com.garfiec.librechat.core.network.client.ServerUrlProvider
 import com.garfiec.librechat.core.network.client.SwitchGate
 import com.garfiec.librechat.core.network.client.TokenManager
 import com.garfiec.librechat.core.network.sse.SseClient
+import com.garfiec.librechat.core.notifications.NotificationPermission
 import com.garfiec.librechat.feature.conversations.export.ConversationExporter
 import com.garfiec.librechat.feature.files.platform.FileReader
 import com.garfiec.librechat.shared.di.sharedKoinModules
@@ -183,6 +186,7 @@ class KoinGraphVerificationTest {
             ChannelPolicy::class,
             // core:logging provides
             DiagnosticLogRepository::class,
+            PlatformInfo::class,
             // core:network provides
             TokenManager::class,
             ServerUrlProvider::class,
@@ -241,6 +245,7 @@ class KoinGraphVerificationTest {
             ConversationWebSearchStore::class,
             McpAppLocationConsentStore::class,
             CodeWorkspacePreferenceStore::class,
+            ScheduleWatchList::class,
             AgentRepository::class,
             AgentToolsRepository::class,
             ApiKeyRepository::class,
@@ -298,6 +303,8 @@ class KoinGraphVerificationTest {
             SessionTaskRunner::class,
             AppUpdateRepository::class,
             AppInstallSource::class,
+            // core:notifications platform provides
+            NotificationPermission::class,
             // feature:files platform provides
             FileReader::class,
             // feature:conversations provides (consumed cross-module by shared NavHostViewModel)

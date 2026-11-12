@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import com.garfiec.librechat.core.ui.theme.LocalDarkTheme
+import com.garfiec.librechat.core.ui.theme.chatColors
 
 object ChatInputDefaults {
     /** Resting fill shared by the composer box and the floating top-bar chips. */
@@ -25,11 +26,11 @@ object ChatInputDefaults {
         @Composable get() = MaterialTheme.colorScheme.outlineVariant
 
     /**
-     * Temporary chat's violet, as web tints its composer. A fixed hue rather than a scheme role, so
-     * the mode reads the same under any accent or dynamic colour.
+     * Temporary chat's tint, as web tints its composer. A fixed hue in Switchboard rather than a
+     * scheme role, so the mode reads the same under any accent or dynamic colour.
      */
     val temporaryAccent: Color
-        @Composable get() = if (LocalDarkTheme.current) TemporaryVioletDark else TemporaryVioletLight
+        @Composable get() = chatColors().temporary
 
     /** The composer's resting border while temporary chat is on. */
     val temporaryBorderColor: Color
@@ -70,21 +71,30 @@ object ChatInputDefaults {
     fun toolsButtonColors(): IconButtonColors =
         IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
 
-    /** A bare icon in [color], no circle: the box is its frame. */
+    /**
+     * The send slot (Send and the during-run sends) in the theme's [chatColors]: Switchboard's is a bare
+     * icon, the box being its frame; a server's is the web's filled circle. A [color] keeps the bare icon.
+     */
     @Composable
-    fun sendButtonColors(color: Color = MaterialTheme.colorScheme.primary): IconButtonColors =
-        IconButtonDefaults.iconButtonColors(
-            contentColor = color,
-            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = DISABLED_ALPHA),
+    fun sendButtonColors(color: Color? = null): IconButtonColors {
+        val chat = chatColors()
+        return IconButtonDefaults.iconButtonColors(
+            containerColor = if (color == null) chat.submit else Color.Transparent,
+            contentColor = color ?: chat.onSubmit,
+            disabledContainerColor = chat.submitDisabled,
+            disabledContentColor = chat.onSubmitDisabled,
         )
+    }
 
-    private const val DISABLED_ALPHA = 0.38f
+    /** Stop shares the send slot: a bare icon in Switchboard's error colour, or a server's filled circle. */
+    @Composable
+    fun stopButtonColors(): IconButtonColors {
+        val chat = chatColors()
+        return IconButtonDefaults.iconButtonColors(containerColor = chat.stop, contentColor = chat.onStop)
+    }
+
     private const val TEMPORARY_TINT_MS = 200
     private const val TEMPORARY_BORDER_ALPHA = 0.6f
     private const val TEMPORARY_WASH_ALPHA_LIGHT = 0.08f
     private const val TEMPORARY_WASH_ALPHA_DARK = 0.14f
-
-    // Tailwind violet-600 / violet-400: web's violet, stepped for contrast against each surface.
-    private val TemporaryVioletLight = Color(0xFF7C3AED)
-    private val TemporaryVioletDark = Color(0xFFA78BFA)
 }

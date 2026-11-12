@@ -233,25 +233,18 @@
     <string name="tool_server_files">サーバー</string>
     <string name="tool_model">モデル</string>
     <string name="tool_model_parameters">モデルパラメータ</string>
-    <string name="tool_model_parameters_desc">温度やトークンなどを調整</string>
+    <string name="params_title_lane_a">パラメータ · モデル A</string>
     <string name="param_set_by_spec">このモデルの設定はサーバーが決めているため、ここでは変更できません。</string>
     <string name="tool_set_by_spec">このモデルではサーバーが有効にしています</string>
     <string name="tool_web_search">ウェブ検索</string>
-    <string name="tool_web_search_desc">ウェブで情報を検索</string>
     <string name="web_search_librechat">LibreChat 検索</string>
     <string name="web_search_checking">LibreChat 検索を確認中…</string>
     <string name="web_search_built_in">%1$s の組み込み検索</string>
     <string name="web_search_built_in_plain">組み込み検索</string>
-    <string name="web_search_set_by_spec">%1$s(このモデルではサーバーが有効にしています)</string>
     <string name="web_searched">ウェブを検索しました</string>
     <string name="tool_url_context">URL コンテキスト</string>
-    <string name="tool_url_context_desc">参照した URL や YouTube 動画をモデルが読めるようにする</string>
     <string name="tool_code">コード</string>
-    <string name="tool_code_desc">コードを実行・分析</string>
     <string name="tool_file_search">ファイル検索</string>
-    <string name="tool_file_search_desc">アップロード済みのファイルを検索</string>
-    <string name="tool_mcp">MCP</string>
-    <string name="tool_mcp_desc">Model Context Protocolサーバー</string>
     <string name="cd_quoted_excerpt">引用された抜粋</string>
     <string name="selection_add_to_chat">チャットに追加</string>
 
@@ -260,6 +253,8 @@
     <string name="upload_routing_sheet_title_single">これをどのように送信しますか？</string>
     <string name="upload_routing_option_provider">モデルへ直接</string>
     <string name="upload_routing_option_text">テキストとして</string>
+    <string name="upload_route_file_search">必要なときに検索</string>
+    <string name="upload_route_file_search_why">長い文書は索引化され、モデルが必要な部分だけを参照します。</string>
     <string name="upload_routing_why_provider">モデルがファイルを直接読み取ります。</string>
     <string name="upload_routing_why_text">サーバーがファイルを読み取り、そのテキストを送信します。</string>
     <string name="upload_routing_why_provider_only">このモデルはこのファイルを直接受け取ることしかできません。</string>
@@ -348,6 +343,10 @@
     <string name="cd_view_code">コードを表示</string>
     <string name="label_diagram">図</string>
     <string name="cd_fullscreen">全画面</string>
+    <string name="cd_exit_fullscreen">全画面を終了</string>
+    <string name="cd_resize_artifact">アーティファクトのサイズを変更</string>
+    <string name="artifact_wider">アーティファクトを広げる</string>
+    <string name="artifact_narrower">アーティファクトを狭める</string>
     <string name="cd_close_fullscreen">全画面を閉じる</string>
 
     <!-- Message bubble -->
@@ -379,6 +378,7 @@
     <!-- Preset picker -->
     <string name="select_preset">プリセットを選択</string>
     <string name="no_presets_saved">保存されたプリセットはまだありません</string>
+    <string name="presets_load_failed">プリセットを読み込めませんでした。</string>
     <string name="cd_edit_preset">%1$s を編集</string>
     <string name="cd_delete_preset">%1$s を削除</string>
     <string name="preset_endpoint">エンドポイント: %1$s</string>
@@ -630,14 +630,27 @@
     <string name="cd_expand_ask_user_question">質問の詳細を展開</string>
     <string name="cd_collapse_ask_user_question">質問の詳細を折りたたむ</string>
     <string name="tool_memory">メモリ</string>
-    <string name="tool_memory_desc">このチャットの詳細をアシスタントが記憶できるようにする</string>
     <string name="tool_skills">スキル</string>
-    <string name="tool_skills_desc">このチャットでアシスタントがあなたのスキルを使えるようにする</string>
+    <string name="tool_artifacts">アーティファクト</string>
     <string name="picker_type_prompt">プロンプト</string>
     <string name="picker_type_skill">スキル</string>
     <string name="picker_no_matches">一致するものはありません</string>
     <string name="picker_loading_skills">スキルを読み込み中…</string>
     <string name="picker_skills_failed">スキルを読み込めませんでした</string>
+    <string name="picker_scope_prompts">プロンプトを検索中</string>
+    <string name="picker_scope_skills">スキルを検索中</string>
+    <string name="picker_chip_prompts">プロンプト</string>
+    <string name="picker_chip_skills">スキル</string>
+    <string name="picker_skills_unavailable">このチャットではスキルを使用できません</string>
+    <string name="picker_type_mcp">MCP</string>
+    <string name="picker_scope_mcp">MCP サーバーを検索中</string>
+    <string name="picker_chip_mcp">MCP</string>
+    <string name="picker_mcp_unavailable">このチャットでは MCP サーバーを使用できません</string>
+    <string name="picker_scope_models">モデルを検索</string>
+    <string name="picker_chip_models">モデル</string>
+    <string name="picker_models_unavailable">このチャットではモデルを変更できません</string>
+    <string name="picker_models_comparing">比較中はここでモデルを切り替えられません</string>
+    <string name="cd_picker_leave_scope">プロンプト、スキル、MCP サーバーを表示</string>
     <string name="cd_remove_skill">スキル %1$s を削除</string>
     <string name="cd_skill_always_applied">常に適用されるスキル: %1$s</string>
     <string name="cd_skill_used">使用したスキル: %1$s</string>
@@ -880,12 +893,13 @@
     <string name="agent_handoff_to">エージェント %1$s</string>
     <string name="agent_handoff_run">実行：%1$s</string>
     <string name="sibling_position">回答 %1$d / %2$d</string>
-    <string name="cd_assistant_responding">アシスタントが応答中：%1$s</string>
+    <string name="cd_assistant_responding">アシスタントが応答中</string>
     <string name="tool_call_fallback">ツール呼び出し</string>
     <string name="mcp_sign_in_needed">%1$s へのサインインが必要です</string>
     <string name="mcp_sign_in_needed_unnamed">ツールへのサインインが必要です</string>
     <string name="mcp_sign_in_resumes">サインインすると応答が続きます。</string>
     <string name="mcp_sign_in_action">サインイン</string>
+    <string name="mcp_set_up_action">設定</string>
     <string name="mcp_sign_in_failed">サインインが完了しませんでした。もう一度お試しください。</string>
     <string name="prompt_filter_title">絞り込みと並べ替え</string>
     <string name="prompt_sort_recent">新しい順</string>
@@ -1138,7 +1152,6 @@
     <plurals name="ptc_trace_earlier">
         <item quantity="other">ほか %1$d 件の以前の呼び出し</item>
     </plurals>
-    <string name="tool_code_environment">コード</string>
     <string name="cd_upload_route_code">コード環境にアップロード</string>
     <string name="run_code">実行</string>
     <string name="run_code_running">実行中</string>
@@ -1179,4 +1192,26 @@
     <plurals name="draft_uploads_failed">
         <item quantity="other">%1$d 件のファイルをアップロードできませんでした。タップして再試行するか、削除してください。</item>
     </plurals>
+    <string name="attach_code_environment">コード環境にアップロード</string>
+    <string name="mcp_servers_title">MCP サーバー</string>
+    <string name="tools_from_agent_title">このエージェントは自分でツールを選びます</string>
+    <string name="tools_from_agent_body">ウェブ検索、コード、MCP サーバーはエージェントの設定に従います。</string>
+    <string name="tools_from_spec">このモデルのツールはサーバーが設定します。</string>
+    <string name="tool_state_on">オン</string>
+    <string name="tool_state_off">オフ</string>
+    <plurals name="section_tools">
+        <item quantity="other">ツール · %1$d 件オン</item>
+    </plurals>
+    <plurals name="mcp_servers_on">
+        <item quantity="other">%2$d 件中 %1$d 件オン</item>
+    </plurals>
+    <plurals name="mcp_needs_sign_in">
+        <item quantity="other">%1$d 件はサインインが必要です</item>
+    </plurals>
+    <string name="web_search_keys_setup">LibreChat 検索を設定</string>
+    <string name="web_search_keys_fallback">キーを追加するまで %1$s の検索を使用中</string>
+    <string name="web_search_keys_add">検索キーを追加</string>
+    <string name="web_search_keys_title">検索キー</string>
+    <string name="prompt_editor_creating">作成中…</string>
+    <string name="prompt_editor_saving">保存中…</string>
 </resources>

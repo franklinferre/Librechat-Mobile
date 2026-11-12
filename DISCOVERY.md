@@ -198,6 +198,12 @@ GET  /api/prompts/groups/:id/resolve[?version=N] → a group's live text (v0.8.9
   the Delete Account button when `false`. Defaults to `true` for older servers that omit the field.
 - `GET /api/endpoints` now requires JWT (was public in v0.8.4). Mobile already called it
   post-auth, so this is non-breaking.
+- `GET /api/endpoints` entries carry `providerId` (v0.8.8-rc2+) for a custom endpoint: the brand the
+  server derives from its `iconURL`, `baseURL` host, `provider` and name (`EndpointConfig.providerId`).
+  Mobile loads that brand's art at runtime from the server's static `{server}/assets/<file>`
+  (`feature/chat/CLAUDE.md` "Brand art"). Since v0.8.9-rc1 web draws every provider as an inline
+  mark and no longer references `/assets/`; the files still ship, each watched by a
+  `provider-asset-*` mirror.
 - Favorites schema: each entry has exactly one of `{ agentId }`, `{ model, endpoint }`,
   or `{ spec }` — three mutually exclusive variants enforced by the server
   (`FavoritesController.js`: "Each favorite must have either agentId, model+endpoint, or spec";
@@ -1606,10 +1612,11 @@ POST   /api/agents/chat/queued-turns/v2   (v0.8.8, 163c1ad9 #16326) accepts `cod
                                             it and the capability gains `protocolVersion: 2`. v1 answers **409**
                                             `QUEUED_TURN_PROTOCOL_REQUIRED` only when `codeApprovalMode` is sent.
                                             The enqueue 500 code is renamed `QUEUED_TURN_FAILED` →
-                                            `QUEUED_TURN_ENQUEUE_FAILED`. Mobile stays on v1 and never puts
-                                            `codeApprovalMode` on an enqueue: a follow-up whose turn carries a
-                                            mode other than `ask` stays in the local queue, which sends it as an
-                                            ordinary turn with its mode (`serverOwnedSpec`). v2 not used.
+                                            `QUEUED_TURN_ENQUEUE_FAILED`. Mobile posts a turn carrying a mode,
+                                            `ask` included, to v2 with `codeApprovalMode`; a turn with no mode
+                                            goes to v1. A queued turn without a mode runs under the machine's
+                                            own permissions. Below v0.8.8 a turn with a mode stays in the local
+                                            queue (see VERSION_GATES.md). (BUILT)
 POST   /api/skills/:id/files/*relativePath
                                           (v0.8.8, 7caa98ff #16362) conditional per-file replace. See the Skills
                                             family block above for the contract; offered only when the read
@@ -1942,7 +1949,8 @@ DELETE /api/pull-requests/oauth                                204, removes ever
   `allowEmailChange` (`AccountGates`), `maxPasskeysPerUser`, `conversationListLimits` (drawer),
   `ragEnabled` (`ProjectContextGate`), `projects{…}`, `codeWorkspaceInheritanceVersion`
   (`CodeWorkspaceDelegate`), `mcpApps{…}` and `pullRequests*` (see "MCP Apps", "Conversation pull
-  requests"). Not decoded: `interface.replyNotifications`.
+  requests"). `interface.replyNotifications`: only `desktop` and `sound` are decoded (each off only
+  when `false`, as web reads them); `tabBadge` and the poll fields are web-only.
 - `interface.theme` (decoded raw): a bundled name (`librechat`, `clickhouse`) or an inline
   `{ version: 1, name, modes: { light, dark: { colors: { "rgb-accent-primary": "R G B", … } } } }`,
   served pre-login too. BUILT for inline definitions only: the light accent (dark when the light one

@@ -39,10 +39,14 @@
             android:name="com.garfiec.librechat.CHANNEL"
             android:value="${distributionChannel}" />
 
+        <!-- Handles size changes itself: rebuilding on a rotation, fold or resize would close open
+             sheets and reload artifact and MCP app pages. System dark mode, locale and font size
+             still rebuild. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|keyboard|keyboardHidden|navigation"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.LibreChat">
             <intent-filter>
@@ -135,6 +139,16 @@
                 <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
+        <!-- intoExisting keys the task on the intent's data URI, so each artifact keeps one task and
+             one Recents card. Rotating or folding would otherwise
+             reload the page and lose its state. Launched only by our own shortcuts. -->
+        <activity
+            android:name=".artifact.ArtifactAppActivity"
+            android:exported="false"
+            android:documentLaunchMode="intoExisting"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|keyboard|keyboardHidden"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.LibreChat" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

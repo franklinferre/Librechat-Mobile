@@ -3,6 +3,7 @@ package com.garfiec.librechat.feature.chat.components
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -53,6 +54,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,7 +73,9 @@ import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onClick
@@ -87,7 +91,9 @@ import com.garfiec.librechat.core.ui.glass.LocalGlassBackdrop
 import com.garfiec.librechat.core.ui.glass.drawInsetOutlineStroke
 import com.garfiec.librechat.core.ui.glass.glassSurface
 import com.garfiec.librechat.core.ui.glass.rememberGlassStyle
+import com.garfiec.librechat.core.ui.theme.chatColors
 import com.garfiec.librechat.core.ui.theme.isLiquidGlass
+import com.garfiec.librechat.core.ui.theme.themeShapes
 import com.garfiec.librechat.feature.chat.components.veil.LocalComposerFlare
 import com.garfiec.librechat.feature.chat.components.veil.retonedSurface
 import com.garfiec.librechat.feature.chat.model.ComposerPickerItem
@@ -216,15 +222,19 @@ fun CommonChatInputCore(
     /** Cancel a send parked behind an in-flight upload (see [ChatInputState.isAwaitingUploadSend]). */
     onCancelPendingSend: () -> Unit = {},
     fontSizeMultiplier: Float = 1f,
+    /** The composer may fold to one line while idle (see [composerHoldsOpen]); false keeps it open, as in previews. */
+    canFold: Boolean = false,
     /** A row picked from the `/` and `$` list: a prompt or a skill. */
     onSelectPickerItem: (ComposerPickerItem) -> Unit = {},
+    /** The picker's scope chips and close replace the composer text with a command. */
+    onPickerTextChange: (String) -> Unit = {},
     leadingButtons: @Composable RowScope.(compact: Boolean) -> Unit = {},
     trailingButtons: @Composable RowScope.(compact: Boolean) -> Unit = {},
     bottomContent: @Composable BoxScope.() -> Unit = {},
     /** Draws no frame of its own ([ChatInputDefaults.textFieldColors]): the box is the frame. */
     textFieldContent: @Composable RowScope.(compact: Boolean) -> Unit,
 ) {
-    val surfaceColor = MaterialTheme.colorScheme.surface
+    val surfaceColor = chatColors().canvas
     // The fade keeps temporary chat's retone (see ModeVeil) rather than painting plain surface over it.
     val retonedSurfaceColor = retonedSurface(surfaceColor)
     val temporaryAmount = ChatInputDefaults.animateTemporaryAmount(isTemporaryChat)
@@ -271,15 +281,25 @@ fun CommonChatInputCore(
             val pickerQuery = remember(state.inputText, state.canPickSkills) {
                 parsePickerQuery(state.inputText, state.canPickSkills)
             }
-            val pickerRows = remember(pickerQuery, state.promptSuggestions, state.skillSuggestions) {
-                pickerQuery?.let { buildPickerRows(it, state.promptSuggestions, state.skillSuggestions) }.orEmpty()
-            }
+            val pickerMcp = state.chrome.pickerMcpServers
+            val pickerModels = state.chrome.pickerModels
+            val pickerRows =
+                remember(pickerQuery, state.promptSuggestions, state.skillSuggestions, pickerMcp, pickerModels) {
+                    pickerQuery?.let {
+                        buildPickerRows(it, state.promptSuggestions, state.skillSuggestions, pickerMcp, pickerModels)
+                    }.orEmpty()
+                }
             PromptSuggestionList(
+                picker = pickerQuery,
                 rows = pickerRows,
-                isOpen = pickerQuery != null,
-                hasCandidates = state.promptSuggestions.isNotEmpty() || state.skillSuggestions.isNotEmpty(),
+                hasPrompts = state.promptSuggestions.isNotEmpty(),
+                hasSkills = state.skillSuggestions.isNotEmpty(),
+                hasMcp = pickerMcp.isNotEmpty(),
+                modelBlock = state.chrome.pickerModelBlock,
+                canPickSkills = state.canPickSkills,
                 isLoadingSkills = state.isLoadingSkills,
                 onSelect = onSelectPickerItem,
+                onPickerTextChange = onPickerTextChange,
                 skillsLoadFailed = state.skillsLoadFailed,
                 onRetrySkills = onRetrySkills,
             )
@@ -288,9 +308,21 @@ fun CommonChatInputCore(
             val temporaryBorder = ChatInputDefaults.temporaryBorderColor
             val boxFill = ChatInputDefaults.containerColor
             val boxBorder = ChatInputDefaults.borderColor
-            val boxFocusedBorder = MaterialTheme.colorScheme.outline
+            val boxFocusedBorder = chatColors().composerBorderFocused
             val temporaryAccent = ChatInputDefaults.temporaryAccent
+            val composerShape = themeShapes().composer
             var boxFocused by remember { mutableStateOf(false) }
+            val workspace = LocalCodeWorkspaceComposer.current
+            val holdsOpen = composerHoldsOpen(
+                inputText = state.inputText,
+                hasDraftItems = !state.chrome.draftItems.isEmpty,
+                arePicksUnsettled = state.arePicksUnsettled,
+                showsWorkspaceNotice = workspace?.state?.showsNotice == true,
+                isRecording = state.isRecording,
+                isTranscribing = state.isTranscribing,
+                isEditingQueued = state.isEditingQueued,
+            )
+            val openness = rememberComposerOpenness(canFold = canFold, holdsOpen = holdsOpen, focused = boxFocused)
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 // Below a 360dp screen the during-run caret folds into the send button, so the
                 // settings line keeps its room.
@@ -298,19 +330,21 @@ fun CommonChatInputCore(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        // scripts/theme-e2e samples the box's fill here.
+                        .testTag("composer")
                         // A parent sees its children's focus: the box's border follows the field's.
                         .onFocusChanged { boxFocused = it.hasFocus }
                         .then(
                             if (glass != null) {
                                 Modifier
-                                    .glassSurface(glass, ComposerBoxShape, glassBackdrop, flare = LocalComposerFlare.current)
+                                    .glassSurface(glass, composerShape, glassBackdrop, flare = LocalComposerFlare.current)
                                     .drawBehind {
                                         val amount = temporaryAmount.value
                                         if (amount > 0f) {
-                                            val outline = ComposerBoxShape.createOutline(size, layoutDirection, this)
+                                            val outline = composerShape.createOutline(size, layoutDirection, this)
                                             drawOutline(outline, temporaryWash.copy(alpha = temporaryWash.alpha * amount))
                                             drawInsetOutlineStroke(
-                                                ComposerBoxShape,
+                                                composerShape,
                                                 temporaryBorder.copy(alpha = temporaryBorder.alpha * amount),
                                                 1.dp.toPx(),
                                             )
@@ -319,30 +353,36 @@ fun CommonChatInputCore(
                             } else {
                                 Modifier.drawBehind {
                                     val amount = temporaryAmount.value
-                                    val outline = ComposerBoxShape.createOutline(size, layoutDirection, this)
+                                    val outline = composerShape.createOutline(size, layoutDirection, this)
                                     drawOutline(outline, lerp(boxFill, temporaryWash.compositeOver(boxFill), amount))
                                     val border = if (boxFocused) {
                                         lerp(boxFocusedBorder, temporaryAccent, amount)
                                     } else {
                                         lerp(boxBorder, temporaryBorder.compositeOver(boxFill), amount)
                                     }
-                                    drawInsetOutlineStroke(ComposerBoxShape, border, 1.dp.toPx())
+                                    drawInsetOutlineStroke(composerShape, border, 1.dp.toPx())
                                 }
                             },
                         )
                         .padding(4.dp),
                 ) {
                     ComposerDraftStrip(state.chrome)
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        textFieldContent(compact)
-                    }
-                    FailedUploadsLine(failedCount = state.chrome.draftItems.failedCount)
-                    LocalCodeWorkspaceComposer.current?.let { CodeWorkspaceNotice(it) }
-                    ComposerButtonRow(
+                    ComposerRows(
                         state = state,
                         compact = compact,
+                        openness = openness,
                         leadingButtons = leadingButtons,
                         trailingButtons = trailingButtons,
+                        // Both lines hold the composer open, so they never fold with the field.
+                        textFieldContent = {
+                            Column {
+                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    textFieldContent(compact)
+                                }
+                                FailedUploadsLine(failedCount = state.chrome.draftItems.failedCount)
+                                workspace?.let { CodeWorkspaceNotice(it) }
+                            }
+                        },
                         onSend = onSend,
                         onStop = onStop,
                         onQueue = onQueue,
@@ -488,11 +528,13 @@ internal val STEER_AND_QUEUE_MAX_HEIGHT = 168.dp
 
 @Suppress("LongParameterList")
 @Composable
-private fun ComposerButtonRow(
+private fun ComposerRows(
     state: ChatInputState,
     compact: Boolean,
+    openness: () -> Float,
     leadingButtons: @Composable RowScope.(compact: Boolean) -> Unit,
     trailingButtons: @Composable RowScope.(compact: Boolean) -> Unit,
+    textFieldContent: @Composable () -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
     onQueue: (() -> Unit)?,
@@ -504,22 +546,70 @@ private fun ComposerButtonRow(
     onCancelPendingSend: () -> Unit,
 ) {
     val chrome = state.chrome
-    Row(
-        modifier = Modifier.fillMaxWidth().passVerticalDragsToThread(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        leadingButtons(compact)
-        Box(modifier = Modifier.weight(1f).padding(horizontal = 4.dp)) {
-            ComposerSettingsLine(
-                chips = chrome.settingChips,
-                onChipTap = chrome.onSettingChipTap,
-                onCancelSignIn = chrome.onCancelMcpSignIn,
-                onStartSignInOver = chrome.onStartMcpSignInOver,
-                ring = chrome.contextRing(),
-                leading = codeWorkspaceLineLeading(LocalCodeWorkspaceComposer.current),
+    // Folded, the settings line and Send are out of sight, so they leave the accessibility tree too.
+    val folded by remember(openness) { derivedStateOf { openness() < 0.5f } }
+    // Folded mid-run, Stop stays and the mic gives way; otherwise the mic stays and Send goes.
+    val streaming by animateFloatAsState(if (state.isStreaming) 1f else 0f, label = "foldStreaming")
+    val hidden = if (folded) Modifier.clearAndSetSemantics {} else Modifier
+    FoldingComposerRows(
+        openness = openness,
+        field = textFieldContent,
+        leading = { Row(verticalAlignment = Alignment.CenterVertically) { leadingButtons(compact) } },
+        settings = {
+            Box(modifier = Modifier.padding(horizontal = 4.dp).then(hidden)) {
+                ComposerSettingsLine(
+                    chips = chrome.settingChips,
+                    onChipTap = chrome.onSettingChipTap,
+                    onCancelSignIn = chrome.onCancelMcpSignIn,
+                    onStartSignInOver = chrome.onStartMcpSignInOver,
+                    ring = chrome.contextRing(),
+                    leading = codeWorkspaceLineLeading(LocalCodeWorkspaceComposer.current),
+                )
+            }
+        },
+        trailing = {
+            ComposerTrailing(
+                state = state,
+                compact = compact,
+                trailingButtons = trailingButtons,
+                micSlotModifier = Modifier.foldSlot { openness() + (1f - openness()) * (1f - streaming) },
+                sendSlotModifier = Modifier.foldSlot { openness() + (1f - openness()) * streaming }
+                    .then(if (folded && !state.isStreaming) Modifier.clearAndSetSemantics {} else Modifier),
+                onSend = onSend,
+                onStop = onStop,
+                onQueue = onQueue,
+                onSteer = onSteer,
+                onInterrupt = onInterrupt,
+                onDuringRunSend = onDuringRunSend,
+                onSetDuringRunAction = onSetDuringRunAction,
+                onCommitEdit = onCommitEdit,
+                onCancelPendingSend = onCancelPendingSend,
             )
-        }
-        trailingButtons(compact)
+        },
+        modifier = Modifier.fillMaxWidth().passVerticalDragsToThread(),
+    )
+}
+
+@Suppress("LongParameterList")
+@Composable
+private fun ComposerTrailing(
+    state: ChatInputState,
+    compact: Boolean,
+    onSend: () -> Unit,
+    onStop: () -> Unit,
+    onQueue: (() -> Unit)?,
+    onSteer: () -> Unit,
+    onInterrupt: () -> Unit,
+    onDuringRunSend: () -> Unit,
+    onSetDuringRunAction: (DuringRunAction) -> Unit,
+    onCommitEdit: () -> Unit,
+    onCancelPendingSend: () -> Unit,
+    micSlotModifier: Modifier = Modifier,
+    sendSlotModifier: Modifier = Modifier,
+    trailingButtons: @Composable RowScope.(compact: Boolean) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = micSlotModifier, verticalAlignment = Alignment.CenterVertically) { trailingButtons(compact) }
         // A comparison still choosing its second model has nowhere to send yet. Committing a queued
         // edit sends nothing (the queue is held through setup), so Update stays available.
         val blockedBySetup = state.comparisonHint == ComposerComparisonHint.SETTING_UP && !state.isEditingQueued
@@ -562,7 +652,7 @@ private fun ComposerButtonRow(
                 onSetDefault = onSetDuringRunAction,
             )
         }
-        Box {
+        Box(modifier = sendSlotModifier) {
             SendStopButton(
                 buttonSize = BoxButtonSize,
                 isStreaming = state.isStreaming,
@@ -599,8 +689,6 @@ private fun ComposerButtonRow(
         }
     }
 }
-
-private val ComposerBoxShape = RoundedCornerShape(28.dp)
 
 /** The box's round buttons: 40dp drawn, a 48dp touch target from Compose's touch-bounds expansion. */
 internal val BoxButtonSize = 40.dp
@@ -720,6 +808,7 @@ fun SendStopButton(
     )
     // On the slot, not each button, so a send's bounce survives the swap to Stop.
     val bounce = rememberPressBounce()
+    val actionShape = themeShapes().composerAction
     val bounces = !isLiquidGlass && (canSend || (mode != SendButtonMode.SEND && mode != SendButtonMode.UPDATE))
     AnimatedContent(
         targetState = mode,
@@ -735,6 +824,7 @@ fun SendStopButton(
                 modifier = Modifier.size(buttonSize),
                 enabled = canSend,
                 colors = ChatInputDefaults.sendButtonColors(),
+                shape = actionShape,
             ) {
                 Icon(
                     imageVector = Icons.Default.Check,
@@ -746,6 +836,7 @@ fun SendStopButton(
                 onClick = onUpdate,
                 modifier = Modifier.size(buttonSize),
                 colors = ChatInputDefaults.sendButtonColors(MaterialTheme.colorScheme.error),
+                shape = actionShape,
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
@@ -757,6 +848,7 @@ fun SendStopButton(
                 onClick = onCancelPendingSend,
                 modifier = Modifier.size(buttonSize),
                 colors = ChatInputDefaults.sendButtonColors(),
+                shape = actionShape,
             ) {
                 // Spinner (upload still in flight) with a small ✕ so it reads as "tap to cancel".
                 Box(contentAlignment = Alignment.Center) {
@@ -776,7 +868,8 @@ fun SendStopButton(
             SendButtonMode.STOP -> IconButton(
                 onClick = onStop,
                 modifier = Modifier.size(buttonSize),
-                colors = ChatInputDefaults.sendButtonColors(MaterialTheme.colorScheme.error),
+                colors = ChatInputDefaults.stopButtonColors(),
+                shape = actionShape,
             ) {
                 Icon(
                     imageVector = Icons.Default.Stop,
@@ -789,6 +882,7 @@ fun SendStopButton(
                 onClick = onQueue,
                 modifier = Modifier.size(buttonSize),
                 colors = ChatInputDefaults.sendButtonColors(),
+                shape = actionShape,
             ) {
                 DuringRunSendIcon(
                     imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
@@ -801,6 +895,7 @@ fun SendStopButton(
                 onClick = onQueue,
                 modifier = Modifier.size(buttonSize),
                 colors = ChatInputDefaults.sendButtonColors(),
+                shape = actionShape,
             ) {
                 DuringRunSendIcon(
                     imageVector = Icons.Default.Bolt,
@@ -813,6 +908,7 @@ fun SendStopButton(
                 onClick = onQueue,
                 modifier = Modifier.size(buttonSize),
                 colors = ChatInputDefaults.sendButtonColors(),
+                shape = actionShape,
             ) {
                 DuringRunSendIcon(
                     imageVector = Icons.Default.FlashOff,
@@ -828,6 +924,7 @@ fun SendStopButton(
                 onClick = onQueue,
                 modifier = Modifier.size(buttonSize),
                 colors = ChatInputDefaults.sendButtonColors(),
+                shape = actionShape,
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Send,
@@ -840,6 +937,7 @@ fun SendStopButton(
                 modifier = Modifier.size(buttonSize),
                 enabled = canSend,
                 colors = ChatInputDefaults.sendButtonColors(),
+                shape = actionShape,
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Send,
@@ -1039,7 +1137,7 @@ fun ChatInputPlaceholder(
             stringResource(Res.string.hint_message)
         },
         style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = chatColors().composerPlaceholder,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = modifier,

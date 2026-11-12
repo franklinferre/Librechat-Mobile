@@ -20,6 +20,7 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -37,17 +38,16 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -67,7 +67,9 @@ import com.garfiec.librechat.core.common.lifecycle.DeferredWorkWindow
 import com.garfiec.librechat.core.common.lifecycle.ForegroundSignal
 import com.garfiec.librechat.core.data.datastore.DateTimePrefsStore
 import com.garfiec.librechat.core.logging.Diag
+import com.garfiec.librechat.core.notifications.ReplySnackbars
 import com.garfiec.librechat.core.ui.components.AdaptiveAlertDialog
+import com.garfiec.librechat.core.ui.components.AdaptiveSnackbarHost
 import com.garfiec.librechat.core.ui.components.AdaptiveTextButton
 import com.garfiec.librechat.core.ui.components.BackClaims
 import com.garfiec.librechat.core.ui.components.BannerDisplay
@@ -78,6 +80,7 @@ import com.garfiec.librechat.core.ui.components.LocalServerUrl
 import com.garfiec.librechat.core.ui.components.share.LocalExternalUriHandler
 import com.garfiec.librechat.core.ui.components.share.LocalOpenSharedChat
 import com.garfiec.librechat.core.ui.components.topbar.CoversNativeBars
+import com.garfiec.librechat.core.ui.components.windowUsesSidebarLayout
 import com.garfiec.librechat.core.ui.datetime.ProvideDateTimeFormat
 import com.garfiec.librechat.core.ui.glass.GlassBackdrop
 import com.garfiec.librechat.core.ui.glass.GlassSheetHost
@@ -94,7 +97,6 @@ import com.garfiec.librechat.feature.auth.navigation.Terms
 import com.garfiec.librechat.feature.auth.navigation.authEntries
 import com.garfiec.librechat.feature.auth.navigation.isAddAccountFlowRoute
 import com.garfiec.librechat.feature.chat.navigation.Chat
-import com.garfiec.librechat.feature.chat.navigation.ModelShortcutBus
 import com.garfiec.librechat.feature.chat.navigation.NewChat
 import com.garfiec.librechat.feature.chat.navigation.chatEntries
 import com.garfiec.librechat.feature.chat.navigation.handoffKey
@@ -112,6 +114,7 @@ import com.garfiec.librechat.feature.conversations.navigation.conversationsEntri
 import com.garfiec.librechat.feature.files.navigation.FilesPicker
 import com.garfiec.librechat.feature.files.navigation.filePickerEntries
 import com.garfiec.librechat.feature.files.navigation.filesEntries
+import com.garfiec.librechat.feature.schedules.navigation.SchedulesList
 import com.garfiec.librechat.feature.schedules.navigation.schedulesEntries
 import com.garfiec.librechat.feature.settings.navigation.Memories
 import com.garfiec.librechat.feature.settings.navigation.SettingsTabbed
@@ -136,6 +139,7 @@ import com.garfiec.librechat.shared.resources.version_mismatch_title
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.stringResource
@@ -149,14 +153,13 @@ private const val HYGIENE_UNRECORDED = "__unrecorded__"
 /**
  * Shared root composable for LibreChat navigation.
  *
- * With no [content], picks [TabletLayout] or [PhoneLayout] from the window (iOS). Android passes
- * [content] to add deep links and share intents, and makes the same [usesSidebarLayout] choice there.
+ * Places links from [DeepLinkInbox] on both platforms. With no [content], shows [WindowLayout] (iOS).
+ * Android passes [content] to add share intents, and shows [WindowLayout] there.
  */
 @Composable
 fun LibreChatNavHost(
     modifier: Modifier = Modifier,
     appLocaleTag: String? = null,
-    hasPendingDeepLink: Boolean = false,
     navHostViewModel: NavHostViewModel = koinViewModel(),
     drawerViewModel: DrawerViewModel = koinViewModel(),
     content: (@Composable (Navigator, NavHostViewModel, Modifier) -> Unit)? = null,
@@ -210,30 +213,30 @@ fun LibreChatNavHost(
 
     // Redirect to auth if not logged in — once per saved-state lifecycle, NOT on every recreation.
     // LaunchedEffect(Unit) restarts on each Activity recreation (config change / process-death restore,
-    // see the hygiene note below), but by then the back stack is already restored — possibly to a
-    // logged-out-viewable deep-link target (an artifact viewer atop the auth base). Re-firing would
-    // clear() that away, so a rememberSaveable latch makes this run only on a genuinely fresh start.
-    // Also skipped while a deep link is pending: the deep-link handler owns the initial stack then.
+    // see the hygiene note below), but by then the back stack is already restored mid auth flow;
+    // re-firing would clear() it back to the first screen.
     var initialAuthRedirectDone by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         if (!initialAuthRedirectDone) {
             initialAuthRedirectDone = true
-            if (!navHostViewModel.isLoggedIn.value && !hasPendingDeepLink) {
+            if (!navHostViewModel.isLoggedIn.value) {
                 navigator.navigateToAuth()
             }
         }
     }
 
-    // iOS home-screen quick action: the Swift handler pushes the tapped (endpoint, model) onto the
-    // bus; open a NewChat pre-selected on it. Deferred until logged in so a cold launch from a quick
-    // action lands the model once auth resolves. Android sets this bus never — it deep-links instead.
-    val modelShortcutBus = koinInject<ModelShortcutBus>()
-    val pendingModelShortcut by modelShortcutBus.pending.collectAsStateWithLifecycle()
-    LaunchedEffect(pendingModelShortcut, isLoggedIn) {
-        val ref = pendingModelShortcut ?: return@LaunchedEffect
-        if (!isLoggedIn) return@LaunchedEffect
-        navigator.navigateToTopLevel(NewChat(endpoint = ref.endpoint, model = ref.model, spec = ref.spec))
-        modelShortcutBus.consume()
+    val deepLinkInbox = koinInject<DeepLinkInbox>()
+    val pendingDeepLink by deepLinkInbox.pending.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingDeepLink) {
+        val link = pendingDeepLink ?: return@LaunchedEffect
+        // A tap that starts the app arrives while the account is still loading.
+        val account = navHostViewModel.accountState.first { it !is AccountState.Warming }
+        navigator.placeDeepLink(
+            resolution = DeepLinks.resolve(link),
+            isLoggedIn = navHostViewModel.isLoggedIn.value,
+            activeAccountId = (account as? AccountState.Resolved)?.id?.value,
+        )
+        deepLinkInbox.consume(link)
     }
 
     // Track active conversation from nav back stack
@@ -255,7 +258,7 @@ fun LibreChatNavHost(
         navHostViewModel.sessionRoute.collect { route ->
             when (route) {
                 SessionRoute.SignIn -> navigator.navigateToAuth()
-                SessionRoute.SignInForTwoFactorSetup -> navigator.navigateToSignIn()
+                SessionRoute.SignInActiveAccount -> navigator.navigateToSignIn()
                 is SessionRoute.TwoFactorSetup -> navigator.navigateToTwoFactorSetup(route.tempToken)
                 // Only off the sign-in screens: on chat, the account flip has already reset the stack.
                 SessionRoute.Chat -> if (navigator.isInAuthFlow) {
@@ -409,21 +412,20 @@ fun LibreChatNavHost(
                         if (content != null) {
                             content(navigator, navHostViewModel, Modifier)
                         } else {
-                            // Read from the window rather than a size class so iPad Split View / Slide
-                            // Over, which resize the window without a rotation, flip the layout too. iOS
-                            // resizes in place, so both layouts share one movable NavDisplay; see
-                            // rememberMovableNavDisplay.
-                            val navDisplay = rememberMovableNavDisplay(navigator)
-                            val window = LocalWindowInfo.current.containerSize
-                            val usesSidebar = with(LocalDensity.current) {
-                                usesSidebarLayout(window.width.toDp(), window.height.toDp())
-                            }
-                            if (usesSidebar) {
-                                TabletLayout(navigator = navigator, navDisplay = navDisplay)
-                            } else {
-                                PhoneLayout(navigator = navigator, navDisplay = navDisplay)
-                            }
+                            WindowLayout(navigator = navigator)
                         }
+                        val replySnackbarState = remember { SnackbarHostState() }
+                        ReplySnackbars(
+                            snackbarHostState = replySnackbarState,
+                            onOpenChat = { id -> navigator.navigateToChat(conversationId = id) },
+                            onOpenSchedules = { navigator.navigate(SchedulesList) },
+                        )
+                        AdaptiveSnackbarHost(
+                            hostState = replySnackbarState,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .windowInsetsPadding(WindowInsets.safeDrawing),
+                        )
                     }
                 }
             }
@@ -537,12 +539,27 @@ internal fun VersionMismatchDialog(
     )
 }
 
-/** Phone layout with a modal drawer sidebar: the path on both platforms when [usesSidebarLayout] is false. */
+/**
+ * [TabletLayout] or [PhoneLayout] as the window allows, both placing one movable [MainNavDisplay]: the
+ * window resizes in place on both platforms, and a switch must move the display, not dispose it (see
+ * [rememberMovableNavDisplay]). The choice is made here, in the caller's own composition.
+ */
+@Composable
+fun WindowLayout(navigator: Navigator, modifier: Modifier = Modifier) {
+    val navDisplay = rememberMovableNavDisplay(navigator)
+    if (windowUsesSidebarLayout()) {
+        TabletLayout(navigator = navigator, navDisplay = navDisplay, modifier = modifier)
+    } else {
+        PhoneLayout(navigator = navigator, navDisplay = navDisplay, modifier = modifier)
+    }
+}
+
+/** Phone layout with a modal drawer sidebar: the path on both platforms when [windowUsesSidebarLayout] is false. */
 @Composable
 fun PhoneLayout(
     navigator: Navigator,
+    navDisplay: NavDisplaySlot,
     modifier: Modifier = Modifier,
-    navDisplay: NavDisplaySlot = rememberMovableNavDisplay(navigator),
     navHostViewModel: NavHostViewModel = koinViewModel(),
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)

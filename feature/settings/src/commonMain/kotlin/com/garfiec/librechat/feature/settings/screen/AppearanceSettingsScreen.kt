@@ -1,11 +1,10 @@
 package com.garfiec.librechat.feature.settings.screen
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -13,43 +12,37 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.Tablet
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.Hyphens
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garfiec.librechat.core.common.brand.Brand
 import com.garfiec.librechat.core.data.datastore.ThemeMode
+import com.garfiec.librechat.core.model.config.theme.ServerThemeDefinition
 import com.garfiec.librechat.core.model.ui.GlassCapability
 import com.garfiec.librechat.core.model.ui.UiStyle
 import com.garfiec.librechat.core.ui.components.AdaptiveButton
 import com.garfiec.librechat.core.ui.components.AdaptiveCard
 import com.garfiec.librechat.core.ui.components.AdaptiveDivider
-import com.garfiec.librechat.core.ui.components.AdaptiveGroupedPage
-import com.garfiec.librechat.core.ui.components.AdaptiveRadioButton
 import com.garfiec.librechat.core.ui.components.AdaptiveScaffold
+import com.garfiec.librechat.core.ui.components.AdaptiveSectionHeader
 import com.garfiec.librechat.core.ui.components.AdaptiveSwitch
 import com.garfiec.librechat.core.ui.components.UiStylePreview
 import com.garfiec.librechat.core.ui.components.adaptiveSection
@@ -59,91 +52,129 @@ import com.garfiec.librechat.core.ui.components.topbar.BarAction
 import com.garfiec.librechat.core.ui.components.topbar.BarIcons
 import com.garfiec.librechat.core.ui.components.topbar.BarNavigation
 import com.garfiec.librechat.core.ui.components.topbar.BarTitle
-import com.garfiec.librechat.core.ui.glass.GlassControlColors
+import com.garfiec.librechat.core.ui.components.windowUsesSidebarLayout
 import com.garfiec.librechat.core.ui.glass.ReducedGlassNote
 import com.garfiec.librechat.core.ui.glass.reducedEffectNote
 import com.garfiec.librechat.core.ui.theme.ThemePreview
 import com.garfiec.librechat.feature.settings.resources.*
 import com.garfiec.librechat.feature.settings.resources.Res
 import com.garfiec.librechat.feature.settings.viewmodel.AppearanceSettingsViewModel
+import com.garfiec.librechat.feature.settings.viewmodel.ChatLayoutSettingsViewModel
+import com.garfiec.librechat.feature.settings.viewmodel.GeneralSettingsViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
-/** Settings → General → Appearance: theme and interface style. */
+/**
+ * Settings › Appearance: theme, interface style, how chats look, and the tablet sidebar. Lideri: the
+ * colours are always the brand's, so the server-colours, accent and wallpaper-colour rows are gone.
+ */
 @Composable
-fun AppearanceSettingsScreen(
-    onNavigateBack: () -> Unit,
+fun AppearanceSettingsPage(
+    onNavigateToChatLayout: () -> Unit,
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
     viewModel: AppearanceSettingsViewModel = koinViewModel(),
+    generalViewModel: GeneralSettingsViewModel = koinViewModel(),
+    chatLayoutViewModel: ChatLayoutSettingsViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val general by generalViewModel.uiState.collectAsStateWithLifecycle()
+    val chatLayout by chatLayoutViewModel.uiState.collectAsStateWithLifecycle()
+    // The swipe opens the sidebar of the sidebar layout, so it means nothing while the drawer is in use.
+    val usesSidebar = windowUsesSidebarLayout()
 
-    AdaptiveScaffold(
-        modifier = modifier,
-        // Matches the grouped page, so the bar and system-bar insets share its colour.
-        containerColor = GlassControlColors.groupedBackground,
-        topBar = {
-            AdaptiveTopBar(
-                spec = AdaptiveTopBarSpec(
-                    navigation = BarNavigation(BarIcons.Back, stringResource(Res.string.cd_back), onNavigateBack),
-                    title = BarTitle(stringResource(Res.string.section_appearance)),
-                    actions = emptyList(),
-                ),
-            )
-        },
-    ) { innerPadding ->
-        AdaptiveGroupedPage(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                adaptiveSection {
-                    row(key = "theme_selector") {
-                        ThemeSelector(
-                            selected = uiState.themeMode,
-                            uiStyle = uiState.uiStyle,
-                            accentColor = Color(uiState.shownAccentColor),
-                            useDynamicColor = uiState.useDynamicColor,
-                            onSelect = viewModel::setThemeMode,
-                        )
-                    }
-                    row(key = "ui_style_selector") {
-                        UiStyleSelector(
-                            selected = uiState.uiStyle,
-                            capability = uiState.glassCapability,
-                            onSelect = viewModel::setUiStyle,
-                        )
-                    }
+    SettingsListPage(contentPadding = contentPadding, modifier = modifier) {
+        item(key = "theme_header") {
+            AdaptiveSectionHeader(stringResource(Res.string.appearance_section_theme))
+        }
+        adaptiveSection {
+            row(key = "theme_selector") {
+                ThemeSelector(
+                    selected = uiState.themeMode,
+                    uiStyle = uiState.uiStyle,
+                    accentColor = Color(uiState.accentColor),
+                    useDynamicColor = uiState.useDynamicColor,
+                    serverTheme = uiState.serverTheme?.painted,
+                    onSelect = viewModel::setThemeMode,
+                )
+            }
+        }
+        item(key = "style_header") {
+            AdaptiveSectionHeader(stringResource(Res.string.appearance_section_style))
+        }
+        adaptiveSection {
+            row(key = "ui_style_selector") {
+                UiStyleSelector(
+                    selected = uiState.uiStyle,
+                    capability = uiState.glassCapability,
+                    onSelect = viewModel::setUiStyle,
+                )
+            }
+        }
+        item(key = "conversations_header") {
+            AdaptiveSectionHeader(stringResource(Res.string.section_conversations))
+        }
+        adaptiveSection {
+            row(key = "chat_appearance_row") {
+                SettingsRow(
+                    icon = Icons.Default.Forum,
+                    title = stringResource(Res.string.appearance_chat_appearance),
+                    summary = chatLayoutSummary(chatLayout),
+                    onClick = onNavigateToChatLayout,
+                )
+            }
+        }
+        if (usesSidebar) {
+            item(key = "tablet_header") {
+                AdaptiveSectionHeader(stringResource(Res.string.appearance_section_tablet_layout))
+            }
+            adaptiveSection {
+                row(key = "tablet_sidebar_gesture") {
+                    SettingsSwitchRow(
+                        icon = Icons.Default.Tablet,
+                        title = stringResource(Res.string.sidebar_swipe_gesture),
+                        description = stringResource(Res.string.sidebar_swipe_gesture_desc),
+                        checked = general.tabletSidebarGestureEnabled,
+                        onCheckedChange = generalViewModel::setTabletSidebarGestureEnabled,
+                    )
                 }
             }
         }
+        item(key = "bottom_gap") { Spacer(modifier = Modifier.height(32.dp)) }
     }
 }
 
-/** The General tab's one-line summary of this page: theme, then interface style. */
+/** The home's one-line summary of this page: theme, then interface style. */
 @Composable
-internal fun appearanceSummary(themeMode: ThemeMode, uiStyle: UiStyle): String {
-    val theme = when (themeMode) {
-        ThemeMode.SYSTEM -> stringResource(Res.string.theme_system)
-        ThemeMode.LIGHT -> stringResource(Res.string.theme_light)
-        ThemeMode.DARK -> stringResource(Res.string.theme_dark)
-    }
-    val style = when (uiStyle) {
-        UiStyle.MATERIAL -> stringResource(Res.string.ui_style_material)
-        UiStyle.LIQUID_GLASS -> stringResource(Res.string.ui_style_liquid_glass)
-    }
-    return "$theme · $style"
+internal fun appearanceSummary(themeMode: ThemeMode, uiStyle: UiStyle): String =
+    "${themeModeLabel(themeMode)} · ${uiStyleLabel(uiStyle)}"
+
+@Composable
+private fun themeModeLabel(mode: ThemeMode): String = when (mode) {
+    ThemeMode.SYSTEM -> stringResource(Res.string.theme_system)
+    ThemeMode.LIGHT -> stringResource(Res.string.theme_light)
+    ThemeMode.DARK -> stringResource(Res.string.theme_dark)
 }
 
-/** System, Light and Dark as previews of the app in each, in the current style and accent. */
+@Composable
+private fun uiStyleLabel(style: UiStyle): String = when (style) {
+    UiStyle.MATERIAL -> stringResource(Res.string.ui_style_material)
+    UiStyle.LIQUID_GLASS -> stringResource(Res.string.ui_style_liquid_glass)
+}
+
+/** System, Light and Dark as previews of the app in each, in the current style and colours. */
 @Composable
 internal fun ThemeSelector(
     selected: ThemeMode,
     uiStyle: UiStyle,
     accentColor: Color,
     useDynamicColor: Boolean,
+    serverTheme: ServerThemeDefinition?,
     onSelect: (ThemeMode) -> Unit,
 ) {
     @Composable
     fun Sample(dark: Boolean, modifier: Modifier = Modifier) {
-        ThemePreview(darkTheme = dark, accentColor = accentColor, useDynamicColor = useDynamicColor) {
+        ThemePreview(darkTheme = dark, accentColor = accentColor, useDynamicColor = useDynamicColor, serverTheme = serverTheme) {
             UiStylePreview(style = uiStyle, modifier = modifier.fillMaxSize()) { UiStyleSampleScreen() }
         }
     }
@@ -156,12 +187,8 @@ internal fun ThemeSelector(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ThemeMode.entries.forEach { mode ->
-                PreviewOption(
-                    label = when (mode) {
-                        ThemeMode.SYSTEM -> stringResource(Res.string.theme_system)
-                        ThemeMode.LIGHT -> stringResource(Res.string.theme_light)
-                        ThemeMode.DARK -> stringResource(Res.string.theme_dark)
-                    },
+                PictureChoice(
+                    label = themeModeLabel(mode),
                     selected = selected == mode,
                     onClick = { onSelect(mode) },
                     modifier = Modifier.weight(1f),
@@ -199,11 +226,6 @@ private fun UiStyleSelector(
 ) {
     Column {
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            Text(
-                text = stringResource(Res.string.ui_style),
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp, start = 4.dp),
-            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -212,11 +234,8 @@ private fun UiStyleSelector(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 UiStyle.entries.forEach { style ->
-                    PreviewOption(
-                        label = when (style) {
-                            UiStyle.MATERIAL -> stringResource(Res.string.ui_style_material)
-                            UiStyle.LIQUID_GLASS -> stringResource(Res.string.ui_style_liquid_glass)
-                        },
+                    PictureChoice(
+                        label = uiStyleLabel(style),
                         selected = selected == style,
                         onClick = { onSelect(style) },
                         modifier = Modifier.weight(1f),
@@ -240,64 +259,6 @@ private fun UiStyleSelector(
             }
         }
         AdaptiveDivider(modifier = Modifier.padding(top = 8.dp))
-    }
-}
-
-/**
- * One choice in a picker of previews: [preview] laid out at a phone's width and scaled into the card, so
- * real controls keep their proportions, with [label] and a radio below. The preview never takes a touch.
- */
-@Composable
-private fun PreviewOption(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    preview: @Composable () -> Unit,
-) {
-    val colors = MaterialTheme.colorScheme
-    Column(
-        modifier = modifier
-            .clip(OptionShape)
-            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
-            .padding(4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(PreviewHeight)
-                .border(if (selected) 2.dp else 1.dp, if (selected) colors.primary else colors.outlineVariant, PreviewShape)
-                .padding(if (selected) 2.dp else 1.dp)
-                .clip(PreviewShape),
-        ) {
-            val scale = maxWidth / VirtualWidth
-            Box(
-                modifier = Modifier
-                    .wrapContentSize(Alignment.TopStart, unbounded = true)
-                    .requiredSize(VirtualWidth, maxHeight / scale)
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                        transformOrigin = TransformOrigin(0f, 0f)
-                    },
-            ) {
-                preview()
-            }
-            // Over the preview and handling nothing: it takes the hit, so the preview's controls never see
-            // a touch, and the tap falls through to the option's own selectable.
-            Box(modifier = Modifier.matchParentSize().pointerInput(Unit) {})
-        }
-        // The radio above the label rather than beside it: a third of a phone's width leaves a label
-        // beside a radio too little room, and it would break mid-word. A word wider than the cell
-        // ("Predeterminado") is hyphenated where the platform can.
-        AdaptiveRadioButton(selected = selected, onClick = null, modifier = Modifier.padding(top = 8.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge.copy(hyphens = Hyphens.Auto),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp),
-        )
     }
 }
 
@@ -364,30 +325,8 @@ private fun UiStyleSampleScreen() {
     }
 }
 
-/** A paragraph as rounded bars, one per line, each [widths] of the available width. */
-@Composable
-private fun SampleLines(widths: List<Float>, color: Color) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        widths.forEach { width ->
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(width)
-                    .height(12.dp)
-                    .background(color, CircleShape),
-            )
-        }
-    }
-}
-
 // A brand name: the same in every language.
 private const val APP_NAME = Brand.APP_NAME
 
-private val OptionShape = RoundedCornerShape(16.dp)
 private val SampleBubbleShape = RoundedCornerShape(20.dp)
 private const val SAMPLE_BUBBLE_WIDTH = 0.7f
-private const val SAMPLE_LINE_ALPHA = 0.4f
-private val PreviewShape = RoundedCornerShape(12.dp)
-private val PreviewHeight = 148.dp
-
-// The width the sample is laid out at before it is scaled into its card: a phone's.
-private val VirtualWidth = 360.dp
